@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import glob
 
 from SCons.Environment import Environment
 from SCons.Script import Export
@@ -11,20 +10,23 @@ Import('TARGET_ENVIRONMENT')
 TARGET_ENVIRONMENT: Environment
 
 # Configure musl library and include paths for all usermode modules
-musl_include = os.path.join(str(TARGET_ENVIRONMENT['TOOLCHAIN_PREFIX']), 'include')
-musl_lib = os.path.join(str(TARGET_ENVIRONMENT['TOOLCHAIN_PREFIX']), 'lib')
+musl_include = os.path.join(str(TARGET_ENVIRONMENT['TOOLCHAIN_PREFIX']), 'usr', 'include')
+musl_lib = os.path.join(str(TARGET_ENVIRONMENT['TOOLCHAIN_PREFIX']), 'usr', 'lib')
 
 # Create a usermode environment with musl support
 usermode_env = TARGET_ENVIRONMENT.Clone()
 usermode_env.Append(
     CPATH=[musl_include],
+    CPPDEFINES=['_GNU_SOURCE'],
     CPPPATH=[musl_include],
     LINKFLAGS=[
         '-L', musl_lib,
-        '-static',  # Default to static linking for usermode
-        '-lc',  # Link musl libc
-    ]
+    ],
+    LIBS=['c', 'gcc']
 )
+
+usermode_env['SHLIBPREFIX'] = 'lib'
+usermode_env['SHLIBSUFFIX'] = '.so'
 
 # Export for use in sub-SConscripts
 Export('usermode_env')

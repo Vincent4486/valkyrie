@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "fdc.h"
-#include <hal/irq.h>
 #include <hal/io.h>
+#include <hal/irq.h>
+#include <std/stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/sys.h>
+#include <valkyrie/system.h>
 
 #define FDC_BASE 0x3F0
 #define FDC_DOR (FDC_BASE + 2)
@@ -43,6 +46,13 @@
 
 // Global IRQ synchronization flag
 static volatile bool g_fdc_irq_received = false;
+
+// Read a CMOS register (index in 0x00-0x7F)
+static uint8_t cmos_read(uint8_t idx)
+{
+   HAL_outb(0x70, idx & 0x7F); // Keep NMI enabled; clear bit7
+   return HAL_inb(0x71);
+}
 
 static void fdc_dma_init(bool is_read)
 {
@@ -98,9 +108,23 @@ static void fdc_dma_init(bool is_read)
    HAL_outb(DMA_SINGLE_MASK, 0x02); // 0x02 = 0b0010 = mask clear | channel 2
 }
 
-static void fdc_motor_on(void) { HAL_outb(FDC_DOR, FDC_MOTOR_ON); }
+// Build the Digital Output Register value for a drive
+static inline uint8_t fdc_make_dor(uint8_t drive, bool motor_on)
+{
+   uint8_t dor = 0x0C | (drive & 0x03); // Enable reset+IRQ/DMA, select drive
+   if (motor_on) dor |= (1u << (4 + (drive & 0x03)));
+   return dor;
+}
 
-static void fdc_motor_off(void) { HAL_outb(FDC_DOR, FDC_MOTOR_OFF); }
+static void fdc_motor_on(uint8_t drive)
+{
+   HAL_outb(FDC_DOR, fdc_make_dor(drive, true));
+}
+
+static void fdc_motor_off(uint8_t drive)
+{
+   HAL_outb(FDC_DOR, fdc_make_dor(drive, false));
+}
 
 // FDC IRQ handler - sets flag when interrupt is received
 static void fdc_irq_handler(Registers *regs) { g_fdc_irq_received = true; }
@@ -164,6 +188,25 @@ static uint8_t fdc_read_byte(void)
    return 0;
 }
 
+// Recalibrate a specific drive and verify cylinder 0 reached
+static bool fdc_recalibrate(uint8_t drive)
+{
+   g_fdc_irq_received = false;
+
+   fdc_send_byte(FDC_CMD_RECALIBRATE);
+   fdc_send_byte(drive & 0x03);
+
+   if (!fdc_wait_irq()) return false;
+
+   fdc_send_byte(FDC_CMD_SENSE_INT);
+   uint8_t st0 = fdc_read_byte();
+   uint8_t cyl = fdc_read_byte();
+
+   if ((st0 & 0xC0) != 0) return false;
+
+   return cyl == 0;
+}
+
 void FDC_Reset(void)
 {
    // Register IRQ handler for FDC
@@ -199,12 +242,12 @@ void FDC_Reset(void)
    fdc_send_byte(0x02); // HLT=16ms, ND=0 (use DMA)
 }
 
-static bool fdc_seek(uint8_t head, uint8_t track)
+static bool fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
 {
    g_fdc_irq_received = false;
 
    fdc_send_byte(FDC_CMD_SEEK);
-   fdc_send_byte((head << 2) | 0); // head | drive 0
+   fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
    fdc_send_byte(track);
 
    if (!fdc_wait_irq()) return false;
@@ -230,14 +273,14 @@ static void lba_to_chs(uint32_t lba, uint8_t *head, uint8_t *track,
    *sector = (lba % FLOPPY_SECTORS_PER_TRACK) + 1;
 }
 
-int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
+int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
 {
    if (count == 0)
    {
       return 0;
    }
 
-   fdc_motor_on();
+   fdc_motor_on(drive);
 
    // Small delay for motor spin-up
    for (volatile int i = 0; i < 100000; i++);
@@ -248,9 +291,9 @@ int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
       lba_to_chs(lba + i, &head, &track, &sector);
 
       // Seek to track
-      if (!fdc_seek(head, track))
+      if (!fdc_seek(drive, head, track))
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
 
@@ -261,7 +304,7 @@ int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
 
       // Issue READ DATA command
       fdc_send_byte(FDC_CMD_READ_DATA);
-      fdc_send_byte((head << 2) | 0); // head | drive 0
+      fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
       fdc_send_byte(track);
       fdc_send_byte(head);
       fdc_send_byte(sector);
@@ -273,7 +316,7 @@ int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
       // Wait for IRQ indicating data transfer complete
       if (!fdc_wait_irq())
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
 
@@ -289,7 +332,7 @@ int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
       // Check for errors in status
       if ((st0 & 0xC0) != 0)
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
 
@@ -303,18 +346,19 @@ int FDC_ReadLba(uint32_t lba, uint8_t *buffer, size_t count)
       }
    }
 
-   fdc_motor_off();
+   fdc_motor_off(drive);
    return 0;
 }
 
-int FDC_WriteLba(uint32_t lba, const uint8_t *buffer, size_t count)
+int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer,
+                 size_t count)
 {
    if (count == 0)
    {
       return 0;
    }
 
-   fdc_motor_on();
+   fdc_motor_on(drive);
 
    // Small delay for motor spin-up
    for (volatile int i = 0; i < 100000; i++);
@@ -325,9 +369,9 @@ int FDC_WriteLba(uint32_t lba, const uint8_t *buffer, size_t count)
       lba_to_chs(lba + i, &head, &track, &sector);
 
       // Seek to track
-      if (!fdc_seek(head, track))
+      if (!fdc_seek(drive, head, track))
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
 
@@ -345,7 +389,7 @@ int FDC_WriteLba(uint32_t lba, const uint8_t *buffer, size_t count)
 
       // Issue WRITE DATA command
       fdc_send_byte(FDC_CMD_WRITE_DATA);
-      fdc_send_byte((head << 2) | 0); // head | drive 0
+      fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
       fdc_send_byte(track);
       fdc_send_byte(head);
       fdc_send_byte(sector);
@@ -357,7 +401,7 @@ int FDC_WriteLba(uint32_t lba, const uint8_t *buffer, size_t count)
       // Wait for IRQ indicating data transfer complete
       if (!fdc_wait_irq())
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
 
@@ -373,11 +417,95 @@ int FDC_WriteLba(uint32_t lba, const uint8_t *buffer, size_t count)
       // Check for errors in status
       if ((st0 & 0xC0) != 0)
       {
-         fdc_motor_off();
+         fdc_motor_off(drive);
          return 1;
       }
    }
 
-   fdc_motor_off();
+   fdc_motor_off(drive);
    return 0;
+}
+
+/**
+ * Scan for floppy disks by recalibrating each possible drive (0-3)
+ */
+int FDC_Scan(DISK *disks, int maxDisks)
+{
+   int count = 0;
+   if (maxDisks <= 0) return 0;
+
+   int driveStartIndex = 0x0;
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
+      // Check if the disk pointer is valid first
+      if (g_SysInfo->volume[i].disk == NULL) continue;
+
+      // Skip floppy drives (0x00-0x7F)
+      if (g_SysInfo->volume[i].disk->id < 0x80) continue;
+
+      // Found a hard drive, increment start index
+      driveStartIndex++;
+   }
+
+   printf("[DISK] Scanning floppy controller\n");
+
+   uint8_t equip = cmos_read(0x10);
+   uint8_t drive_types[2] = {(uint8_t)((equip >> 4) & 0x0F),
+                             (uint8_t)(equip & 0x0F)};
+
+   if (drive_types[0] == 0 && drive_types[1] == 0)
+   {
+      printf("[DISK] CMOS reports no floppy drives; skipping probe\n");
+      return 0;
+   }
+
+   FDC_Reset();
+   HAL_outb(FDC_DOR, fdc_make_dor(0, false)); // Ensure all motors are off
+
+   for (uint8_t drive = 0; drive < 2 && count < maxDisks; drive++)
+   {
+      if (drive_types[drive] == 0)
+      {
+         continue; // CMOS says no drive here
+      }
+
+      HAL_outb(FDC_DOR, fdc_make_dor(drive, true));
+
+      for (volatile int i = 0; i < 100000; i++);
+
+      bool ok = fdc_recalibrate(drive);
+
+      HAL_outb(FDC_DOR, fdc_make_dor(drive, false));
+
+      if (!ok)
+      {
+         printf("[DISK] Floppy drive %u not responding\n", drive);
+         continue;
+      }
+
+      // Try to read sector 0 to verify media presence
+      uint8_t sector_buffer[512];
+      if (FDC_ReadLba(drive, 0, sector_buffer, 1) != 0)
+      {
+         printf("[DISK] Floppy drive %u: No media or read error\n", drive);
+         continue;
+      }
+
+      DISK *disk = &disks[count];
+      disk->id = drive;
+      disk->type = 0; // DISK_TYPE_FLOPPY
+      disk->cylinders = FLOPPY_TRACKS;
+      disk->heads = FLOPPY_HEADS;
+      disk->sectors = FLOPPY_SECTORS_PER_TRACK;
+      disk->brand[0] = '\0';
+      disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
+                   FLOPPY_SECTOR_SIZE;
+
+      printf("[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
+             disk->id, disk->type, disk->size);
+
+      count++;
+   }
+
+   return count;
 }

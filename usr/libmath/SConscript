@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import subprocess
 
-from SCons.Environment import Environment
 from SCons.Script import Dir
 from scripts.scons.utility import GlobRecursive
 
@@ -12,10 +10,6 @@ Import('musl_include')
 Import('musl_lib')
 
 env = usermode_env.Clone()
-
-# Remove -static from LINKFLAGS if present
-if '-static' in env['LINKFLAGS']:
-    env['LINKFLAGS'].remove('-static')
 
 # Get source directory
 src_dir = Dir('#usr/libmath').abspath

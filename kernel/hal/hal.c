@@ -12,7 +12,7 @@ void HAL_Initialize()
    i686_PS2_Initialize();
 
    i686_IRQ_RegisterHandler(0, i686_i8253_TimerHandler);
-   i686_i8253_Initialize(1000);  // Set PIT to 1kHz (reasonable for OS timer)
+   i686_i8253_Initialize(1000); // Set PIT to 1kHz (reasonable for OS timer)
 
    i686_ISR_RegisterHandler(0x80, i686_Syscall_IRQ);
 #else

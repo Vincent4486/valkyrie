@@ -7,10 +7,10 @@
 
 #if defined(I686)
 #include <arch/i686/cpu/gdt.h>
+#include <arch/i686/cpu/i8253.h>
 #include <arch/i686/cpu/idt.h>
 #include <arch/i686/cpu/irq.h>
 #include <arch/i686/cpu/isr.h>
-#include <arch/i686/cpu/i8253.h>
 
 #include <arch/i686/drivers/ps2.h>
 #include <arch/i686/syscall/syscall.h>

@@ -147,7 +147,7 @@ get_cpu_frequency:
 .loop:
     call .read_pit_count    # eax = cur
     testl %eax, %eax        # check if cur == 0
-    jnz .loop               # if not 0, continue
+    jnz .loop               # -if not 0, continue
 
     # Capture TSC end (PIT has reached 0)
     rdtsc

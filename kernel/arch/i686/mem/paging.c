@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "paging.h"
-#include <mem/memdefs.h>
-#include <mem/memory.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdbool.h>

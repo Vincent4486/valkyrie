@@ -5,6 +5,7 @@
 
 #include <fs/disk/disk.h>
 #include <fs/disk/partition.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum
@@ -16,9 +17,9 @@ typedef enum
 } FilesystemType;
 
 /* Filesystem device information */
-typedef struct
+typedef struct Filesystem
 {
-   FilesystemType type;       /* Filesystem type (fat12, fat16, fat32, ext2, etc) */
+   FilesystemType type;   /* Filesystem type (fat12, fat16, fat32, ext2, etc) */
    uint32_t block_size;   /* Block size in bytes */
    uint32_t total_blocks; /* Total number of blocks */
    uint32_t used_blocks;  /* Used blocks */
@@ -28,8 +29,10 @@ typedef struct
    uint32_t free_inodes;  /* Free inodes */
    uint8_t mounted;       /* 1 if mounted, 0 otherwise */
    uint8_t read_only;     /* 1 if read-only, 0 if read-write */
-} __attribute__((packed)) FS_Info;
+} Filesystem;
 
-bool FS_Initialize(DISK *disk, Partition *partition, uint8_t bootDrive);
+bool FS_Initialize();
+int FS_Mount(Partition *volume, const char *location);
+int FS_Umount(Partition *volume);
 
 #endif

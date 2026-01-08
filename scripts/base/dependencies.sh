@@ -3,13 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 DEPS_DEBIAN=(
-    bison
-    flex
     libmpfr-dev
     libgmp-dev
     libmpc-dev
     gcc
-    nasm
     python3
     scons
     python3-sh
@@ -17,13 +14,10 @@ DEPS_DEBIAN=(
 )
 
 DEPS_FEDORA=(
-    bison
-    flex
     mpfr-devel
     gmp-devel
     libmpc-devel
     gcc
-    nasm
     python3
     scons
     python3-sh
@@ -31,30 +25,35 @@ DEPS_FEDORA=(
 )
 
 DEPS_ARCH=(
-    bison
-    flex
     mpfr
     gmp
     mpc
     gcc
-    nasm
+    python
+    scons
+    python-sh
+    dosfstools
+)
+
+DEPS_SUSE=(
+    mpfr-devel
+    gmp-devel
+    libmpc-devel
+    gcc
     python3
     scons
     python3-sh
     dosfstools
 )
 
-DEPS_SUSE=(
-    bison
-    flex
-    mpfr-devel
-    gmp-devel
-    libmpc-devel
+DEPS_ALPINE=(
+    mpfr-dev 
+    mpc-dev 
+    gmp-dev
     gcc
-    nasm
     python3
     scons
-    python3-sh
+    py3-sh
     dosfstools
 )
 
@@ -66,8 +65,9 @@ DEPS=
 # Detect distro
 if [ -x "$(command -v apk)" ]; then
     OS='alpine'
-    echo "Alpine not supported."
-    exit 1
+    PACKAGE_UPDATE='apk update'
+    PACKAGE_INSTALL='apk add'
+    DEPS="${DEPS_ALPINE[@]}"
 elif [ -x "$(command -v apt-get)" ]; then
     OS='debian'
     PACKAGE_UPDATE='apt-get update'
@@ -99,6 +99,9 @@ fi
 echo ""
 echo "Will install dependencies by running the following command."
 echo ""
+if [ ! -z "$PACKAGE_UPDATE" ]; then
+    echo " $ $PACKAGE_UPDATE"
+fi
 echo " $ $PACKAGE_INSTALL ${DEPS[@]}"
 echo ""
 

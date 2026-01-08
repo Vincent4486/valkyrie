@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "elf.h"
 #include <cpu/process.h>
-#include <mem/memdefs.h>
-#include <mem/memory.h>
-#include <mem/pmm.h>
+#include <hal/paging.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
-#include <hal/paging.h>
 
 #define EI_MAG0 0
 #define EI_MAG1 1
@@ -225,7 +223,8 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
 
          // Map page into process's page directory (user mode, read+write)
          if (!HAL_Paging_MapPage(proc->page_directory, page_va, phys,
-                                  HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
+                                 HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                     HAL_PAGE_USER))
          {
             printf("[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
                    page_va);

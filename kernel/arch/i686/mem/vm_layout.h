@@ -99,7 +99,7 @@
 #define USER_CODE_START 0x08048000UL // 128MiB + 16KB (standard x86 32-bit)
 
 /* Pull in common memory constants (PAGE_SIZE, etc.) */
-#include <mem/memdefs.h>
+#include <mem/mm_kernel.h>
 
 /* ========== PAGE ALIGNMENT ========== */
 

@@ -1,4 +1,4 @@
-	// SPDX-License-Identifier: AGPL-3.0-or-later
+	# SPDX-License-Identifier: AGPL-3.0-or-later
 
 .global i686_outb
 i686_outb:
@@ -59,8 +59,8 @@ i686_Panic:
 
 .global crash_me
 crash_me:
-	// div by 0
-	// movl $0x1337, %ecx
+	# div by 0
+	# movl $0x1337, %ecx
     movl $0, %eax
     divl %eax
     ret

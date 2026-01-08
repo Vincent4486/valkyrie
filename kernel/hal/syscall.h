@@ -14,7 +14,7 @@
 
 static inline void HAL_syscall_handler(Registers *regs)
 {
-	HAL_ARCH_syscall_handler(regs);
+   HAL_ARCH_syscall_handler(regs);
 }
 
 #endif

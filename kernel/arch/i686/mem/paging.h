@@ -3,7 +3,7 @@
 #ifndef I686_PAGING_H
 #define I686_PAGING_H
 
-#include <mem/memdefs.h>
+#include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stdint.h>
 

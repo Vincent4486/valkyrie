@@ -3,7 +3,8 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <mem/memdefs.h>
+#include <fs/fd.h>
+#include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -33,7 +34,8 @@ typedef struct
    uint32_t eflags;             // Flags register
 
    // File descriptors
-   void *fd_table[16]; // Open file descriptors (per-process)
+   FileDescriptor
+       *fd_table[FD_TABLE_SIZE]; // Open file descriptors (per-process)
 
    // Scheduling
    uint32_t priority;        // Priority level

@@ -2,7 +2,10 @@
 
 #include "ata.h"
 #include <hal/io.h>
+#include <std/stdio.h>
 #include <stdint.h>
+#include <sys/sys.h>
+#include <valkyrie/system.h>
 
 // ATA register offsets from base port
 #define ATA_REG_DATA 0x00
@@ -120,6 +123,45 @@ static int ata_wait_drq(uint16_t tf_port)
 }
 
 /**
+ * Wait for drive to be ready (not busy and DRDY set)
+ */
+static int ata_wait_for_ready(uint16_t tf_port)
+{
+   int timeout = 10000;
+
+   while (timeout--)
+   {
+      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      if (!(status & ATA_STATUS_BSY) && (status & ATA_STATUS_DRDY)) return 0;
+
+      // Small delay
+      for (volatile int i = 0; i < 100; i++);
+   }
+
+   return -1; // Timeout
+}
+
+/**
+ * Wait for data ready (DRQ set)
+ */
+static int ata_wait_for_data(uint16_t tf_port)
+{
+   int timeout = 10000;
+
+   while (timeout--)
+   {
+      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      if (status & ATA_STATUS_DRQ) return 0;
+      if (status & ATA_STATUS_ERR) return -1;
+
+      // Small delay
+      for (volatile int i = 0; i < 100; i++);
+   }
+
+   return -1; // Timeout
+}
+
+/**
  * Perform software reset on ATA channel
  */
 static void ata_soft_reset(uint16_t dcr_port)
@@ -140,17 +182,19 @@ static void ata_soft_reset(uint16_t dcr_port)
 /**
  * Initialize ATA driver for a specific drive
  */
-void ATA_Init(int channel, int drive, uint32_t partition_start,
-              uint32_t partition_size)
+int ATA_Init(int channel, int drive, uint32_t partition_start,
+             uint32_t partition_size)
 {
    ata_driver_t *drv = ata_get_driver(channel, drive);
-   if (!drv) return;
+   if (!drv) return -1;
 
    drv->start_lba = 0; // We use absolute LBA
    drv->partition_length = partition_size;
 
    // Perform software reset
    ata_soft_reset(drv->dcr_port);
+
+   return 0;
 }
 
 /**
@@ -306,4 +350,126 @@ void ATA_Reset(int channel)
 {
    uint16_t dcr_port = (channel == 0) ? 0x3F6 : 0x376;
    ata_soft_reset(dcr_port);
+}
+
+/**
+ * Identify ATA drive
+ */
+int ATA_Identify(int channel, int drive, uint16_t *buffer)
+{
+   ata_driver_t *driver = (channel == 0 && drive == 0) ? &primary_master
+                          : (channel == 0 && drive == 1)
+                              ? &primary_slave
+                              : NULL; // Add secondary if needed
+   if (!driver) return -1;
+
+   // Select drive
+   HAL_outb(driver->tf_port + ATA_REG_DEVICE,
+            driver->slave_bits | ((drive & 1) << 4));
+
+   // Wait for drive to be ready
+   ata_wait_for_ready(driver->tf_port);
+
+   // Send IDENTIFY command
+   HAL_outb(driver->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+
+   // Wait for data
+   if (ata_wait_for_data(driver->tf_port) != 0) return -1;
+
+   // Read 256 words
+   for (int i = 0; i < 256; i++)
+   {
+      buffer[i] = HAL_inw(driver->tf_port + ATA_REG_DATA);
+   }
+
+   return 0;
+}
+
+/**
+ * Scan for ATA disks
+ */
+int ATA_Scan(DISK *disks, int maxDisks)
+{
+   int count = 0;
+
+   // Scan all 4 possible ATA devices:
+   // Channel 0 (Primary), Drive 0 (Master)
+   // Channel 0 (Primary), Drive 1 (Slave)
+   // Channel 1 (Secondary), Drive 0 (Master)
+   // Channel 1 (Secondary), Drive 1 (Slave)
+   int driveStartIndex = 0x80;
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
+      // Check if the disk pointer is valid first
+      if (g_SysInfo->volume[i].disk == NULL) continue;
+
+      // Skip floppy drives (0x00-0x7F)
+      if (g_SysInfo->volume[i].disk->id < 0x80) continue;
+
+      // Found a hard drive, increment start index
+      driveStartIndex++;
+   }
+
+   for (int ch = 0; ch < 2; ch++)
+   {
+      for (int dr = 0; dr < 2; dr++)
+      {
+         if (count >= maxDisks) break;
+
+         // Attempt to initialize the controller/drive
+         // We pass 0 for partition info as we are just probing
+         if (ATA_Init(ch, dr, 0, 0) != 0)
+         {
+            continue;
+         }
+
+         uint16_t identify_buffer[256];
+         if (ATA_Identify(ch, dr, identify_buffer) == 0)
+         {
+            disks[count].id =
+                driveStartIndex + count; // Assign BIOS-style ID (0x80, 0x81...)
+            disks[count].type = 1;       // DISK_TYPE_ATA
+
+            // Extract model name (words 27-46, 40 chars)
+            for (int i = 0; i < 20; i++)
+            {
+               uint16_t word = identify_buffer[27 + i];
+               disks[count].brand[i * 2] = (word >> 8) & 0xFF;
+               disks[count].brand[i * 2 + 1] = word & 0xFF;
+            }
+            disks[count].brand[40] = '\0';
+            // Trim trailing spaces
+            for (int i = 39; i >= 0; i--)
+            {
+               if (disks[count].brand[i] == ' ')
+                  disks[count].brand[i] = '\0';
+               else
+                  break;
+            }
+
+            // Extract size: Use LBA48 if supported (words 100-103), else CHS
+            uint64_t total_sectors = 0;
+            if (identify_buffer[83] & (1 << 10))
+            { // LBA48 supported
+               total_sectors = ((uint64_t)identify_buffer[103] << 48) |
+                               ((uint64_t)identify_buffer[102] << 32) |
+                               ((uint64_t)identify_buffer[101] << 16) |
+                               identify_buffer[100];
+            }
+            else
+            {
+               total_sectors =
+                   identify_buffer[60] | ((uint32_t)identify_buffer[61] << 16);
+            }
+            disks[count].size = total_sectors * 512; // Sector size is 512 bytes
+
+            printf("[DISK] Found ATA disk: ID=0x%x, Type=%u, Brand='%s', "
+                   "Size=%llu bytes (Ch%d/Dr%d)\n",
+                   disks[count].id, disks[count].type, disks[count].brand,
+                   disks[count].size, ch, dr);
+            count++;
+         }
+      }
+   }
+   return count;
 }

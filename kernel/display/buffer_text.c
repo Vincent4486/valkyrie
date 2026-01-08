@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "buffer_text.h"
-#include <mem/memdefs.h>
-#include <mem/memory.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stddef.h>
@@ -255,7 +254,8 @@ void Buffer_PutChar(char c)
       // Clear the current line and move cursor to start
       int visible_start = compute_visible_start();
       uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-      if (rel_pos < s_lines_used) {
+      if (rel_pos < s_lines_used)
+      {
          uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
          memset(s_buffer[idx], 0, SCREEN_WIDTH);
       }

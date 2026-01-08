@@ -3,7 +3,7 @@
 #include "syscall.h"
 #include <cpu/process.h>
 #include <fs/fd.h>
-#include <mem/heap.h>
+#include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <stdint.h>

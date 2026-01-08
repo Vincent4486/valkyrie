@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#include "vmm.h"
-#include "pmm.h"
-#include <mem/memdefs.h>
-#include <mem/memory.h>
+#include <hal/paging.h>
+#include <mem/mm_kernel.h>
+#include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <hal/paging.h>
 
 #define PAGE_ALIGN_DOWN(v) ((v) & ~(PAGE_SIZE - 1))
 #define PAGE_ALIGN_UP(v) (((v) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
@@ -91,8 +89,7 @@ fail_cleanup:
    for (uint32_t j = 0; j < mapped_pages; ++j)
    {
       uint32_t va_cleanup = vaddr + (j * PAGE_SIZE);
-      uint32_t pa_cleanup =
-          HAL_Paging_GetPhysicalAddress(page_dir, va_cleanup);
+      uint32_t pa_cleanup = HAL_Paging_GetPhysicalAddress(page_dir, va_cleanup);
       HAL_Paging_UnmapPage(page_dir, va_cleanup);
       if (pa_cleanup) PMM_FreePhysicalPage(pa_cleanup);
    }

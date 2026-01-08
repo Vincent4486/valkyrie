@@ -3,7 +3,7 @@
 #ifndef I686_STACK_H
 #define I686_STACK_H
 
-#include <mem/stack.h>
+#include <mem/mm_kernel.h>
 #include <stdint.h>
 
 /**

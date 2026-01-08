@@ -30,7 +30,7 @@ print "Checking dependencies...\n";
 
 for my $dep (@deps) {
 	my $found = find_executable($dep->{name});
-	# If an alternate name is provided, try that too
+	# -if an alternate name is provided, try that too
 	if (!$found && $dep->{alt}) {
 		$found = find_executable($dep->{alt});
 	}
@@ -69,7 +69,7 @@ sub print_status {
 
 sub find_executable {
 	my ($prog) = @_;
-	# If the program path contains a slash, test it directly
+	# -if the program path contains a slash, test it directly
 	if ($prog =~ m{/}) {
 		return $prog if -x $prog;
 		return undef;

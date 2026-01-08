@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#include "stack.h"
-#include <hal/stack.h>
 #include <cpu/process.h>
-#include <mem/heap.h>
-#include <mem/memory.h>
-#include <mem/pmm.h>
-#include <mem/vmm.h>
+#include <hal/paging.h>
+#include <hal/stack.h>
+#include <mem/mm_kernel.h>
+#include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
-#include <hal/paging.h>
 
 /**
  * Generic stack management implementation
@@ -103,8 +100,8 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
          for (uint32_t j = 0; j < i; ++j)
          {
             uint32_t va_cleanup = stack_bottom_va + (j * PAGE_SIZE);
-            uint32_t phys_cleanup = HAL_Paging_GetPhysicalAddress(
-                proc->page_directory, va_cleanup);
+            uint32_t phys_cleanup =
+                HAL_Paging_GetPhysicalAddress(proc->page_directory, va_cleanup);
             HAL_Paging_UnmapPage(proc->page_directory, va_cleanup);
             if (phys_cleanup) PMM_FreePhysicalPage(phys_cleanup);
          }
@@ -113,7 +110,7 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
 
       // Map as User | RW | Present
       if (!HAL_Paging_MapPage(proc->page_directory, va, phys,
-                               HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
+                              HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
       {
          printf("[stack] ERROR: map_page failed for stack at 0x%08x\n", va);
          PMM_FreePhysicalPage(phys);
@@ -121,8 +118,8 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
          for (uint32_t j = 0; j < i; ++j)
          {
             uint32_t va_cleanup = stack_bottom_va + (j * PAGE_SIZE);
-            uint32_t phys_cleanup = HAL_Paging_GetPhysicalAddress(
-                proc->page_directory, va_cleanup);
+            uint32_t phys_cleanup =
+                HAL_Paging_GetPhysicalAddress(proc->page_directory, va_cleanup);
             HAL_Paging_UnmapPage(proc->page_directory, va_cleanup);
             if (phys_cleanup) PMM_FreePhysicalPage(phys_cleanup);
          }

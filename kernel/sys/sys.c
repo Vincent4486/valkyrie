@@ -3,13 +3,12 @@
 #include <valkyrie/valkyrie.h>
 
 #include "sys.h"
-#include <mem/memdefs.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
-#include <mem/heap.h>
 
 /* Global SYS_Info structure (allocated in SYS_Initialize) */
-SYS_Info *g_SysInfo = NULL;
+SYS_Info *g_SysInfo = (SYS_Info *)SYS_INFO_ADDR;
 
 void SYS_Initialize()
 {
@@ -35,8 +34,7 @@ void SYS_Initialize()
    g_SysInfo->arch.cpu_frequency = freq;
 
    uint32_t cl = get_cache_line_size();
-   if (cl == 0)
-      cl = 32; /* fallback */
+   if (cl == 0) cl = 32; /* fallback */
    g_SysInfo->arch.cache_line_size = cl;
 
    uint32_t feats = get_cpu_features();
@@ -66,12 +64,10 @@ void SYS_Finalize()
           g_SysInfo->kernel_minor);
    printf("--> Architecture: %d (%s)\n", g_SysInfo->arch.arch, arch_str);
    printf("--> CPU Cores: %u\n", g_SysInfo->arch.cpu_count);
-   printf("--> CPU Frequency: %u Hz (%u MHz)\n",
-         g_SysInfo->arch.cpu_frequency,
-         g_SysInfo->arch.cpu_frequency / 1000 / 1000);
+   printf("--> CPU Frequency: %u Hz (%u MHz)\n", g_SysInfo->arch.cpu_frequency,
+          g_SysInfo->arch.cpu_frequency / 1000 / 1000);
    printf("--> CPU Brand: %s\n", g_SysInfo->arch.cpu_brand);
    printf("--> Total Memory: %u (%u MiB)\n", g_SysInfo->memory.total_memory,
           g_SysInfo->memory.total_memory / 1024 / 1024);
    printf("--> Detected Disks: %u\n", g_SysInfo->disk_count);
-   printf("--> Mounted Filesystems: %u\n", g_SysInfo->fs_count);
 }
