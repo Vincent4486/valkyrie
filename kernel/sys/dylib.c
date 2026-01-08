@@ -8,7 +8,7 @@
 
 #include "dylib.h"
 #include <fs/fat/fat.h>
-#include <mem/memory.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
@@ -1138,7 +1138,7 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
 }
 
 #include <fs/disk/partition.h>
-#include <mem/memdefs.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/dylib.h>

@@ -2,19 +2,14 @@
 
 import os
 import re
-import time
-from decimal import Decimal
-from io import SEEK_CUR, SEEK_SET
-from pathlib import Path
-from shutil import copy2
 import sh
+import sys
 
 from SCons.Action import Action
-from SCons.Builder import Builder
 from SCons.Environment import Environment
 from SCons.Script import Flatten
 
-from scripts.scons.utility import FindIndex, GlobRecursive, IsFileName
+from scripts.scons.utility import GlobRecursive
 
 Import('core')
 Import('user_libraries')
@@ -86,6 +81,12 @@ def create_partition_table(target: str, align_start: int, filesystem: str = 'fat
     Uses parted CLI to ensure the partition type ID is set correctly.
     (python-parted defaults to 0x83 Linux, which mkfs.fat does not change.)
     """
+    if sys.platform.startswith('darwin'):
+        sh.sgdisk('--zap-all', target)
+        sh.sgdisk('-o', target)
+        # Single FAT-friendly partition starting at align_start, extend to end
+        sh.sgdisk('-n', f'1:{align_start}:0', '-t', '1:0700', '-c', '1:VALKYRIE', target)
+        return
     # Create msdos (MBR) label
     sh.parted('-s', target, 'mklabel', 'msdos')
     

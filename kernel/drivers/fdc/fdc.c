@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "fdc.h"
-#include <hal/irq.h>
 #include <hal/io.h>
+#include <hal/irq.h>
+#include <std/stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <std/stdio.h>
-#include <valkyrie/system.h>
 #include <sys/sys.h>
+#include <valkyrie/system.h>
 
 #define FDC_BASE 0x3F0
 #define FDC_DOR (FDC_BASE + 2)
@@ -116,9 +116,15 @@ static inline uint8_t fdc_make_dor(uint8_t drive, bool motor_on)
    return dor;
 }
 
-static void fdc_motor_on(uint8_t drive) { HAL_outb(FDC_DOR, fdc_make_dor(drive, true)); }
+static void fdc_motor_on(uint8_t drive)
+{
+   HAL_outb(FDC_DOR, fdc_make_dor(drive, true));
+}
 
-static void fdc_motor_off(uint8_t drive) { HAL_outb(FDC_DOR, fdc_make_dor(drive, false)); }
+static void fdc_motor_off(uint8_t drive)
+{
+   HAL_outb(FDC_DOR, fdc_make_dor(drive, false));
+}
 
 // FDC IRQ handler - sets flag when interrupt is received
 static void fdc_irq_handler(Registers *regs) { g_fdc_irq_received = true; }
@@ -344,7 +350,8 @@ int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
    return 0;
 }
 
-int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer, size_t count)
+int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer,
+                 size_t count)
 {
    if (count == 0)
    {
@@ -428,18 +435,17 @@ int FDC_Scan(DISK *disks, int maxDisks)
    if (maxDisks <= 0) return 0;
 
    int driveStartIndex = 0x0;
-    for (int i = 0; i < MAX_DISKS; i++) {
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
       // Check if the disk pointer is valid first
-      if (g_SysInfo->volume[i].disk == NULL)
-         continue;
-         
+      if (g_SysInfo->volume[i].disk == NULL) continue;
+
       // Skip floppy drives (0x00-0x7F)
-      if (g_SysInfo->volume[i].disk->id < 0x80) 
-         continue;
-      
+      if (g_SysInfo->volume[i].disk->id < 0x80) continue;
+
       // Found a hard drive, increment start index
       driveStartIndex++;
-    }
+   }
 
    printf("[DISK] Scanning floppy controller\n");
 
@@ -492,8 +498,8 @@ int FDC_Scan(DISK *disks, int maxDisks)
       disk->heads = FLOPPY_HEADS;
       disk->sectors = FLOPPY_SECTORS_PER_TRACK;
       disk->brand[0] = '\0';
-      disk->size = (uint64_t)disk->cylinders * disk->heads *
-                   disk->sectors * FLOPPY_SECTOR_SIZE;
+      disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
+                   FLOPPY_SECTOR_SIZE;
 
       printf("[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
              disk->id, disk->type, disk->size);

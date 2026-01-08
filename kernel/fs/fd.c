@@ -4,7 +4,7 @@
 #include <cpu/process.h>
 #include <fs/disk/partition.h>
 #include <fs/fat/fat.h>
-#include <mem/heap.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 

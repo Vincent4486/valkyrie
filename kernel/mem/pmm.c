@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#include "pmm.h"
-#include "memory.h"
-#include <mem/memdefs.h>
+#include "mm_kernel.h"
+#include "mm_proc.h"
 #include <std/stdio.h>
 #include <stddef.h>
 #include <stdint.h>

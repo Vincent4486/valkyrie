@@ -2,9 +2,9 @@
 
 #ifndef ATA_H
 #define ATA_H
+#include <fs/disk/disk.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <fs/disk/disk.h>
 #define ATA_SECTOR_SIZE 512
 
 // IDE Channel constants
@@ -24,7 +24,7 @@
  * @return 0 on success, -1 on failure
  */
 int ATA_Init(int channel, int drive, uint32_t partition_start,
-              uint32_t partition_size);
+             uint32_t partition_size);
 
 /**
  * Read sectors from ATA drive

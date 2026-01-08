@@ -1,8 +1,9 @@
 ## Current todo
 
-4) Add FS wrappers and mount/unmount function + handle multiple disks + disk id (no disk ant partition in main, use sys info) + mount table without partiton as argument when interacting with fs + fat data to private data struct for each fs
+4) mount table without partiton as argument when interacting with fs + fat data to private data struct for each fs
 5) Get root partition via cmdline uuid and label + find root partition
-6) ansi escape codes, and vga to arch/
+6) ansi escape codes, and vga to arch
+7) remove global scope x86 cpu registers
 
 # ValkyrieOS glibc Implementation Roadmap
 

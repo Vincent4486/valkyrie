@@ -23,6 +23,10 @@ VARS.AddVariables(
                  help="Type of image",
                  default="fat32",
                  allowed_values=("fat12", "fat16", "fat32", "ext2")),
+    EnumVariable("buildType",
+                 help="What to build",
+                 default="full",
+                 allowed_values=("full", "kernel", "usr")),
     )
 VARS.Add("imageSize", 
          help="The size of the image, will be rounded up to the nearest multiple of 512. " +
@@ -122,7 +126,7 @@ TARGET_ENVIRONMENT.Append(
         # Note: --unresolved-symbols=ignore-all added in kernel SConscript for dynamic linking
     ],
     LIBS = ['gcc'],
-    LIBPATH = [ str(toolchainGccLibs) ],
+    LIBPATH = [ str(toolchainGccLibs) ]
 )
 
 # Ensure custom command strings also apply to target builds
@@ -145,21 +149,47 @@ Export('TARGET_ENVIRONMENT')
 
 variantDir = 'build/{0}_{1}'.format(TARGET_ENVIRONMENT['arch'], TARGET_ENVIRONMENT['config'])
 
-SConscript('usr/SConscript', variant_dir=variantDir + '/usr', duplicate=0)
-SConscript('kernel/SConscript', variant_dir=variantDir + '/kernel', duplicate=0)
-SConscript('image/SConscript', variant_dir=variantDir, duplicate=0)
+buildType = TARGET_ENVIRONMENT['buildType']
 
-Import('image')
+if buildType in ('full', 'usr'):
+    SConscript('usr/SConscript', variant_dir=variantDir + '/usr', duplicate=0)
 
-# Phony targets
-PhonyTargets(HOST_ENVIRONMENT, 
-             run=['./scripts/base/qemu.sh', 'disk', image[0].path],
-             debug=['./scripts/base/gdb.sh', 'disk', image[0].path],
-             bochs=['./scripts/base/bochs.sh', 'disk', image[0].path],
-             toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
-             fformat=['./scripts/base/format.sh'])
+if buildType in ('full', 'kernel'):
+    SConscript('kernel/SConscript', variant_dir=variantDir + '/kernel', duplicate=0)
 
+if buildType == 'full':
+    SConscript('image/SConscript', variant_dir=variantDir, duplicate=0)
+    Import('image')
 
-Depends('run', image)
-Depends('debug', image)
-Depends('bochs', image)
+    # Phony targets
+    PhonyTargets(HOST_ENVIRONMENT, 
+                 run=['./scripts/base/qemu.sh', 'disk', image[0].path],
+                 debug=['./scripts/base/gdb.sh', 'disk', image[0].path],
+                 bochs=['./scripts/base/bochs.sh', 'disk', image[0].path],
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 fformat=['./scripts/base/format.sh'])
+
+    Depends('run', image)
+    Depends('debug', image)
+    Depends('bochs', image)
+
+if buildType == 'image':
+    SConscript('image/SConscript', variant_dir=variantDir, duplicate=0)
+
+    # Phony targets
+    PhonyTargets(HOST_ENVIRONMENT, 
+                 run=['./scripts/base/qemu.sh', 'disk', image[0].path],
+                 debug=['./scripts/base/gdb.sh', 'disk', image[0].path],
+                 bochs=['./scripts/base/bochs.sh', 'disk', image[0].path],
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 fformat=['./scripts/base/format.sh'])
+
+    Depends('run', image)
+    Depends('debug', image)
+    Depends('bochs', image)
+    
+else:
+    # Phony targets without image-dependent ones
+    PhonyTargets(HOST_ENVIRONMENT,
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 fformat=['./scripts/base/format.sh'])

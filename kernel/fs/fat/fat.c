@@ -4,8 +4,7 @@
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
 #include <fs/disk/partition.h>
-#include <mem/memdefs.h>
-#include <mem/memory.h>
+#include <mem/mm_kernel.h>
 #include <std/ctype.h>
 #include <std/minmax.h>
 #include <std/stdio.h>
@@ -129,9 +128,8 @@ void FAT_Detect(Partition *disk)
 
 bool FAT_Initialize(Partition *disk)
 {
-   /* Stage2 preloads the boot sector and root directory at MEMORY_FAT_ADDR
-    * (0x20000). We need to allocate our own FAT_Data structure in a different
-    * location, then copy the preloaded boot sector into it.
+   /* FAT_Initialize now reads the boot sector directly from the partition.
+    * This allows filesystem initialization to happen during disk scan.
     */
 
    // Allocate FAT_Data structure (normally would use malloc, but we'll use a
@@ -139,13 +137,23 @@ bool FAT_Initialize(Partition *disk)
    static FAT_Data s_FatData;
    g_Data = &s_FatData;
 
+   // Read boot sector from partition
    uint8_t bootSector[512];
-   if(!Partition_ReadSectors(disk, 0, 1, bootSector)){
+   if (!Partition_ReadSectors(disk, 0, 1, bootSector))
+   {
       printf("[FAT] Failed to read boot sector\n");
+      return false;
    }
 
-   // Copy preloaded boot sector from stage2 location
-   memcpy(g_Data->BS.BootSectorBytes, &bootSector, SECTOR_SIZE);
+   // Check for valid FAT signature (0x55AA at bytes 510-511)
+   if (bootSector[510] != 0x55 || bootSector[511] != 0xAA)
+   {
+      printf("[FAT] Invalid boot sector signature\n");
+      return false;
+   }
+
+   // Copy boot sector into FAT data structure
+   memcpy(g_Data->BS.BootSectorBytes, bootSector, SECTOR_SIZE);
 
    // Debug: print BPB values
    printf("[FAT] BPB BytesPerSector=%u, SectorsPerCluster=%u\n",
@@ -258,9 +266,8 @@ bool FAT_Initialize(Partition *disk)
       g_Data->RootDirectory.CurrentCluster = rootDirLba;
       g_Data->RootDirectory.CurrentSectorInCluster = 0;
 
-      // Copy preloaded root directory (starts after 512-byte boot sector)
-      uint8_t *preloaded_root = (uint8_t *)MEMORY_FAT_ADDR + SECTOR_SIZE;
-      memcpy(g_Data->RootDirectory.Buffer, preloaded_root, SECTOR_SIZE);
+      // Read first sector of root directory from disk
+      Partition_ReadSectors(disk, rootDirLba, 1, g_Data->RootDirectory.Buffer);
    }
 
    // calculate data section

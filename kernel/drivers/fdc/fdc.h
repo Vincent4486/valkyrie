@@ -2,10 +2,10 @@
 
 #ifndef FDC_H
 #define FDC_H
+#include <fs/disk/disk.h> // For DISK struct
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <fs/disk/disk.h>  // For DISK struct
 
 #define FDC_SECTOR_SIZE 512
 
@@ -15,7 +15,8 @@ int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count);
 
 // Write 'count' sectors from 'buffer' to 'lba'
 // Returns 0 on success, nonzero on error
-int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer, size_t count);
+int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer,
+                 size_t count);
 
 // Seek to specified head and track
 // Returns true on success, false on error

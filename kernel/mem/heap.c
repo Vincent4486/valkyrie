@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#include "heap.h"
-#include "memory.h"
-#include "pmm.h"
+#include "mm_kernel.h"
+#include "mm_proc.h"
 #include <cpu/process.h>
+#include <hal/paging.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <hal/paging.h>
 
 extern uint8_t __end; /* linker-provided end of kernel image */
 

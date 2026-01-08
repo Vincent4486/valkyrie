@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#include "memory.h"
+#include "mm_kernel.h"
 #include <hal/io.h>
-#include <mem/heap.h>
-#include <mem/memory.h>
-#include <mem/pmm.h>
-#include <mem/stack.h>
-#include <mem/vmm.h>
+#include <hal/paging.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/sys.h>
-#include <hal/paging.h>
 
 /* Runtime-controlled memory debug flag. Set non-zero to make the handler
  * call `i686_Panic()` when a memory safety fault is detected. Default is 0.

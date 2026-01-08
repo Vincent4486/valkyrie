@@ -9,8 +9,7 @@
 #include <fs/fs.h>
 #include <hal/hal.h>
 #include <hal/irq.h>
-#include <mem/heap.h>
-#include <mem/memory.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
@@ -46,8 +45,8 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       printf("FS initialization failed\n");
       goto end;
    }
-   FS_Mount(&g_SysInfo->volume[0]);
-   
+   FS_Mount(&g_SysInfo->volume[0], "/");
+
    if (!Dylib_Initialize(&g_SysInfo->volume[0]))
    {
       printf("Failed to load dynamic libraries...");

@@ -4,73 +4,127 @@
 #include "partition.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
+#include <fs/fat/fat.h>
+#include <fs/fs.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <sys/sys.h>
 
-// Disk type constants
-#define DISK_TYPE_FLOPPY 0
-#define DISK_TYPE_ATA 1
-
 // Updated: Scan all disks and populate volumes
-int DISK_Initialize() {
-    printf("[DISK] Starting disk initialization\n");
-    DISK detectedDisks[32];  // Temp array for detected disks
-    int totalDisks = 0;
+int DISK_Initialize()
+{
+   printf("[DISK] Starting disk initialization\n");
 
-    // Scan floppies
-    totalDisks += FDC_Scan(detectedDisks + totalDisks, 32 - totalDisks);
+   DISK_Scan();
 
-    // Scan ATA
-    totalDisks += ATA_Scan(detectedDisks + totalDisks, 32 - totalDisks);
+   printf("[DISK] Disk initialization complete, disk_count=%u\n",
+          g_SysInfo->disk_count);
+   return 0;
+}
 
-    printf("[DISK] Total disks detected: %d\n", totalDisks);
+int DISK_Scan()
+{
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
+      g_SysInfo->volume[i].disk = NULL;
+   }
 
-    // Populate volume[] with detected disks and partitions
-    for (int i = 0; i < totalDisks; i++) {
-        DISK *disk = &detectedDisks[i];
-        int volumeIndex = -1;
-        for (int j = 0; j < 32; j++) {
-            if (g_SysInfo->volume[j].disk == NULL) {
-                volumeIndex = j;
-                break;
+   DISK detectedDisks[32]; // Temp array for detected disks
+   int totalDisks = 0;
+
+   // Scan floppies
+   totalDisks += FDC_Scan(detectedDisks + totalDisks, 32 - totalDisks);
+
+   // Scan ATA
+   totalDisks += ATA_Scan(detectedDisks + totalDisks, 32 - totalDisks);
+
+   printf("[DISK] Total disks detected: %d\n", totalDisks);
+
+   // Populate volume[] with detected disks and partitions
+   for (int i = 0; i < totalDisks; i++)
+   {
+      DISK *disk = &detectedDisks[i];
+      int volumeIndex = -1;
+      for (int j = 0; j < 32; j++)
+      {
+         if (g_SysInfo->volume[j].disk == NULL)
+         {
+            volumeIndex = j;
+            break;
+         }
+      }
+      if (volumeIndex == -1) break; // No slots
+
+      int part_count = 0;
+      Partition **parts = MBR_DetectPartition(disk, &part_count);
+
+      for (int p = 0; p < part_count; p++)
+      {
+         // Find next free slot for each partition
+         while (volumeIndex < 32 && g_SysInfo->volume[volumeIndex].disk != NULL)
+         {
+            volumeIndex++;
+         }
+         if (volumeIndex >= 32) break;
+
+         // Copy partition data into system volume table
+         g_SysInfo->volume[volumeIndex] = *(parts[p]);
+         printf(
+             "[DISK] Populated volume[%d]: Offset=%u, Size=%u, Type=0x%02x\n",
+             volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset,
+             g_SysInfo->volume[volumeIndex].partitionSize,
+             g_SysInfo->volume[volumeIndex].partitionType);
+
+         // Initialize filesystem on this partition (only for FAT types)
+         Partition *volume = &g_SysInfo->volume[volumeIndex];
+         uint8_t partType = volume->partitionType & 0xFF;
+         if (partType == 0x04 || partType == 0x06 || partType == 0x0B ||
+             partType == 0x0C)
+         {
+            if (FAT_Initialize(volume))
+            {
+               // Allocate and populate Filesystem struct
+               Filesystem *fs = (Filesystem *)kmalloc(sizeof(Filesystem));
+               if (fs)
+               {
+                  fs->mounted = 0; // Not mounted yet, just initialized
+                  fs->read_only = 0;
+                  fs->block_size = 512;
+                  fs->type = FAT32; // TODO: detect actual FAT type
+                  volume->fs = fs;
+                  printf("[DISK] Initialized FAT filesystem on volume[%d]\n",
+                         volumeIndex);
+               }
             }
-        }
-        if (volumeIndex == -1) break;  // No slots
-
-        g_SysInfo->volume[volumeIndex].disk = disk;
-        if (disk->type == DISK_TYPE_FLOPPY) {
-            g_SysInfo->volume[volumeIndex].partitionOffset = 0;
-            g_SysInfo->volume[volumeIndex].partitionSize = disk->cylinders * disk->heads * disk->sectors;
-        } else {
-            // Detect partitions for ATA
-            uint8_t mbr_buffer[512];
-            if (DISK_ReadSectors(disk, 0, 1, mbr_buffer)) {
-                void *partition_entry = &mbr_buffer[446];
-                bool found = false;
-                for (int p = 0; p < 4; p++) {
-                    uint8_t *entry = (uint8_t *)partition_entry + (p * 16);
-                    uint8_t type = entry[4];
-                    if (type == 0x04 || type == 0x06 || type == 0x0B || type == 0x0C) {
-                        g_SysInfo->volume[volumeIndex].partitionOffset = *(uint32_t *)(entry + 8);
-                        g_SysInfo->volume[volumeIndex].partitionSize = *(uint32_t *)(entry + 12);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    g_SysInfo->volume[volumeIndex].partitionOffset = 16;
-                    g_SysInfo->volume[volumeIndex].partitionSize = 0x100000;
-                }
-            } else {
-                g_SysInfo->volume[volumeIndex].partitionOffset = 0;
-                g_SysInfo->volume[volumeIndex].partitionSize = 0x100000;
+            else
+            {
+               printf("[DISK] Failed to initialize FAT on volume[%d]\n",
+                      volumeIndex);
             }
-        }
-        printf("[DISK] Populated volume[%d]: Offset=%u, Size=%u\n", volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset, g_SysInfo->volume[volumeIndex].partitionSize);
-    }
-    g_SysInfo->disk_count = totalDisks;
-    printf("[DISK] Disk initialization complete, disk_count=%u\n", g_SysInfo->disk_count);
-    return totalDisks > 0 ? totalDisks : -1;
+         }
+         else
+         {
+            printf(
+                "[DISK] Skipping filesystem init for partition type 0x%02x\n",
+                partType);
+         }
+
+         volumeIndex++;
+      }
+
+      // Free allocated partition structures
+      if (parts)
+      {
+         for (int p = 0; p < part_count; p++)
+         {
+            if (parts[p]) free(parts[p]);
+         }
+         free(parts);
+      }
+   }
+   g_SysInfo->disk_count = totalDisks;
+
+   return 0;
 }
 
 void DISK_LBA2CHS(DISK *disk, uint32_t lba, uint16_t *cylinderOut,

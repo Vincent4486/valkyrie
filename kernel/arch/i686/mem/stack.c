@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "stack.h"
-#include <mem/heap.h>
-#include <mem/stack.h>
+#include <mem/mm_kernel.h>
+#include <mem/mm_proc.h>
 #include <std/string.h>
 
 /**

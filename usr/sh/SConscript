@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import subprocess
 
-from SCons.Environment import Environment
 from SCons.Script import Dir
 from scripts.scons.utility import GlobRecursive
 
@@ -17,22 +15,17 @@ env = usermode_env.Clone()
 src_dir = Dir('#usr/sh').abspath
 
 env.Append(
-    # Position-independent code for dynamic linking
-    CCFLAGS=['-fPIC'],
-    CFLAGS=['-fPIC'],
-    CXXFLAGS=['-fPIC'],
+    # Use static linking, explicit linker script
     LINKFLAGS=[
         '-Wl,-Map=' + env.File('sh.map').path,
         '-Wl,-T', os.path.join(src_dir, 'linker.ld'),
         '-Wl,--as-needed',
-        '-pie',  # Position-independent executable
     ],
     CPATH=[src_dir],
     CPPPATH=[src_dir],
     ASFLAGS=['-I', src_dir + '/'],
-    # Explicit musl libc linking (order matters: libc then libgcc)
-    LIBS=['c', 'gcc'],  # Link libc and libgcc
 )
+
 
 # Glob files directly from the source directory using os.walk
 sources = []

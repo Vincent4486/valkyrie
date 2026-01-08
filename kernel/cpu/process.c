@@ -4,17 +4,14 @@
 #include <fs/disk/partition.h>
 #include <fs/fat/fat.h>
 #include <fs/fd.h>
-#include <mem/heap.h>
-#include <mem/memdefs.h>
-#include <mem/pmm.h>
-#include <mem/stack.h>
-#include <mem/vmm.h>
+#include <hal/paging.h>
+#include <mem/mm_kernel.h>
+#include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/elf.h>
-#include <hal/paging.h>
 
 static Process *current_process = NULL;
 static uint32_t next_pid = 1;
@@ -98,8 +95,8 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
          for (uint32_t j = 0; j < pages_needed; ++j)
          {
             uint32_t va_cleanup = stack_bottom + (j * PAGE_SIZE);
-            uint32_t phys_cleanup = HAL_Paging_GetPhysicalAddress(
-                proc->page_directory, va_cleanup);
+            uint32_t phys_cleanup =
+                HAL_Paging_GetPhysicalAddress(proc->page_directory, va_cleanup);
             HAL_Paging_UnmapPage(proc->page_directory, va_cleanup);
             if (phys_cleanup) PMM_FreePhysicalPage(phys_cleanup);
          }
