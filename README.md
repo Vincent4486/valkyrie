@@ -1,10 +1,8 @@
 # Valkyrie OS
-The Valkyrie Operating System is an operating system designed 
-for the x86 32-bit architecture. OS versions in the future are planned to support x64. The operating system is where all executable files are Java 
-Archives ```jar``` or Java Bytecode or ```.class``` files. 
+The Valkyrie Operating System is an Unix-like operating system featureing most linux syscalls and GNU program compatibilities. The Operating system also contains a specially designed JVM which is a part of the kernel, making it more effecient to run Java programs. This Operating system is designed for the x86 archiecture, and other architectures like x64, aarch64 and risc-v are planed to be implemented in the future.
 
 ## Java Virtual Machine
-The JVM on this operating system contains most JVM features such as IO. However, this operating system is command-line based, so features in Java Swing are not usable. 
+The JVM for this operating system is custom, and it runs in kernel mode as a part of the kernel, making it not relying on syscalls which would improve the effeciency of the
 
 ## Install
 To install Valkyrie OS, you can use the pre-built hard disk images from the release page of this repository. Alternatively, you can use the build tool to build the operating system locally. To build this operating system, please follow these steps. Building the Valkyrie OS requires the following dependencies:
