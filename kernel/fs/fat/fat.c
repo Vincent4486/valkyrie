@@ -3,7 +3,7 @@
 #include "fat.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
-#include <fs/disk/partition.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/ctype.h>
 #include <std/minmax.h>

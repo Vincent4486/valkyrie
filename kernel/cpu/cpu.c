@@ -2,4 +2,4 @@
 
 #include <cpu/process.h>
 
-void CPU_Initialize() { process_self_test(); }
+void CPU_Initialize() { Process_SelfTest(); }

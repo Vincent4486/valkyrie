@@ -6,7 +6,7 @@
 #ifndef DYLIB_H
 #define DYLIB_H
 
-#include <fs/disk/partition.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <stdint.h>
 
@@ -121,11 +121,9 @@ int Dylib_MemoryFree(const char *lib_name);
 
 // Load a library from disk into memory. Returns 0 on success, -1 on failure.
 // Parameters:
-//   partition: Initialized Partition structure for reading
 //   name: Library name to load
 //   filepath: Path to library file on disk (e.g., "/sys/graphics.so")
-int Dylib_LoadFromDisk(Partition *partition, const char *name,
-                       const char *filepath);
+int Dylib_LoadFromDisk(const char *name, const char *filepath);
 
 // Load a library from memory image. Returns 0 on success, -1 on failure.
 int Dylib_Load(const char *name, const void *image, uint32_t size);
@@ -139,7 +137,7 @@ void Dylib_MemoryStatus(void);
 // Register a callback to load symbols when library is loaded
 void Dylib_RegisterCallback(dylib_register_symbols_t callback);
 
-bool Dylib_Initialize(Partition *partition);
+bool Dylib_Initialize(void);
 
 // ============================================================================
 // Helper macro for loading function symbols from a library

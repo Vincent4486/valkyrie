@@ -2,14 +2,11 @@
 
 #include "fd.h"
 #include <cpu/process.h>
-#include <fs/disk/partition.h>
-#include <fs/fat/fat.h>
+#include <fs/fs.h>
+#include <fs/vfs/vfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
-
-/* Partition declared in main.c */
-extern Partition partition;
 
 // Helper: Get file descriptor from process
 FileDescriptor *FD_Get(void *proc_ptr, int fd)
@@ -73,8 +70,8 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
    // Handle O_APPEND: seek to end
    if (flags & O_APPEND) file->offset = 0xFFFFFFFFu; // Marker for "append mode"
 
-   // Open in FAT filesystem
-   file->inode = FAT_Open(&partition, path);
+   // Open via VFS (resolves partition internally)
+   file->inode = VFS_Open(path);
    if (!file->inode)
    {
       printf("[fd] open: file not found: %s\n", path);
@@ -103,7 +100,7 @@ int FD_Close(void *proc_ptr, int fd)
    if (fd < 3) return 0; // Silently succeed
 
    // Close in filesystem
-   if (file->inode) FAT_Close((FAT_File *)file->inode);
+   if (file->inode) VFS_Close((VFS_File *)file->inode);
 
    free(file);
    proc->fd_table[fd] = NULL;
@@ -124,9 +121,11 @@ int FD_Read(void *proc_ptr, int fd, void *buf, uint32_t count)
 
    if (!file->readable) return -1; // EACCES (permission denied)
 
+   // Align filesystem cursor to requested offset if needed
+   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
+
    // Read from filesystem
-   uint32_t bytes_read =
-       FAT_Read(&partition, (FAT_File *)file->inode, count, buf);
+   uint32_t bytes_read = VFS_Read((VFS_File *)file->inode, count, buf);
    file->offset += bytes_read;
 
    return bytes_read;
@@ -151,9 +150,11 @@ int FD_Write(void *proc_ptr, int fd, const void *buf, uint32_t count)
 
    if (!file->writable) return -1; // EACCES
 
+   // Align filesystem cursor to requested offset if needed
+   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
+
    // Write to filesystem
-   uint32_t bytes_written =
-       FAT_Write(&partition, (FAT_File *)file->inode, count, buf);
+   uint32_t bytes_written = VFS_Write((VFS_File *)file->inode, count, buf);
    file->offset += bytes_written;
 
    return bytes_written;
@@ -185,6 +186,9 @@ int FD_Lseek(void *proc_ptr, int fd, int32_t offset, int whence)
    default:
       return -1; // EINVAL
    }
+
+   // Keep filesystem cursor in sync
+   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
 
    return file->offset;
 }

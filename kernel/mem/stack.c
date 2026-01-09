@@ -263,7 +263,7 @@ void Stack_SetRegisters(uint32_t esp, uint32_t ebp)
 /**
  * Stack self-test (returns 1 on success, 0 on failure)
  */
-int stack_self_test(void)
+int Stack_SelfTest(void)
 {
    // Create/destroy
    Stack *s = Stack_Create(4096);

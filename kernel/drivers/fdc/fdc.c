@@ -447,8 +447,6 @@ int FDC_Scan(DISK *disks, int maxDisks)
       driveStartIndex++;
    }
 
-   printf("[DISK] Scanning floppy controller\n");
-
    uint8_t equip = cmos_read(0x10);
    uint8_t drive_types[2] = {(uint8_t)((equip >> 4) & 0x0F),
                              (uint8_t)(equip & 0x0F)};

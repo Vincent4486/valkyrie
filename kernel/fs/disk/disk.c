@@ -13,12 +13,8 @@
 // Updated: Scan all disks and populate volumes
 int DISK_Initialize()
 {
-   printf("[DISK] Starting disk initialization\n");
-
    DISK_Scan();
 
-   printf("[DISK] Disk initialization complete, disk_count=%u\n",
-          g_SysInfo->disk_count);
    return 0;
 }
 
@@ -37,8 +33,6 @@ int DISK_Scan()
 
    // Scan ATA
    totalDisks += ATA_Scan(detectedDisks + totalDisks, 32 - totalDisks);
-
-   printf("[DISK] Total disks detected: %d\n", totalDisks);
 
    // Populate volume[] with detected disks and partitions
    for (int i = 0; i < totalDisks; i++)
@@ -92,8 +86,6 @@ int DISK_Scan()
                   fs->block_size = 512;
                   fs->type = FAT32; // TODO: detect actual FAT type
                   volume->fs = fs;
-                  printf("[DISK] Initialized FAT filesystem on volume[%d]\n",
-                         volumeIndex);
                }
             }
             else

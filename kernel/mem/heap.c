@@ -199,7 +199,7 @@ void *sbrk(intptr_t inc)
 }
 
 /* Self-test ------------------------------------------------------------- */
-void heap_self_test(void)
+void Heap_SelfTest(void)
 {
    printf("[heap] start=0x%08x end=0x%08x\n", (uint32_t)heap_start,
           (uint32_t)heap_end);

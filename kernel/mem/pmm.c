@@ -122,7 +122,7 @@ uint32_t PMM_FreePages(void) { return total_pages - allocated_count; }
 
 uint32_t PMM_AllocatedPages(void) { return allocated_count; }
 
-void pmm_self_test(void)
+void PMM_SelfTest(void)
 {
    printf("[pmm] self-test: starting\n");
 

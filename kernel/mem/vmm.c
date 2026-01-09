@@ -199,7 +199,7 @@ uint32_t VMM_GetPhys(uint32_t vaddr)
 
 void *VMM_GetPageDirectory(void) { return kernel_page_dir; }
 
-void vmm_self_test(void)
+void VMM_SelfTest(void)
 {
    printf("[vmm] self-test: starting\n");
 

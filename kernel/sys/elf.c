@@ -18,17 +18,17 @@
 #define ELFDATA2LSB 1
 #define EM_386 3
 
-bool ELF_Load(Partition *disk, FAT_File *file, void **entryOut)
+bool ELF_Load(VFS_File *file, void **entryOut)
 {
    // read ELF header
-   if (!FAT_Seek(disk, file, 0))
+   if (!VFS_Seek(file, 0))
    {
       printf("ELF: seek header failed\n");
       return false;
    }
 
    Elf32_Ehdr ehdr;
-   if (FAT_Read(disk, file, sizeof(ehdr), &ehdr) != sizeof(ehdr))
+   if (VFS_Read(file, sizeof(ehdr), &ehdr) != sizeof(ehdr))
    {
       printf("ELF: read header failed\n");
       return false;
@@ -67,13 +67,13 @@ bool ELF_Load(Partition *disk, FAT_File *file, void **entryOut)
    for (uint16_t i = 0; i < ehdr.e_phnum; i++)
    {
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
-      if (!FAT_Seek(disk, file, phoff))
+      if (!VFS_Seek(file, phoff))
       {
          printf("ELF: seek phdr %u failed\n", i);
          return false;
       }
 
-      if (FAT_Read(disk, file, sizeof(phdr), &phdr) != sizeof(phdr))
+      if (VFS_Read(file, sizeof(phdr), &phdr) != sizeof(phdr))
       {
          printf("ELF: read phdr %u failed\n", i);
          return false;
@@ -93,7 +93,7 @@ bool ELF_Load(Partition *disk, FAT_File *file, void **entryOut)
 
       if (remaining > 0)
       {
-         if (!FAT_Seek(disk, file, fileOffset))
+         if (!VFS_Seek(file, fileOffset))
          {
             printf("ELF: seek segment data failed\n");
             return false;
@@ -102,7 +102,7 @@ bool ELF_Load(Partition *disk, FAT_File *file, void **entryOut)
          while (remaining > 0)
          {
             uint32_t toRead = remaining > CHUNK ? CHUNK : remaining;
-            uint32_t got = FAT_Read(disk, file, toRead, dest);
+            uint32_t got = VFS_Read(file, toRead, dest);
             if (got == 0)
             {
                printf("ELF: short read for segment\n");
@@ -127,32 +127,31 @@ bool ELF_Load(Partition *disk, FAT_File *file, void **entryOut)
    return true;
 }
 
-Process *ELF_LoadProcess(Partition *disk, const char *filename,
-                         bool kernel_mode)
+Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
 {
-   if (!disk || !filename) return NULL;
+   if (!filename) return NULL;
 
    // Open ELF file from filesystem
-   FAT_File *file = FAT_Open(disk, filename);
+   VFS_File *file = VFS_Open(filename);
    if (!file)
    {
-      printf("[ELF] LoadProcess: FAT_Open failed for %s\n", filename);
+      printf("[ELF] LoadProcess: VFS_Open failed for %s\n", filename);
       return NULL;
    }
 
    // Read ELF header
-   if (!FAT_Seek(disk, file, 0))
+   if (!VFS_Seek(file, 0))
    {
       printf("[ELF] LoadProcess: seek header failed\n");
-      FAT_Close(file);
+      VFS_Close(file);
       return NULL;
    }
 
    Elf32_Ehdr ehdr;
-   if (FAT_Read(disk, file, sizeof(ehdr), (uint8_t *)&ehdr) != sizeof(ehdr))
+   if (VFS_Read(file, sizeof(ehdr), (uint8_t *)&ehdr) != sizeof(ehdr))
    {
       printf("[ELF] LoadProcess: read header failed\n");
-      FAT_Close(file);
+      VFS_Close(file);
       return NULL;
    }
 
@@ -161,7 +160,7 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
        ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
    {
       printf("[ELF] LoadProcess: bad magic\n");
-      FAT_Close(file);
+      VFS_Close(file);
       return NULL;
    }
 
@@ -170,7 +169,7 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
    if (!proc)
    {
       printf("[ELF] LoadProcess: Process_Create failed\n");
-      FAT_Close(file);
+      VFS_Close(file);
       return NULL;
    }
 
@@ -179,19 +178,19 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
    for (uint16_t i = 0; i < ehdr.e_phnum; ++i)
    {
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
-      if (!FAT_Seek(disk, file, phoff))
+      if (!VFS_Seek(file, phoff))
       {
          printf("[ELF] LoadProcess: seek phdr %u failed\n", i);
          Process_Destroy(proc);
-         FAT_Close(file);
+         VFS_Close(file);
          return NULL;
       }
 
-      if (FAT_Read(disk, file, sizeof(phdr), (uint8_t *)&phdr) != sizeof(phdr))
+      if (VFS_Read(file, sizeof(phdr), (uint8_t *)&phdr) != sizeof(phdr))
       {
          printf("[ELF] LoadProcess: read phdr %u failed\n", i);
          Process_Destroy(proc);
-         FAT_Close(file);
+         VFS_Close(file);
          return NULL;
       }
 
@@ -217,7 +216,7 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
          {
             printf("[ELF] LoadProcess: PMM_AllocatePhysicalPage failed\n");
             Process_Destroy(proc);
-            FAT_Close(file);
+            VFS_Close(file);
             return NULL;
          }
 
@@ -230,17 +229,17 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
                    page_va);
             PMM_FreePhysicalPage(phys);
             Process_Destroy(proc);
-            FAT_Close(file);
+            VFS_Close(file);
             return NULL;
          }
       }
 
       // Read segment data from file and copy to process memory
-      if (!FAT_Seek(disk, file, phdr.p_offset))
+      if (!VFS_Seek(file, phdr.p_offset))
       {
          printf("[ELF] LoadProcess: seek segment data failed\n");
          Process_Destroy(proc);
-         FAT_Close(file);
+         VFS_Close(file);
          return NULL;
       }
 
@@ -257,13 +256,13 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
       {
          uint32_t chunk =
              remaining < sizeof(buffer) ? remaining : sizeof(buffer);
-         uint32_t bytes_read = FAT_Read(disk, file, chunk, buffer);
+         uint32_t bytes_read = VFS_Read(file, chunk, buffer);
          if (bytes_read == 0)
          {
-            printf("[ELF] LoadProcess: FAT_Read failed\n");
+            printf("[ELF] LoadProcess: VFS_Read failed\n");
             HAL_Paging_SwitchPageDirectory(old_pdir);
             Process_Destroy(proc);
-            FAT_Close(file);
+            VFS_Close(file);
             return NULL;
          }
 
@@ -283,7 +282,7 @@ Process *ELF_LoadProcess(Partition *disk, const char *filename,
       HAL_Paging_SwitchPageDirectory(old_pdir);
    }
 
-   FAT_Close(file);
+   VFS_Close(file);
    printf("[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
           filename, proc->pid, ehdr.e_entry);

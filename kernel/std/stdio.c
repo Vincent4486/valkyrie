@@ -83,8 +83,7 @@ void printf_unsigned(unsigned long long number, int radix, int width,
    int pos = 0;
 
    // convert number to ASCII
-   do
-   {
+   do {
       unsigned long long rem = number % radix;
       number /= radix;
       buffer[pos++] = g_HexChars[rem];
@@ -337,16 +336,14 @@ int snprintf(char *buffer, size_t buf_size, const char *format, ...)
 
 /* helper to emit a single char */
 #define EMIT_CH(c)                                                             \
-   do                                                                          \
-   {                                                                           \
+   do {                                                                        \
       if (out_idx + 1 < buf_size) buffer[out_idx++] = (c);                     \
       would_have++;                                                            \
    } while (0)
 
 /* helper to emit a whole string */
 #define EMIT_STR(s)                                                            \
-   do                                                                          \
-   {                                                                           \
+   do {                                                                        \
       const char *_p = (s);                                                    \
       while (*_p)                                                              \
       {                                                                        \

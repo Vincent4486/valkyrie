@@ -3,8 +3,6 @@
 #include <cpu/cpu.h>
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
-#include <fs/disk/disk.h>
-#include <fs/disk/partition.h>
 #include <fs/fat/fat.h>
 #include <fs/fs.h>
 #include <hal/hal.h>
@@ -47,7 +45,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    }
    FS_Mount(&g_SysInfo->volume[0], "/");
 
-   if (!Dylib_Initialize(&g_SysInfo->volume[0]))
+   if (!Dylib_Initialize())
    {
       printf("Failed to load dynamic libraries...");
       goto end;
@@ -55,7 +53,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
 
    /* Mark system as fully initialized */
    SYS_Finalize();
-   ELF_LoadProcess(&g_SysInfo->volume[0], "/usr/bin/sh", false);
+   ELF_LoadProcess("/usr/bin/sh", false);
 
    uint32_t last_uptime = 0;
    while (g_SysInfo->uptime_seconds < 1000)

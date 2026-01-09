@@ -2,7 +2,7 @@
 
 #ifndef ATA_H
 #define ATA_H
-#include <fs/disk/disk.h>
+#include <fs/fs.h>
 #include <stddef.h>
 #include <stdint.h>
 #define ATA_SECTOR_SIZE 512

@@ -85,8 +85,15 @@ else:
 platform_prefix = ''
 if HOST_ENVIRONMENT['arch'] == 'i686':
     platform_prefix = 'i686-elf-'
+    target = 'i686-elf'
+elif HOST_ENVIRONMENT['arch'] == 'x64':
+    platform_prefix = 'x86_64-elf-'
+    target = 'x86_64-elf'
+else:
+    platform_prefix = ''
+    target = 'unknown'
 
-toolchainDir = Path(HOST_ENVIRONMENT['toolchain'], platform_prefix.removesuffix('-')).resolve()
+toolchainDir = Path(HOST_ENVIRONMENT['toolchain'], target).resolve()
 toolchainBin = Path(toolchainDir, 'bin')
 toolchainGccLibs = Path(toolchainDir, 'lib', 'gcc', platform_prefix.removesuffix('-'), DEPS['gcc'])
 
@@ -166,7 +173,7 @@ if buildType == 'full':
                  run=['./scripts/base/qemu.sh', 'disk', image[0].path],
                  debug=['./scripts/base/gdb.sh', 'disk', image[0].path],
                  bochs=['./scripts/base/bochs.sh', 'disk', image[0].path],
-                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain'], target],
                  fformat=['./scripts/base/format.sh'])
 
     Depends('run', image)
@@ -181,7 +188,7 @@ if buildType == 'image':
                  run=['./scripts/base/qemu.sh', 'disk', image[0].path],
                  debug=['./scripts/base/gdb.sh', 'disk', image[0].path],
                  bochs=['./scripts/base/bochs.sh', 'disk', image[0].path],
-                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain'], target],
                  fformat=['./scripts/base/format.sh'])
 
     Depends('run', image)
@@ -191,5 +198,5 @@ if buildType == 'image':
 else:
     # Phony targets without image-dependent ones
     PhonyTargets(HOST_ENVIRONMENT,
-                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain']],
+                 toolchain=['./scripts/base/toolchain.sh', HOST_ENVIRONMENT['toolchain'], target],
                  fformat=['./scripts/base/format.sh'])

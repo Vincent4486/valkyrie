@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+#ifndef FS_TYPES_H
+#define FS_TYPES_H
+
+/* Common filesystem enumerations shared between VFS and FS interfaces. */
+typedef enum FilesystemType
+{
+   FAT12 = 1,
+   FAT16 = 2,
+   FAT32 = 3,
+   EXT2 = 4
+} FilesystemType;
+
+#endif

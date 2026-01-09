@@ -2,7 +2,6 @@
 
 #ifndef SYS_H
 #define SYS_H
-#include <fs/disk/disk.h>
 #include <fs/fs.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>

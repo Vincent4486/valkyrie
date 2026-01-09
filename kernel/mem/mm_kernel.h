@@ -29,6 +29,7 @@ void *memcpy(void *dst, const void *src, size_t num);
 void *memset(void *ptr, int value, size_t num);
 int memcmp(const void *ptr1, const void *ptr2, size_t num);
 void *memmove(void *dest, const void *src, size_t n);
+int strncmp(const char *s1, const char *s2, size_t n);
 
 void *SegmentOffsetToLinear(void *addr);
 
@@ -54,7 +55,7 @@ int brk(void *addr);      /* returns 0 on success, -1 on failure */
 void *sbrk(intptr_t inc); /* returns previous break or (void*)-1 on failure */
 
 /* Self-test helper */
-void heap_self_test(void);
+void Heap_SelfTest(void);
 
 /* Physical Memory Manager (PMM) - Kernel level
  *
@@ -96,7 +97,7 @@ uint32_t PMM_AllocatedPages(void);
 
 /* Self-test helper
  */
-void pmm_self_test(void);
+void PMM_SelfTest(void);
 
 /* Virtual Memory Manager (VMM) - Kernel level
  *
@@ -126,7 +127,7 @@ void *VMM_GetPageDirectory(void);
 
 /* Self-test helper
  */
-void vmm_self_test(void);
+void VMM_SelfTest(void);
 
 /* Stack Management - Kernel level */
 
@@ -180,7 +181,7 @@ void Stack_SetRegisters(uint32_t esp, uint32_t ebp);
  * Stack subsystem self-test
  * @return 1 on success, 0 on failure
  */
-int stack_self_test(void);
+int Stack_SelfTest(void);
 
 /* Architecture page size (4 KiB) */
 #define PAGE_SIZE 0x1000u

@@ -7,7 +7,7 @@
  */
 
 #include "dylib.h"
-#include <fs/fat/fat.h>
+#include <fs/vfs/vfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -967,16 +967,9 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    return 0;
 }
 
-int Dylib_LoadFromDisk(Partition *partition, const char *name,
-                       const char *filepath)
+int Dylib_LoadFromDisk(const char *name, const char *filepath)
 {
    if (!dylib_mem_initialized) Dylib_MemoryInitialize();
-
-   if (!partition)
-   {
-      printf("[ERROR] Partition pointer is NULL\n");
-      return -1;
-   }
 
    int idx = dylib_find_index(name);
    if (idx < 0)
@@ -996,7 +989,7 @@ int Dylib_LoadFromDisk(Partition *partition, const char *name,
 
    // Open the library file from disk
    printf("[DYLIB] Opening %s from disk...\n", filepath);
-   FAT_File *file = FAT_Open(partition, filepath);
+   VFS_File *file = VFS_Open(filepath);
    if (!file)
    {
       printf("[ERROR] Failed to open file: %s\n", filepath);
@@ -1004,11 +997,11 @@ int Dylib_LoadFromDisk(Partition *partition, const char *name,
    }
 
    // Get file size
-   uint32_t file_size = file->Size;
+   uint32_t file_size = VFS_GetSize(file);
    if (file_size == 0)
    {
       printf("[ERROR] Library file is empty: %s\n", filepath);
-      FAT_Close(file);
+      VFS_Close(file);
       return -1;
    }
 
@@ -1018,25 +1011,24 @@ int Dylib_LoadFromDisk(Partition *partition, const char *name,
    {
       printf("[ERROR] Failed to allocate memory for %s (need %d bytes)\n", name,
              file_size);
-      FAT_Close(file);
+      VFS_Close(file);
       return -1;
    }
 
    // Read library data from disk
-   FAT_Seek(partition, file, 0);
-   uint32_t bytes_read =
-       FAT_Read(partition, file, file_size, (void *)load_addr);
+   VFS_Seek(file, 0);
+   uint32_t bytes_read = VFS_Read(file, file_size, (void *)load_addr);
    if (bytes_read != file_size)
    {
       printf("[ERROR] Failed to read library: expected %d bytes, got %d\n",
              file_size, bytes_read);
-      FAT_Close(file);
+      VFS_Close(file);
       Dylib_MemoryFree(name);
       return -1;
    }
 
    // Close the file
-   FAT_Close(file);
+   VFS_Close(file);
 
    // Update library record
    lib->base = (void *)load_addr;
@@ -1137,13 +1129,13 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
    symbol_callback = callback;
 }
 
-#include <fs/disk/partition.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/dylib.h>
 
-static int load_libmath(Partition *partition)
+static int load_libmath(void)
 {
    // First, ensure libmath is registered in the library registry
    LibRecord *lib_registry = LIB_REGISTRY_ADDR;
@@ -1167,7 +1159,7 @@ static int load_libmath(Partition *partition)
    }
 
    // Load libmath from disk using the standard loader
-   if (Dylib_LoadFromDisk(partition, "libmath", "/usr/lib/libmath.so") != 0)
+   if (Dylib_LoadFromDisk("libmath", "/usr/lib/libmath.so") != 0)
    {
       printf("[ERROR] Failed to load libmath.so\n");
       return -1;
@@ -1259,10 +1251,10 @@ static int load_libmath(Partition *partition)
    return 0;
 }
 
-bool Dylib_Initialize(Partition *partition)
+bool Dylib_Initialize(void)
 {
    // Load math library
-   if (load_libmath(partition) != 0)
+   if (load_libmath() != 0)
    {
       printf("[ERROR] Failed to initialize libmath\n");
       return false;

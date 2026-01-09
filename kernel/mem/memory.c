@@ -91,6 +91,23 @@ void *memmove(void *dest, const void *src, size_t n)
    return dest;
 }
 
+int strncmp(const char *s1, const char *s2, size_t n) {
+    if (n == 0)
+        return (0);
+    do {
+        if (*s1 != *s2++)
+            /*
+             * We could return *s1 - *--s2, but that's not
+             * guaranteed to be in the range of int.  Better
+             * to do the right thing instead.
+             */
+            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+        if (*s1++ == 0)
+            break;
+    } while (--n != 0);
+    return (0);
+}
+
 /**
  * Parse Multiboot memory map to detect total system memory
  * Returns total memory in bytes
@@ -163,17 +180,17 @@ void MEM_Initialize(void *multiboot_info_ptr)
        parse_multiboot_memory((multiboot_info_t *)multiboot_info_ptr);
 
    Heap_Initialize();
-   heap_self_test();
+   Heap_SelfTest();
    Stack_Initialize();
-   stack_self_test();
+   Stack_SelfTest();
    HAL_Paging_Initialize();
    HAL_Paging_SelfTest();
 
    // Initialize physical and virtual memory managers
    PMM_Initialize(total_memory);
-   pmm_self_test();
+   PMM_SelfTest();
    VMM_Initialize();
-   vmm_self_test();
+   VMM_SelfTest();
 
    /* Populate memory info in SYS_Info */
    g_SysInfo->memory.total_memory = total_memory;

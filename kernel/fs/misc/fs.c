@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+#include <fs/fat/fat.h>
+#include <fs/fs.h>
+#include <fs/vfs/vfs.h>
+#include <mem/mm_kernel.h>
+#include <std/stdio.h>
+#include <stdint.h>
+#include <sys/sys.h>
+
+/**
+ * Initialize storage system: scan and initialize all disks
+ *
+ * @return true on success, false on failure
+ */
+bool FS_Initialize()
+{
+   VFS_Init();
+
+   // Call DISK_Initialize to scan and populate all volumes
+   int disksDetected = DISK_Initialize();
+   if (disksDetected < 0)
+   {
+      printf("[FS] Disk initialization failed\n");
+      return false;
+   }
+   printf("[FS] Filesystem initialization complete, disks detected: %d\n",
+          disksDetected);
+   return true;
+}

@@ -6,8 +6,6 @@ BINUTILS_VERSION=2.37
 GCC_VERSION=15.2.0
 MUSL_VERSION=1.2.5
 
-TARGET=i686-elf
-
 BINUTILS_URL="https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz"
 GCC_URL="https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz"
 MUSL_URL="https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz"
@@ -30,6 +28,10 @@ do
         *)  TOOLCHAINS_DIR="$1"
             ;;
     esac
+    if [ -n "$2" ] && [[ ! "$2" =~ ^- ]]; then
+        TARGET="$2"
+        shift
+    fi
     shift
 done
 
@@ -42,11 +44,14 @@ mkdir -p "$TOOLCHAINS_DIR"
 cd "$TOOLCHAINS_DIR"
 TOOLCHAIN_PREFIX="$(pwd)/${TARGET}"
 
+# Convert i686-elf to i686-linux-musl for musl build
+MUSL_TARGET="${TARGET%-elf}-linux-musl"
+
 # ---------------------------
 
 build_binutils() {
     local BINUTILS_SRC="binutils-${BINUTILS_VERSION}"
-    local BINUTILS_BUILD="binutils-build-${BINUTILS_VERSION}"
+    local BINUTILS_BUILD="binutils-build-${BINUTILS_VERSION}-${TARGET}"
 
     if [ ! -d "${BINUTILS_SRC}" ]; then
         wget ${BINUTILS_URL}
@@ -69,7 +74,7 @@ build_binutils() {
 
 build_gcc_stage1() {
     local GCC_SRC="gcc-${GCC_VERSION}"
-    local GCC_BUILD="gcc-build-${GCC_VERSION}"
+    local GCC_BUILD="gcc-build-${GCC_VERSION}-${TARGET}"
 
     if [ ! -d "${GCC_SRC}" ]; then
         wget ${GCC_URL}
@@ -91,7 +96,7 @@ build_gcc_stage1() {
 
 build_musl() {
     local MUSL_SRC="musl-${MUSL_VERSION}"
-    local MUSL_BUILD="musl-build-${MUSL_VERSION}"
+    local MUSL_BUILD="musl-build-${MUSL_VERSION}-${TARGET}"
 
     if [ ! -d "${MUSL_SRC}" ]; then
         wget ${MUSL_URL}
@@ -99,12 +104,22 @@ build_musl() {
     fi
     mkdir -p ${MUSL_BUILD}
     cd ${MUSL_BUILD}
-    CFLAGS= ASMFLAGS= LD= ASM= LINKFLAGS= LIBS=
+    
+    # Export toolchain to PATH so musl finds cross-compiler
+    export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
+    export CC="${TARGET}-gcc"
+    export CXX="${TARGET}-g++"
+    export LD="${TARGET}-ld"
+    export AR="${TARGET}-ar"
+    export RANLIB="${TARGET}-ranlib"
+    export STRIP="${TARGET}-strip"
+    
+    CFLAGS= ASMFLAGS= LINKFLAGS= LIBS=
     ../musl-${MUSL_VERSION}/configure \
             --prefix="${TOOLCHAIN_PREFIX}/usr" \
-            --host=${TARGET} \
+            --host=${MUSL_TARGET} \
             --enable-static \
-            --enable-shared
+            --disable-shared
     make -j8
     make install
 
@@ -112,9 +127,13 @@ build_musl() {
 }
 
 build_gcc_stage2() {
-    local GCC_BUILD_STAGE2="gcc-build-stage2-${GCC_VERSION}"
+    local GCC_BUILD_STAGE2="gcc-build-stage2-${GCC_VERSION}-${TARGET}"
 
     mkdir -p ${GCC_BUILD_STAGE2}
+    
+    # Export toolchain to PATH so GCC stage 2 finds binutils
+    export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
+    
     CFLAGS= ASMFLAGS= LD= ASM= LINKFLAGS= LIBS= 
     cd ${GCC_BUILD_STAGE2}
     local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${TOOLCHAIN_PREFIX} --disable-nls --enable-languages=c"

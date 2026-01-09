@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "process.h"
-#include <fs/disk/partition.h>
 #include <fs/fat/fat.h>
-#include <fs/fd.h>
+#include <fs/fs.h>
 #include <hal/paging.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
@@ -201,7 +200,7 @@ void Process_SetCurrent(Process *proc)
    }
 }
 
-void process_self_test(void)
+void Process_SelfTest(void)
 {
    printf("[process] self-test: starting\n");
 

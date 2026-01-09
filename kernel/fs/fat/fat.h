@@ -2,7 +2,7 @@
 
 #ifndef FAT_H
 #define FAT_H
-#include <fs/disk/partition.h>
+#include <fs/fs.h>
 #include <stdbool.h>
 #include <stdint.h>
 

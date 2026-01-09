@@ -2,7 +2,7 @@
 
 #ifndef FDC_H
 #define FDC_H
-#include <fs/disk/disk.h> // For DISK struct
+#include <fs/fs.h> // For DISK struct
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

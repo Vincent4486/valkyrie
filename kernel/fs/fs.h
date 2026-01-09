@@ -3,18 +3,15 @@
 #ifndef FS_H
 #define FS_H
 
-#include <fs/disk/disk.h>
-#include <fs/disk/partition.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef enum
-{
-   FAT12 = 1,
-   FAT16 = 2,
-   FAT32 = 3,
-   EXT2 = 4
-} FilesystemType;
+#include "devfs/devfs.h"
+#include "disk/disk.h"
+#include "disk/partition.h"
+#include "fd/fd.h"
+#include "fs_types.h"
+#include "vfs/vfs.h"
 
 /* Filesystem device information */
 typedef struct Filesystem
@@ -32,7 +29,5 @@ typedef struct Filesystem
 } Filesystem;
 
 bool FS_Initialize();
-int FS_Mount(Partition *volume, const char *location);
-int FS_Umount(Partition *volume);
 
 #endif

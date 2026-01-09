@@ -3,7 +3,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <fs/fd.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -53,6 +53,6 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode);
 void Process_Destroy(Process *proc);
 Process *Process_GetCurrent(void);
 void Process_SetCurrent(Process *proc);
-void process_self_test(void);
+void Process_SelfTest(void);
 
 #endif
