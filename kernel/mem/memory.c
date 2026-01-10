@@ -91,21 +91,20 @@ void *memmove(void *dest, const void *src, size_t n)
    return dest;
 }
 
-int strncmp(const char *s1, const char *s2, size_t n) {
-    if (n == 0)
-        return (0);
-    do {
-        if (*s1 != *s2++)
-            /*
-             * We could return *s1 - *--s2, but that's not
-             * guaranteed to be in the range of int.  Better
-             * to do the right thing instead.
-             */
-            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
-        if (*s1++ == 0)
-            break;
-    } while (--n != 0);
-    return (0);
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+   if (n == 0) return (0);
+   do {
+      if (*s1 != *s2++)
+         /*
+          * We could return *s1 - *--s2, but that's not
+          * guaranteed to be in the range of int.  Better
+          * to do the right thing instead.
+          */
+         return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+      if (*s1++ == 0) break;
+   } while (--n != 0);
+   return (0);
 }
 
 /**
@@ -183,12 +182,16 @@ void MEM_Initialize(void *multiboot_info_ptr)
    Heap_SelfTest();
    Stack_Initialize();
    Stack_SelfTest();
+
+   // Initialize physical memory manager before paging so page tables can use it
+   PMM_Initialize(total_memory);
+   PMM_SelfTest();
+
+   // Paging after PMM so alloc_frame can use real frames
    HAL_Paging_Initialize();
    HAL_Paging_SelfTest();
 
-   // Initialize physical and virtual memory managers
-   PMM_Initialize(total_memory);
-   PMM_SelfTest();
+   // Virtual memory manager on top of paging
    VMM_Initialize();
    VMM_SelfTest();
 

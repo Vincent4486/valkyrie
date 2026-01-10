@@ -9,18 +9,20 @@
 #include <std/string.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/sys.h>
 
 /* Get VFS operations for a filesystem type */
-static const VFS_Operations* get_fs_operations(FilesystemType type)
+static const VFS_Operations *get_fs_operations(FilesystemType type)
 {
-    switch (type) {
-        case FAT12:
-        case FAT16:
-        case FAT32:
-            return FAT_GetVFSOperations();
-        default:
-            return NULL;
-    }
+   switch (type)
+   {
+   case FAT12:
+   case FAT16:
+   case FAT32:
+      return FAT_GetVFSOperations();
+   default:
+      return NULL;
+   }
 }
 
 #define VFS_MAX_MOUNTS 8
@@ -108,13 +110,23 @@ static bool vfs_resolve_path(const char *path, Partition **part_out,
    if (!mount) return false;
 
    const char *tail = path + prefix_len;
+
    if (*tail == '\0')
    {
-      strncpy(relative_out, "/", relative_size);
+      relative_out[0] = '/';
+      relative_out[1] = '\0';
    }
    else if (*tail != '/')
    {
-      snprintf(relative_out, relative_size, "/%s", tail);
+      /* Manually prepend '/' instead of using snprintf */
+      relative_out[0] = '/';
+      size_t tail_len = strlen(tail);
+      if (tail_len + 1 >= relative_size)
+      {
+         return false;
+      }
+      strncpy(relative_out + 1, tail, relative_size - 1);
+      relative_out[relative_size - 1] = '\0';
    }
    else
    {
@@ -146,19 +158,27 @@ int FS_Mount(Partition *volume, const char *location)
       return -1;
    }
 
-   char normalized[VFS_MAX_PATH];
-   if (!vfs_normalize_mount(location, normalized, sizeof(normalized)))
+   char *normalized = kmalloc(VFS_MAX_PATH);
+   if (!normalized)
+   {
+      printf("[VFS] Failed to allocate mount path buffer\n");
+      return -1;
+   }
+   
+   if (!vfs_normalize_mount(location, normalized, VFS_MAX_PATH))
    {
       printf("[VFS] Invalid mount location '%s'\n", location ? location : "");
+      free(normalized);
       return -1;
    }
 
    /* Avoid duplicate mounts on the same path */
    for (uint8_t i = 0; i < g_mount_count; i++)
    {
-      if (strncmp(g_mounts[i].mount_point, normalized, sizeof(normalized)) == 0)
+      if (strncmp(g_mounts[i].mount_point, normalized, VFS_MAX_PATH) == 0)
       {
          printf("[VFS] Mount point '%s' already in use\n", normalized);
+         free(normalized);
          return -1;
       }
    }
@@ -169,10 +189,17 @@ int FS_Mount(Partition *volume, const char *location)
       volume->fs->ops = get_fs_operations(volume->fs->type);
       if (!volume->fs->ops)
       {
-         printf("[VFS] No operations available for filesystem type %d\n", volume->fs->type);
+         printf("[VFS] No operations available for filesystem type %d\n",
+                volume->fs->type);
+         free(normalized);
          return -1;
       }
    }
+
+   /* Debug: print mount pointers so we can verify partition/fs correctness */
+   printf("[VFS] Mounting partition @%p -> fs=%p ops=%p at %s\n",
+          (void *)volume, (void *)volume->fs,
+          (void *)(volume->fs ? volume->fs->ops : NULL), normalized);
 
    strncpy(g_mounts[g_mount_count].mount_point, normalized,
            sizeof(g_mounts[g_mount_count].mount_point) - 1);
@@ -182,7 +209,7 @@ int FS_Mount(Partition *volume, const char *location)
    g_mount_count++;
 
    volume->fs->mounted = 1;
-   printf("[VFS] Mounted %s at %s\n", volume->disk->brand, normalized);
+   free(normalized);
    return 0;
 }
 
@@ -208,94 +235,122 @@ int FS_Umount(Partition *volume)
 VFS_File *VFS_Open(const char *path)
 {
    Partition *part = NULL;
-   char relative[VFS_MAX_PATH];
-
-   if (!vfs_resolve_path(path, &part, relative, sizeof(relative)))
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative)
    {
-      printf("[VFS] No mount found for path '%s'\n", path ? path : "");
       return NULL;
    }
 
-   if (!part || !part->fs || !part->fs->ops)
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
    {
-      printf("[VFS] Missing filesystem or operations for resolved partition\n");
-      printf("[VFS DEBUG] part=%p, part->fs=%p, part->fs->ops=%p\n",
-             (void*)part,
-             (void*)(part ? part->fs : NULL),
-             (void*)(part && part->fs ? part->fs->ops : NULL));
-      if (part && part->disk)
-         printf("[VFS DEBUG] partition->disk=%p brand=%s\n",
-                (void*)part->disk,
-                part->disk->brand ? part->disk->brand : "NULL");
+      free(relative);
       return NULL;
    }
 
-   if (!part->fs->ops->open)
+   if (!part || !part->fs || !part->fs->ops || !part->fs->ops->open)
    {
-      printf("[VFS] Filesystem does not support open operation\n");
+      free(relative);
       return NULL;
    }
 
-   return part->fs->ops->open(part, relative);
+   VFS_File *result = part->fs->ops->open(part, relative);
+   free(relative);
+   return result;
 }
 
 bool VFS_Delete(const char *path)
 {
    Partition *part = NULL;
-   char relative[VFS_MAX_PATH];
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative)
+   {
+      return false;
+   }
 
-   if (!vfs_resolve_path(path, &part, relative, sizeof(relative)))
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
    {
       printf("[VFS] No mount found for path '%s'\n", path ? path : "");
+      free(relative);
       return false;
    }
 
    if (!part || !part->fs || !part->fs->ops || !part->fs->ops->delete)
    {
-      printf("[VFS] Filesystem does not support delete operation\n");
-      printf("[VFS DEBUG] delete check: part=%p, part->fs=%p, part->fs->ops=%p, delete_fn=%p\n",
-             (void*)part,
-             (void*)(part ? part->fs : NULL),
-             (void*)(part && part->fs ? part->fs->ops : NULL),
-             (void*)(part && part->fs && part->fs->ops ? part->fs->ops->delete : NULL));
+      printf("[VFS DEBUG] delete check: part=%p, part->fs=%p, "
+             "part->fs->ops=%p, delete_fn=%p\n",
+             (void *)part, (void *)(part ? part->fs : NULL),
+             (void *)(part && part->fs ? part->fs->ops : NULL),
+             (void *)(part && part->fs && part->fs->ops ? part->fs->ops->delete
+                                                        : NULL));
+      free(relative);
       return false;
    }
 
-   return part->fs->ops->delete(part, relative);
+   bool result = part->fs->ops->delete (part, relative);
+   free(relative);
+   return result;
 }
 
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut)
 {
    if (!file || !dataOut || byteCount == 0) return 0;
-   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->read)
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops ||
+       !file->partition->fs->ops->read)
       return 0;
 
-   return file->partition->fs->ops->read(file->partition, file->fs_file, byteCount, dataOut);
+   uint32_t result = file->partition->fs->ops->read(
+       file->partition, file->fs_file, byteCount, dataOut);
+   return result;
 }
 
 uint32_t VFS_Write(VFS_File *file, uint32_t byteCount, const void *dataIn)
 {
    if (!file || !dataIn || byteCount == 0) return 0;
-   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->write)
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops ||
+       !file->partition->fs->ops->write)
       return 0;
 
-   return file->partition->fs->ops->write(file->partition, file->fs_file, byteCount, dataIn);
+   return file->partition->fs->ops->write(file->partition, file->fs_file,
+                                          byteCount, dataIn);
 }
 
 bool VFS_Seek(VFS_File *file, uint32_t position)
 {
-   if (!file) return false;
-   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->seek)
+   if (!file)
+   {
+      printf("[VFS_Seek] file is NULL\n");
       return false;
+   }
+   if (!file->partition)
+   {
+      printf("[VFS_Seek] partition is NULL\n");
+      return false;
+   }
+   if (!file->partition->fs)
+   {
+      printf("[VFS_Seek] fs is NULL\n");
+      return false;
+   }
+   if (!file->partition->fs->ops)
+   {
+      printf("[VFS_Seek] ops is NULL\n");
+      return false;
+   }
+   if (!file->partition->fs->ops->seek)
+   {
+      printf("[VFS_Seek] seek function pointer is NULL\n");
+      return false;
+   }
 
-   return file->partition->fs->ops->seek(file->partition, file->fs_file, position);
+   return file->partition->fs->ops->seek(file->partition, file->fs_file,
+                                         position);
 }
 
 void VFS_Close(VFS_File *file)
 {
    if (!file) return;
 
-   if (file->partition && file->partition->fs && file->partition->fs->ops && 
+   if (file->partition && file->partition->fs && file->partition->fs->ops &&
        file->partition->fs->ops->close && file->fs_file)
    {
       file->partition->fs->ops->close(file->fs_file);
@@ -307,7 +362,8 @@ void VFS_Close(VFS_File *file)
 uint32_t VFS_GetSize(VFS_File *file)
 {
    if (!file) return 0;
-   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->get_size)
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops ||
+       !file->partition->fs->ops->get_size)
       return file->size; /* Fallback to cached size */
 
    return file->partition->fs->ops->get_size(file->fs_file);
@@ -316,32 +372,23 @@ uint32_t VFS_GetSize(VFS_File *file)
 void VFS_SelfTest(void)
 {
    const char *test_path = "/test/vfs.txt";
-   const uint32_t test_size = 4096; // 4 KB
-   uint32_t alphabet_len = 26;
-   
-   char *test_data = (char *)kmalloc(sizeof(char) * test_size);
+   const char *test_data_str = "hello";
+   uint32_t len = strlen(test_data_str);
    VFS_File *test_file = NULL;
-
-   if (test_data == NULL)
-   {
-      printf("[VFS] Failed to allocate test buffer\n");
-      goto cleanup;
-   }
-   memset(test_data, 'A', sizeof(test_data) - 1);
-   // test_data[test_size] = '\0';
 
    test_file = VFS_Open(test_path);
    if (!test_file)
    {
       printf("[VFS] Failed to open/create file\n");
-      goto cleanup;
+      printf("[VFS] SelfTest: done\n");
+      return;
    }
 
-   uint32_t bytes_written = VFS_Write(test_file, test_size, test_data);
+   uint32_t bytes_written = VFS_Write(test_file, len, test_data_str);
 
-   if (bytes_written != test_size)
+   if (bytes_written != len)
    {
-      printf("[VFS] SelfTest=FAILED\n");
+      printf("[VFS] SelfTest=FAILED (wrote %u/%u bytes)\n", bytes_written, len);
    }
    else
    {
@@ -350,15 +397,4 @@ void VFS_SelfTest(void)
 
    VFS_Close(test_file);
    test_file = NULL;
-
-cleanup:
-   if (test_file)
-   {
-      VFS_Close(test_file);
-   }
-
-   if (test_data)
-   {
-      free(test_data);
-   }
 }

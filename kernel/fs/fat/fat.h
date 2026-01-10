@@ -92,6 +92,6 @@ struct VFS_Operations;
 typedef struct VFS_Operations VFS_Operations;
 
 /* Get VFS operations structure for FAT filesystem */
-const VFS_Operations* FAT_GetVFSOperations(void);
+const VFS_Operations *FAT_GetVFSOperations(void);
 
 #endif

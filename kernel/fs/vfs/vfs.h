@@ -16,14 +16,17 @@ struct Partition;
 typedef struct Partition Partition;
 
 /* VFS operations structure - Linux-style function pointers */
-typedef struct VFS_Operations {
-    VFS_File* (*open)(Partition *partition, const char *path);
-    uint32_t (*read)(Partition *partition, void *fs_file, uint32_t byteCount, void *dataOut);
-    uint32_t (*write)(Partition *partition, void *fs_file, uint32_t byteCount, const void *dataIn);
-    bool (*seek)(Partition *partition, void *fs_file, uint32_t position);
-    void (*close)(void *fs_file);
-    uint32_t (*get_size)(void *fs_file);
-    bool (*delete)(Partition *partition, const char *path);
+typedef struct VFS_Operations
+{
+   VFS_File *(*open)(Partition *partition, const char *path);
+   uint32_t (*read)(Partition *partition, void *fs_file, uint32_t byteCount,
+                    void *dataOut);
+   uint32_t (*write)(Partition *partition, void *fs_file, uint32_t byteCount,
+                     const void *dataIn);
+   bool (*seek)(Partition *partition, void *fs_file, uint32_t position);
+   void (*close)(void *fs_file);
+   uint32_t (*get_size)(void *fs_file);
+   bool (*delete)(Partition *partition, const char *path);
 } VFS_Operations;
 
 typedef struct VFS_File

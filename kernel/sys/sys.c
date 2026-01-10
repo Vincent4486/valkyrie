@@ -6,6 +6,7 @@
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
+#include <stdint.h>
 
 /* Global SYS_Info structure (allocated in SYS_Initialize) */
 SYS_Info *g_SysInfo = (SYS_Info *)SYS_INFO_ADDR;

@@ -39,7 +39,8 @@ int DISK_Scan()
    for (int i = 0; i < totalDisks; i++)
    {
       DISK *source = &detectedDisks[i];
-      // Keep disk metadata on the heap so the pointer stays valid beyond this stack frame.
+      // Keep disk metadata on the heap so the pointer stays valid beyond this
+      // stack frame.
       DISK *disk = (DISK *)kmalloc(sizeof(DISK));
       if (!disk)
       {
@@ -102,14 +103,15 @@ int DISK_Scan()
                   fs->read_only = 0;
                   fs->block_size = 512;
                   fs->type = FAT32; // TODO: detect actual FAT type
-                  fs->ops = NULL;  // Will be set during FS_Mount
+                  fs->ops = NULL;   // Will be set during FS_Mount
                   volume->fs = fs;
                }
                else
                {
                   // FAT initialized but we couldn't allocate filesystem struct
                   // Ensure we don't leave a dangling pointer
-                  printf("[DISK] Warning: FAT init succeeded but allocation failed for volume[%d]\n",
+                  printf("[DISK] Warning: FAT init succeeded but allocation "
+                         "failed for volume[%d]\n",
                          volumeIndex);
                   volume->fs = NULL;
                }

@@ -22,7 +22,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       printf("[process] create: kmalloc failed\n");
       return NULL;
    }
-
+   
    // Initialize basic fields
    proc->pid = next_pid++;
    proc->ppid = 0;
@@ -30,7 +30,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
    proc->kernel_mode = kernel_mode;
    proc->priority = 10;
    proc->exit_code = 0;
-
+   
    if (kernel_mode)
    {
       // Kernel-mode: reuse current kernel page directory, no user heap/stack
@@ -51,7 +51,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
          free(proc);
          return NULL;
       }
-
+      
       // Initialize heap at 0x10000000 (user data segment)
       if (Heap_ProcessInitialize(proc, 0x10000000) == -1)
       {
@@ -60,12 +60,12 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
          free(proc);
          return NULL;
       }
-
+      
       // Initialize stack (grows downward)
       const uint32_t stack_top = 0xBFFF0000u;
       const uint32_t stack_size = 64 * 1024; // 64 KiB user stack
       const uint32_t stack_bottom = stack_top - stack_size;
-
+      
       // Map stack pages into the process address space
       if (Stack_ProcessInitialize(proc, stack_top, stack_size) != 0)
       {
@@ -74,14 +74,11 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
          free(proc);
          return NULL;
       }
+      // Prepare initial stack frame using generic stack helpers.
+      // We track the stack pointer arithmetically WITHOUT accessing user VA
+      // from kernel context, since user VA is only mapped in proc->page_directory.
+      uint32_t user_esp = stack_top;
 
-      // Prepare initial stack frame using generic stack helpers
-      Stack tmp_stack = {
-          .base = stack_top,
-          .size = stack_size,
-          .current = stack_top,
-          .data = (uint8_t *)stack_bottom,
-      };
       // Switch to process page directory so the user stack VA is mapped while
       // we write to it
       void *kernel_pd = VMM_GetPageDirectory();
@@ -104,25 +101,28 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       }
 
       HAL_Paging_SwitchPageDirectory(proc->page_directory);
-      Stack_SetupProcess(&tmp_stack, entry_point);
+
+      // Push process exit handler address as return address directly
+      // Stack grows downward: decrement ESP, then write
+      extern void _process_exit_handler(void);
+      user_esp -= sizeof(uint32_t);
+      *(uint32_t *)user_esp = (uint32_t)&_process_exit_handler;
+
       // Switch back to kernel page directory - critical for correctness
       HAL_Paging_SwitchPageDirectory(kernel_pd);
 
-      // Record initial ESP/EBP after setup
-      proc->esp = tmp_stack.current;
-      proc->ebp = tmp_stack.current;
+      // Record initial ESP/EBP after setup (these are user-space addresses)
+      proc->esp = user_esp;
+      proc->ebp = user_esp;
    }
-
    // Initialize registers
    proc->eip = entry_point;
    proc->eax = proc->ebx = proc->ecx = proc->edx = 0;
    proc->esi = proc->edi = 0;
    proc->eflags = 0x202; // IF=1 (interrupts enabled)
-
    // Initialize file descriptors (all NULL, reserved FDs 0/1/2 handled by
    // syscalls)
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
-
    printf("[process] created: pid=%u, entry=0x%08x\n", proc->pid, entry_point);
    return proc;
 }

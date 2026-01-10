@@ -131,8 +131,8 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
    proc->stack_start = stack_bottom_va;
    proc->stack_end = stack_top_va;
 
-   printf("[stack] Initialized user stack for pid=%u at 0x%08x-0x%08x\n",
-          proc->pid, proc->stack_start, proc->stack_end);
+   // printf("[stack] Initialized user stack for pid=%u at 0x%08x-0x%08x\n",
+   //        proc->pid, proc->stack_start, proc->stack_end);
 
    return 0;
 }

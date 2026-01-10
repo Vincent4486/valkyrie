@@ -5,6 +5,7 @@
 #include <fs/fs.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <valkyrie/system.h>
 

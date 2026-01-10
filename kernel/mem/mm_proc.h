@@ -13,6 +13,9 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va);
 int Heap_ProcessBrk(Process *proc, void *addr);
 void *Heap_ProcessSbrk(Process *proc, intptr_t inc);
 
+/* Physical memory manager status */
+int PMM_IsInitialized(void);
+
 /* Virtual Memory Manager (VMM) - Process level
  *
  * Per-process virtual memory operations.

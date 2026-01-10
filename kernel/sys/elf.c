@@ -27,12 +27,26 @@ bool ELF_Load(VFS_File *file, void **entryOut)
       return false;
    }
 
+   /* Use a heap bounce buffer to avoid stack overwrites if a buggy driver
+    * writes past the requested length. */
    Elf32_Ehdr ehdr;
-   if (VFS_Read(file, sizeof(ehdr), &ehdr) != sizeof(ehdr))
+   void *hdr_buf = kmalloc(sizeof(ehdr));
+   if (!hdr_buf)
    {
-      printf("ELF: read header failed\n");
+      printf("ELF: failed to allocate header buffer\n");
       return false;
    }
+
+      uint32_t hdr_read = VFS_Read(file, sizeof(ehdr), hdr_buf);
+      if (hdr_read != sizeof(ehdr))
+      {
+         printf("ELF: read header failed (got %u)\n", hdr_read);
+         free(hdr_buf);
+         return false;
+      }
+
+   memcpy(&ehdr, hdr_buf, sizeof(ehdr));
+   free(hdr_buf);
 
    // validate magic and class
    if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
@@ -73,11 +87,23 @@ bool ELF_Load(VFS_File *file, void **entryOut)
          return false;
       }
 
-      if (VFS_Read(file, sizeof(phdr), &phdr) != sizeof(phdr))
+      void *ph_buf = kmalloc(sizeof(phdr));
+      if (!ph_buf)
       {
-         printf("ELF: read phdr %u failed\n", i);
+         printf("ELF: alloc phdr buffer failed\n");
          return false;
       }
+
+      uint32_t ph_read = VFS_Read(file, sizeof(phdr), ph_buf);
+      if (ph_read != sizeof(phdr))
+      {
+         printf("ELF: read phdr %u failed (got %u)\n", i, ph_read);
+         free(ph_buf);
+         return false;
+      }
+
+      memcpy(&phdr, ph_buf, sizeof(phdr));
+      free(ph_buf);
 
       const uint32_t PT_LOAD = 1;
       if (phdr.p_type != PT_LOAD) continue;
@@ -138,9 +164,6 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       return NULL;
    }
 
-   printf("[ELF DBG] VFS_Open returned file=%p for %s\n", (void*)file,
-          filename);
-
    // Read ELF header
    if (!VFS_Seek(file, 0))
    {
@@ -150,13 +173,25 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    Elf32_Ehdr ehdr;
-   if (VFS_Read(file, sizeof(ehdr), (uint8_t *)&ehdr) != sizeof(ehdr))
+   void *hdr_buf = kmalloc(sizeof(ehdr));
+   if (!hdr_buf)
    {
-      printf("[ELF] LoadProcess: read header failed\n");
+      printf("[ELF] LoadProcess: alloc header buffer failed\n");
       VFS_Close(file);
       return NULL;
    }
 
+   uint32_t read_bytes = VFS_Read(file, sizeof(ehdr), (uint8_t *)hdr_buf);
+   if (read_bytes != sizeof(ehdr))
+   {
+      printf("[ELF] LoadProcess: read header failed\n");
+      free(hdr_buf);
+      VFS_Close(file);
+      return NULL;
+   }
+
+   memcpy(&ehdr, hdr_buf, sizeof(ehdr));
+   free(hdr_buf);
    // Validate magic
    if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
        ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
@@ -165,7 +200,6 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       VFS_Close(file);
       return NULL;
    }
-
    // Create process with ELF entry point
    Process *proc = Process_Create(ehdr.e_entry, kernel_mode);
    if (!proc)
@@ -174,9 +208,6 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       VFS_Close(file);
       return NULL;
    }
-
-   printf("[ELF DBG] Process created pid=%u entry=0x%08x\n", proc->pid,
-          ehdr.e_entry);
 
    // Save kernel page directory at the start - we'll need to restore it
    void *kernel_pdir = HAL_Paging_GetCurrentPageDirectory();
@@ -194,13 +225,27 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          return NULL;
       }
 
-      if (VFS_Read(file, sizeof(phdr), (uint8_t *)&phdr) != sizeof(phdr))
+      void *ph_buf = kmalloc(sizeof(phdr));
+      if (!ph_buf)
       {
-         printf("[ELF] LoadProcess: read phdr %u failed\n", i);
+         printf("[ELF] LoadProcess: alloc phdr buffer failed\n");
          Process_Destroy(proc);
          VFS_Close(file);
          return NULL;
       }
+
+      uint32_t ph_read = VFS_Read(file, sizeof(phdr), (uint8_t *)ph_buf);
+      if (ph_read != sizeof(phdr))
+      {
+         printf("[ELF] LoadProcess: read phdr %u failed (got %u)\n", i, ph_read);
+         free(ph_buf);
+         Process_Destroy(proc);
+         VFS_Close(file);
+         return NULL;
+      }
+
+      memcpy(&phdr, ph_buf, sizeof(phdr));
+      free(ph_buf);
 
       // Only load PT_LOAD segments
       const uint32_t PT_LOAD = 1;
@@ -210,15 +255,10 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t memsz = phdr.p_memsz;
       uint32_t filesz = phdr.p_filesz;
 
-      printf("[ELF] LoadProcess: loading segment %u at 0x%08x (filesz=%u, "
-             "memsz=%u)\n",
-             i, vaddr, filesz, memsz);
+      // Allocate pages in process's virtual address space
+      uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
 
-            // Allocate pages in process's virtual address space
-            uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
-            printf("[ELF DBG] Segment %u needs %u pages (vaddr=0x%08x filesz=%u memsz=%u)\n",
-               i, pages_needed, vaddr, filesz, memsz);
-            for (uint32_t j = 0; j < pages_needed; ++j)
+      for (uint32_t j = 0; j < pages_needed; ++j)
       {
          uint32_t page_va = vaddr + (j * 4096);
          uint32_t phys = PMM_AllocatePhysicalPage();
@@ -253,26 +293,35 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          return NULL;
       }
 
-      // Read file data into kernel buffer (while still in kernel page directory)
-      uint8_t buffer[512];
+      // Read file data into kernel buffer (while still in kernel page
+      // directory). Use a heap bounce buffer to avoid stack overwrite if the
+      // driver returns more than requested.
+      const uint32_t CHUNK = 512;
+      uint8_t *buffer = (uint8_t *)kmalloc(CHUNK);
+      if (!buffer)
+      {
+         printf("[ELF] LoadProcess: alloc buffer failed\n");
+         Process_Destroy(proc);
+         VFS_Close(file);
+         return NULL;
+      }
+
       uint32_t remaining = filesz;
       uint32_t offset = 0;
 
       while (remaining > 0)
       {
-         uint32_t chunk =
-             remaining < sizeof(buffer) ? remaining : sizeof(buffer);
+         uint32_t chunk = remaining < CHUNK ? remaining : CHUNK;
          uint32_t bytes_read = VFS_Read(file, chunk, buffer);
-         if (bytes_read == 0)
+         if (bytes_read == 0 || bytes_read > chunk)
          {
-            printf("[ELF] LoadProcess: VFS_Read failed\n");
+            printf("[ELF] LoadProcess: VFS_Read failed/overflow (got %u, req %u)\n",
+                   bytes_read, chunk);
+            free(buffer);
             Process_Destroy(proc);
             VFS_Close(file);
             return NULL;
          }
-
-         printf("[ELF DBG] Copying %u bytes to %08x (offset %u)\n",
-                bytes_read, vaddr + offset, offset);
 
          // Temporarily switch to process page directory to write to its memory
          void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
@@ -288,7 +337,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          remaining -= bytes_read;
       }
 
-        printf("[ELF DBG] Finished copying segment %u\n", i);
+      free(buffer);
 
       // Zero out BSS (memsz > filesz)
       if (memsz > filesz)
@@ -305,12 +354,9 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    VFS_Close(file);
-   
+
    // Force restore kernel page directory to ensure we're back in kernel space
    HAL_Paging_SwitchPageDirectory(kernel_pdir);
-   
-   printf("[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
-          "0x%08x\n",
-          filename, proc->pid, ehdr.e_entry);
+
    return proc;
 }

@@ -3,8 +3,8 @@
 #include "stack.h"
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
-#include <std/string.h>
 #include <std/stdio.h>
+#include <std/string.h>
 
 /**
  * x86 32-bit Stack Implementation

@@ -44,13 +44,13 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    }
    FS_Mount(&g_SysInfo->volume[0], "/");
    VFS_SelfTest();
-
+   
    if (!Dylib_Initialize())
    {
       printf("Failed to load dynamic libraries...");
       goto end;
    }
-  
+
    /* Mark system as fully initialized */
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);

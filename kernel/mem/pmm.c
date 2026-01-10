@@ -15,6 +15,7 @@
 static uint8_t *page_bitmap = NULL;
 static uint32_t total_pages = 0;
 static uint32_t allocated_count = 0;
+static int pmm_initialized = 0;
 
 static void bitmap_set(uint32_t page_idx)
 {
@@ -41,6 +42,7 @@ static bool bitmap_is_set(uint32_t page_idx)
 
 void PMM_Initialize(uint32_t total_mem_bytes)
 {
+   pmm_initialized = 1;
    // Calculate number of pages
    total_pages = (total_mem_bytes + PAGE_SIZE - 1) / PAGE_SIZE;
 
@@ -74,6 +76,8 @@ void PMM_Initialize(uint32_t total_mem_bytes)
    printf("[pmm] init: total=%u pages, reserved=%u, free=%u\n", total_pages,
           reserved_pages, total_pages - allocated_count);
 }
+
+int PMM_IsInitialized(void) { return pmm_initialized; }
 
 uint32_t PMM_AllocatePhysicalPage(void)
 {
