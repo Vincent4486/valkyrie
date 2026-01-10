@@ -3,7 +3,6 @@
 #include <cpu/cpu.h>
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
-#include <fs/fat/fat.h>
 #include <fs/fs.h>
 #include <hal/hal.h>
 #include <hal/irq.h>
@@ -44,13 +43,14 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       goto end;
    }
    FS_Mount(&g_SysInfo->volume[0], "/");
+   VFS_SelfTest();
 
    if (!Dylib_Initialize())
    {
       printf("Failed to load dynamic libraries...");
       goto end;
    }
-
+  
    /* Mark system as fully initialized */
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);

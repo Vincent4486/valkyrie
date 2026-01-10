@@ -3,6 +3,7 @@
 #include "partition.h"
 #include <drivers/ata/ata.h>
 #include <mem/mm_kernel.h>
+#include <std/stdio.h>
 
 typedef struct
 {
@@ -105,6 +106,7 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
 bool Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
                            void *lowerDataOut)
 {
+   if (!part || !part->disk) return false;
    return DISK_ReadSectors(part->disk, lba + part->partitionOffset, sectors,
                            lowerDataOut);
 }
@@ -112,6 +114,7 @@ bool Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
 bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
                             const void *lowerDataIn)
 {
+   if (!part || !part->disk) return false;
    return DISK_WriteSectors(part->disk, lba + part->partitionOffset, sectors,
                             lowerDataIn);
 }

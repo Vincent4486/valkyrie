@@ -4,6 +4,7 @@
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/string.h>
+#include <std/stdio.h>
 
 /**
  * x86 32-bit Stack Implementation
@@ -164,4 +165,16 @@ void i686_Stack_InitializeKernel(void)
    // - Physical address: early in kernel memory
    // - Virtual address: kernel space (maps to physical via boot page tables)
    // - Size: predefined in linker script
+}
+
+/* Default process exit handler.
+ * When a user process returns from main(), execution will jump here. For now,
+ * just log and halt. Replace with a proper process teardown when available. */
+__attribute__((noreturn)) void _process_exit_handler(void)
+{
+   printf("[process] exit handler invoked; halting.\n");
+   for (;;)
+   {
+      __asm__ volatile("cli; hlt");
+   }
 }

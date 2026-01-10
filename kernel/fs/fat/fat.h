@@ -84,4 +84,14 @@ FAT_File *FAT_Create(Partition *disk, const char *name);
 // Returns true on success.
 bool FAT_Delete(Partition *disk, const char *name);
 
+/* Invalidate FAT cache and reset file handles */
+void FAT_InvalidateCache(void);
+
+/* VFS Integration */
+struct VFS_Operations;
+typedef struct VFS_Operations VFS_Operations;
+
+/* Get VFS operations structure for FAT filesystem */
+const VFS_Operations* FAT_GetVFSOperations(void);
+
 #endif

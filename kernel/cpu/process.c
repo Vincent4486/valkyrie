@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "process.h"
-#include <fs/fat/fat.h>
 #include <fs/fs.h>
 #include <hal/paging.h>
 #include <mem/mm_kernel.h>

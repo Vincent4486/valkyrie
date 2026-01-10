@@ -7,7 +7,7 @@
  */
 
 #include "dylib.h"
-#include <fs/vfs/vfs.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -829,8 +829,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    {
       original_base = 0x05000000; // Default for our libmath
    }
-   printf("[DYLIB] Detected original_base = 0x%x (from e_entry=0x%x)\n",
-          original_base, e_entry);
 
    // Find .symtab and .strtab sections
    uint32_t symtab_addr = 0, symtab_size = 0, symtab_entsize = 0;
@@ -849,10 +847,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          symtab_size = sh->sh_size;
          symtab_entsize = sh->sh_entsize;
          strtab_link = sh->sh_link; // Index of associated string table
-         printf("[DYLIB] Found .symtab at file offset 0x%x, memory 0x%x, "
-                "size=%d, entsize=%d, strtab_link=%d\n",
-                sh->sh_offset, symtab_addr, symtab_size, symtab_entsize,
-                strtab_link);
       }
    }
 

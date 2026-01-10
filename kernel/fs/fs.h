@@ -10,13 +10,18 @@
 #include "disk/disk.h"
 #include "disk/partition.h"
 #include "fd/fd.h"
-#include "fs_types.h"
+#include "misc/fs_types.h"
 #include "vfs/vfs.h"
+
+/* Forward declaration to avoid circular dependency */
+struct VFS_Operations;
+typedef struct VFS_Operations VFS_Operations;
 
 /* Filesystem device information */
 typedef struct Filesystem
 {
    FilesystemType type;   /* Filesystem type (fat12, fat16, fat32, ext2, etc) */
+   const VFS_Operations *ops; /* VFS operations for this filesystem */
    uint32_t block_size;   /* Block size in bytes */
    uint32_t total_blocks; /* Total number of blocks */
    uint32_t used_blocks;  /* Used blocks */

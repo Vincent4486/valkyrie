@@ -10,6 +10,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Get VFS operations for a filesystem type */
+static const VFS_Operations* get_fs_operations(FilesystemType type)
+{
+    switch (type) {
+        case FAT12:
+        case FAT16:
+        case FAT32:
+            return FAT_GetVFSOperations();
+        default:
+            return NULL;
+    }
+}
+
 #define VFS_MAX_MOUNTS 8
 #define VFS_MAX_PATH 256
 
@@ -150,6 +163,17 @@ int FS_Mount(Partition *volume, const char *location)
       }
    }
 
+   /* Set the VFS operations based on filesystem type */
+   if (!volume->fs->ops)
+   {
+      volume->fs->ops = get_fs_operations(volume->fs->type);
+      if (!volume->fs->ops)
+      {
+         printf("[VFS] No operations available for filesystem type %d\n", volume->fs->type);
+         return -1;
+      }
+   }
+
    strncpy(g_mounts[g_mount_count].mount_point, normalized,
            sizeof(g_mounts[g_mount_count].mount_point) - 1);
    g_mounts[g_mount_count]
@@ -192,97 +216,89 @@ VFS_File *VFS_Open(const char *path)
       return NULL;
    }
 
-   if (!part || !part->fs)
+   if (!part || !part->fs || !part->fs->ops)
    {
-      printf("[VFS] Missing filesystem for resolved partition\n");
+      printf("[VFS] Missing filesystem or operations for resolved partition\n");
+      printf("[VFS DEBUG] part=%p, part->fs=%p, part->fs->ops=%p\n",
+             (void*)part,
+             (void*)(part ? part->fs : NULL),
+             (void*)(part && part->fs ? part->fs->ops : NULL));
+      if (part && part->disk)
+         printf("[VFS DEBUG] partition->disk=%p brand=%s\n",
+                (void*)part->disk,
+                part->disk->brand ? part->disk->brand : "NULL");
       return NULL;
    }
 
-   switch (part->fs->type)
+   if (!part->fs->ops->open)
    {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-   {
-      FAT_File *fat_file = FAT_Open(part, relative);
-      if (!fat_file) return NULL;
-
-      VFS_File *vf = (VFS_File *)kmalloc(sizeof(VFS_File));
-      if (!vf) return NULL;
-
-      vf->partition = part;
-      vf->type = part->fs->type;
-      vf->fs_file = fat_file;
-      vf->is_directory = fat_file->IsDirectory;
-      vf->size = fat_file->Size;
-      return vf;
-   }
-   default:
-      printf("[VFS] Unsupported filesystem type %d\n", part->fs->type);
+      printf("[VFS] Filesystem does not support open operation\n");
       return NULL;
    }
+
+   return part->fs->ops->open(part, relative);
+}
+
+bool VFS_Delete(const char *path)
+{
+   Partition *part = NULL;
+   char relative[VFS_MAX_PATH];
+
+   if (!vfs_resolve_path(path, &part, relative, sizeof(relative)))
+   {
+      printf("[VFS] No mount found for path '%s'\n", path ? path : "");
+      return false;
+   }
+
+   if (!part || !part->fs || !part->fs->ops || !part->fs->ops->delete)
+   {
+      printf("[VFS] Filesystem does not support delete operation\n");
+      printf("[VFS DEBUG] delete check: part=%p, part->fs=%p, part->fs->ops=%p, delete_fn=%p\n",
+             (void*)part,
+             (void*)(part ? part->fs : NULL),
+             (void*)(part && part->fs ? part->fs->ops : NULL),
+             (void*)(part && part->fs && part->fs->ops ? part->fs->ops->delete : NULL));
+      return false;
+   }
+
+   return part->fs->ops->delete(part, relative);
 }
 
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut)
 {
    if (!file || !dataOut || byteCount == 0) return 0;
-
-   switch (file->type)
-   {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-      return FAT_Read(file->partition, (FAT_File *)file->fs_file, byteCount,
-                      dataOut);
-   default:
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->read)
       return 0;
-   }
+
+   return file->partition->fs->ops->read(file->partition, file->fs_file, byteCount, dataOut);
 }
 
 uint32_t VFS_Write(VFS_File *file, uint32_t byteCount, const void *dataIn)
 {
    if (!file || !dataIn || byteCount == 0) return 0;
-
-   switch (file->type)
-   {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-      return FAT_Write(file->partition, (FAT_File *)file->fs_file, byteCount,
-                       dataIn);
-   default:
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->write)
       return 0;
-   }
+
+   return file->partition->fs->ops->write(file->partition, file->fs_file, byteCount, dataIn);
 }
 
 bool VFS_Seek(VFS_File *file, uint32_t position)
 {
    if (!file) return false;
-
-   switch (file->type)
-   {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-      return FAT_Seek(file->partition, (FAT_File *)file->fs_file, position);
-   default:
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->seek)
       return false;
-   }
+
+   return file->partition->fs->ops->seek(file->partition, file->fs_file, position);
 }
 
 void VFS_Close(VFS_File *file)
 {
    if (!file) return;
 
-   switch (file->type)
+   if (file->partition && file->partition->fs && file->partition->fs->ops && 
+       file->partition->fs->ops->close && file->fs_file)
    {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-      if (file->fs_file) FAT_Close((FAT_File *)file->fs_file);
-      break;
-   default:
-      break;
+      file->partition->fs->ops->close(file->fs_file);
    }
 
    free(file);
@@ -291,14 +307,58 @@ void VFS_Close(VFS_File *file)
 uint32_t VFS_GetSize(VFS_File *file)
 {
    if (!file) return 0;
+   if (!file->partition || !file->partition->fs || !file->partition->fs->ops || !file->partition->fs->ops->get_size)
+      return file->size; /* Fallback to cached size */
 
-   switch (file->type)
+   return file->partition->fs->ops->get_size(file->fs_file);
+}
+
+void VFS_SelfTest(void)
+{
+   const char *test_path = "/test/vfs.txt";
+   const uint32_t test_size = 4096; // 4 KB
+   uint32_t alphabet_len = 26;
+   
+   char *test_data = (char *)kmalloc(sizeof(char) * test_size);
+   VFS_File *test_file = NULL;
+
+   if (test_data == NULL)
    {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-      return file->size;
-   default:
-      return 0;
+      printf("[VFS] Failed to allocate test buffer\n");
+      goto cleanup;
+   }
+   memset(test_data, 'A', sizeof(test_data) - 1);
+   // test_data[test_size] = '\0';
+
+   test_file = VFS_Open(test_path);
+   if (!test_file)
+   {
+      printf("[VFS] Failed to open/create file\n");
+      goto cleanup;
+   }
+
+   uint32_t bytes_written = VFS_Write(test_file, test_size, test_data);
+
+   if (bytes_written != test_size)
+   {
+      printf("[VFS] SelfTest=FAILED\n");
+   }
+   else
+   {
+      printf("[VFS] SelfTest=PASS\n");
+   }
+
+   VFS_Close(test_file);
+   test_file = NULL;
+
+cleanup:
+   if (test_file)
+   {
+      VFS_Close(test_file);
+   }
+
+   if (test_data)
+   {
+      free(test_data);
    }
 }

@@ -130,7 +130,6 @@ bool ELF_Load(VFS_File *file, void **entryOut)
 Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
 {
    if (!filename) return NULL;
-
    // Open ELF file from filesystem
    VFS_File *file = VFS_Open(filename);
    if (!file)
@@ -138,6 +137,9 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       printf("[ELF] LoadProcess: VFS_Open failed for %s\n", filename);
       return NULL;
    }
+
+   printf("[ELF DBG] VFS_Open returned file=%p for %s\n", (void*)file,
+          filename);
 
    // Read ELF header
    if (!VFS_Seek(file, 0))
@@ -173,6 +175,12 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       return NULL;
    }
 
+   printf("[ELF DBG] Process created pid=%u entry=0x%08x\n", proc->pid,
+          ehdr.e_entry);
+
+   // Save kernel page directory at the start - we'll need to restore it
+   void *kernel_pdir = HAL_Paging_GetCurrentPageDirectory();
+
    // Load each program header (PT_LOAD segments)
    Elf32_Phdr phdr;
    for (uint16_t i = 0; i < ehdr.e_phnum; ++i)
@@ -206,9 +214,11 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
              "memsz=%u)\n",
              i, vaddr, filesz, memsz);
 
-      // Allocate pages in process's virtual address space
-      uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
-      for (uint32_t j = 0; j < pages_needed; ++j)
+            // Allocate pages in process's virtual address space
+            uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
+            printf("[ELF DBG] Segment %u needs %u pages (vaddr=0x%08x filesz=%u memsz=%u)\n",
+               i, pages_needed, vaddr, filesz, memsz);
+            for (uint32_t j = 0; j < pages_needed; ++j)
       {
          uint32_t page_va = vaddr + (j * 4096);
          uint32_t phys = PMM_AllocatePhysicalPage();
@@ -243,11 +253,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          return NULL;
       }
 
-      // Temporarily switch to process page directory to write to its memory
-      void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
-      HAL_Paging_SwitchPageDirectory(proc->page_directory);
-
-      // Read and copy file section
+      // Read file data into kernel buffer (while still in kernel page directory)
       uint8_t buffer[512];
       uint32_t remaining = filesz;
       uint32_t offset = 0;
@@ -260,29 +266,49 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          if (bytes_read == 0)
          {
             printf("[ELF] LoadProcess: VFS_Read failed\n");
-            HAL_Paging_SwitchPageDirectory(old_pdir);
             Process_Destroy(proc);
             VFS_Close(file);
             return NULL;
          }
 
+         printf("[ELF DBG] Copying %u bytes to %08x (offset %u)\n",
+                bytes_read, vaddr + offset, offset);
+
+         // Temporarily switch to process page directory to write to its memory
+         void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
+         HAL_Paging_SwitchPageDirectory(proc->page_directory);
+
          // Copy to process memory
          memcpy((void *)(vaddr + offset), buffer, bytes_read);
+
+         // Immediately restore kernel page directory
+         HAL_Paging_SwitchPageDirectory(old_pdir);
+
          offset += bytes_read;
          remaining -= bytes_read;
       }
 
+        printf("[ELF DBG] Finished copying segment %u\n", i);
+
       // Zero out BSS (memsz > filesz)
       if (memsz > filesz)
       {
-         memset((void *)(vaddr + filesz), 0, memsz - filesz);
-      }
+         // Temporarily switch to process page directory for BSS zeroing
+         void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
+         HAL_Paging_SwitchPageDirectory(proc->page_directory);
 
-      // Restore kernel page directory
-      HAL_Paging_SwitchPageDirectory(old_pdir);
+         memset((void *)(vaddr + filesz), 0, memsz - filesz);
+
+         // Restore kernel page directory
+         HAL_Paging_SwitchPageDirectory(old_pdir);
+      }
    }
 
    VFS_Close(file);
+   
+   // Force restore kernel page directory to ensure we're back in kernel space
+   HAL_Paging_SwitchPageDirectory(kernel_pdir);
+   
    printf("[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
           filename, proc->pid, ehdr.e_entry);
