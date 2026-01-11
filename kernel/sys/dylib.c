@@ -902,11 +902,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    {
       original_base = 0x05000000; // Default for our libmath
    }
-<<<<<<< HEAD
-   logfmt(LOG_INFO, "[DYLIB] Detected original_base = 0x%x (from e_entry=0x%x)\n",
-          original_base, e_entry);
-=======
->>>>>>> 4c79315c43c2cb11cfe4bf7991687db7a82b80d2
 
    // Find .symtab and .strtab sections
    uint32_t symtab_addr = 0, symtab_size = 0, symtab_entsize = 0;
@@ -925,13 +920,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          symtab_size = sh->sh_size;
          symtab_entsize = sh->sh_entsize;
          strtab_link = sh->sh_link; // Index of associated string table
-<<<<<<< HEAD
-         logfmt(LOG_INFO, "[DYLIB] Found .symtab at file offset 0x%x, memory 0x%x, "
-                "size=%d, entsize=%d, strtab_link=%d\n",
-                sh->sh_offset, symtab_addr, symtab_size, symtab_entsize,
-                strtab_link);
-=======
->>>>>>> 4c79315c43c2cb11cfe4bf7991687db7a82b80d2
       }
    }
 
@@ -1023,9 +1011,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          uint32_t rel_entsize = sh->sh_entsize;
          int rel_count = rel_size / rel_entsize;
 
-         logfmt(LOG_INFO, "[DYLIB]   Applying %d relocations from section %d\n",
-                rel_count, i);
-
          for (int j = 0; j < rel_count; j++)
          {
             Elf32_Rel *rel = (Elf32_Rel *)(rel_addr + (j * rel_entsize));
@@ -1040,8 +1025,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
 
             if (target_addr < image_start || target_addr >= image_end)
             {
-               printf("[DYLIB]   Skipping relocation %d: target 0x%08x outside image 0x%08x-0x%08x\n",
-                      j, (uint32_t)target_addr, image_start, image_end);
                continue;
             }
 
@@ -1082,7 +1065,6 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    }
 
    // Open the library file from disk
-   logfmt(LOG_INFO, "[DYLIB] Opening %s from disk...\n", filepath);
    VFS_File *file = VFS_Open(filepath);
    if (!file)
    {

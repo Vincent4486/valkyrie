@@ -48,8 +48,6 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    }
 
    proc->heap_end = heap_start_va + PAGE_SIZE;
-         printf("[HEAP] Heap_Initialize: pid=%u heap at 0x%08x-0x%08x\n",
-          proc->pid, proc->heap_start, proc->heap_end);
    return 0;
 }
 

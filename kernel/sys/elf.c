@@ -255,10 +255,6 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t memsz = phdr.p_memsz;
       uint32_t filesz = phdr.p_filesz;
 
-      logfmt(LOG_INFO, "[ELF] LoadProcess: loading segment %u at 0x%08x (filesz=%u, "
-             "memsz=%u)\n",
-             i, vaddr, filesz, memsz);
-
       // Allocate pages in process's virtual address space
       uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
 
@@ -312,6 +308,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
 
       uint32_t remaining = filesz;
       uint32_t offset = 0;
+      void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
 
       while (remaining > 0)
       {
@@ -327,7 +324,6 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          }
 
          // Temporarily switch to process page directory to write to its memory
-         void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
          HAL_Paging_SwitchPageDirectory(proc->page_directory);
 
          // Copy to process memory

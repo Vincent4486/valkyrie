@@ -195,7 +195,7 @@ int FS_Mount(Partition *volume, const char *location)
    }
 
    /* Debug: print mount pointers so we can verify partition/fs correctness */
-   printf("[VFS] Mounting partition @%p -> fs=%p ops=%p at %s\n",
+   logfmt(LOG_INFO, "[VFS] Mounting partition @%p -> fs=%p ops=%p at %s\n",
           (void *)volume, (void *)volume->fs,
           (void *)(volume->fs ? volume->fs->ops : NULL), normalized);
 
@@ -399,11 +399,11 @@ void VFS_SelfTest(void)
 
    if (bytes_written != len)
    {
-      printf("[VFS] SelfTest=FAILED (wrote %u/%u bytes)\n", bytes_written, len);
+      logfmt(LOG_ERROR, "[VFS] SelfTest=FAILED (wrote %u/%u bytes)\n", bytes_written, len);
    }
    else
    {
-      printf("[VFS] SelfTest=PASS\n");
+      logfmt(LOG_INFO, "[VFS] SelfTest=PASS\n");
    }
 
    VFS_Close(test_file);
