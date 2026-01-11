@@ -5,4 +5,4 @@
 imageFS = 'fat32'
 imageSize='200m'
 toolchain='../os_toolchain'
-outputFile='valkyrie_os'
+outputFile='valkyrieos'

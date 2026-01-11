@@ -43,6 +43,9 @@ VARS.Add("outputFile",
 VARS.Add("outputFormat", 
          help="The extension of the disk image.",
          default="img")
+VARS.Add("kernelName", 
+         help="The name of the executable.",
+         default="valkyrix")
 
 DEPS = {
     'binutils': '2.37',

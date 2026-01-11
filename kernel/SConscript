@@ -65,6 +65,6 @@ objects = [
     obj_crtn
 ]
 
-core = env.Program('core.elf', objects)
+core = env.Program(env['kernelName'], objects)
 
 Export('core')

@@ -49,16 +49,6 @@ def create_filesystem(target: str, filesystem, reserved_sectors=0, offset=0):
         raise ValueError('Unsupported filesystem ' + filesystem)
 
 
-def find_symbol_in_map_file(map_file: str, symbol: str):
-    with map_file.open('r') as fmap:
-        for line in fmap:
-            if symbol in line:
-                match = re.search('0x([0-9a-fA-F]+)', line)
-                if match is not None:
-                    return int(match.group(1), base=16)
-    return None
-
-
 def install_grub(mount_dir: str):
 
     device_file = mount_dir + '.device'
@@ -247,22 +237,19 @@ def build_disk(image, core_exe, user_libraries, user_applications, files, env):
 def build_image(target, source, env):
     # Source list may contain many nodes; try to reliably find the kernel ELF
     core_exe = None
+    kernel_name = env["kernelName"]
     for src in source:
         p = str(src)
-        # prefer ELF/binary kernel artifacts
-        if p.endswith('.elf') or p.endswith('.bin') or p.endswith('.iso'):
+        basename = os.path.basename(p)
+        # Match by kernel executable name (with or without extension)
+        if basename == kernel_name or basename.startswith(kernel_name + '.'):
             core_exe = p
             break
-    # fallback: use first "core" named artifact or the imported `core` variable
-    if core_exe is None:
-        for src in source:
-            p = os.path.basename(str(src))
-            if 'core' in p or 'kernel' in p or 'valkyrie' in p:
-                core_exe = str(src)
-                break
-    if core_exe is None:
-        # last resort: try env provided path
-        core_exe = env.get('CORE_EXE')
+        # fallback: match ELF/binary files containing 'kernel' or 'core'
+        elif (re.search(r'(kernel|core)', basename) and 
+              (p.endswith('.elf') or p.endswith('.bin') or p.endswith('.iso'))):
+            core_exe = p
+            break
     if core_exe is None:
         raise RuntimeError("Core executable not found in build inputs")
 
@@ -302,7 +289,7 @@ inputs = [core] + user_libraries + user_applications + root_content
 
 output_fmt = env["outputFormat"]
 
-output = f'{env["outputFile"]}.{output_fmt}'
+output = f'{env["outputFile"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
 
 image = env.Command(output, inputs,
                     action=Action(build_image, '   CREATING DISK'), 
