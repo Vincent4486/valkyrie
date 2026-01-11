@@ -15,6 +15,15 @@ static uintptr_t heap_start = 0;
 static uintptr_t heap_end = 0;
 static uintptr_t heap_ptr = 0;
 
+/* Heap block header for safety checks */
+typedef struct {
+    size_t size;
+    uint32_t canary_before;
+    uint32_t canary_after;
+} HeapBlockHeader;
+
+#define HEAP_CANARY 0xDEADBEEF
+
 int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
 {
    if (!proc) return -1;
@@ -133,7 +142,10 @@ void *kmalloc(size_t size)
 {
    if (size == 0) return NULL;
 
+   /* Allocate extra space for header with canaries */
+   size_t total = size + sizeof(HeapBlockHeader);
    uintptr_t cur = align_up(heap_ptr, 8);
+   
    if (cur > heap_end)
    {
       printf("[heap] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n", 
@@ -143,17 +155,23 @@ void *kmalloc(size_t size)
 
    /* available bytes from cur to heap_end (inclusive) */
    uintptr_t avail = (heap_end - cur) + 1;
-   if (size > avail)
+   if (total > avail)
    {
       printf("[heap] kmalloc: OUT OF MEMORY (need=%u avail=%u)\n",
-             (uint32_t)size, (uint32_t)avail);
+             (uint32_t)total, (uint32_t)avail);
       return NULL; /* not enough room */
    }
 
-   uintptr_t next = cur + size;
-   heap_ptr = next;
+   /* Write header with canaries */
+   HeapBlockHeader *header = (HeapBlockHeader *)cur;
+   header->size = size;
+   header->canary_before = HEAP_CANARY;
+   header->canary_after = HEAP_CANARY;
    
-   return (void *)cur;
+   heap_ptr = cur + total;
+   
+   /* Return pointer after header */
+   return (void *)(cur + sizeof(HeapBlockHeader));
 }
 
 void *kzalloc(size_t size)
@@ -166,6 +184,31 @@ void *kzalloc(size_t size)
 
 uintptr_t mem_heap_start(void) { return heap_start; }
 uintptr_t mem_heap_end(void) { return heap_end; }
+
+void heap_check_integrity(void)
+{
+   uintptr_t cur = heap_start;
+   uint32_t block_count = 0;
+   
+   while (cur < heap_ptr)
+   {
+      HeapBlockHeader *h = (HeapBlockHeader *)cur;
+      
+      if (h->canary_before != HEAP_CANARY || h->canary_after != HEAP_CANARY)
+      {
+         printf("[HEAP] CORRUPTION at 0x%08x! Block size=%u canary_before=0x%08x canary_after=0x%08x\n",
+                (uint32_t)cur, (uint32_t)h->size, h->canary_before, h->canary_after);
+         /* Call panic function if available */
+         printf("[HEAP] PANIC: Heap corruption detected!\n");
+         while(1) {} /* Hang */
+      }
+      
+      cur += sizeof(HeapBlockHeader) + h->size;
+      block_count++;
+   }
+   
+   printf("[heap] integrity check passed: %u blocks verified\n", block_count);
+}
 
 /* libc-like wrappers ---------------------------------------------------- */
 void *malloc(size_t size) { return kmalloc(size); }
