@@ -205,3 +205,16 @@ void MEM_Initialize(void *multiboot_info_ptr)
    g_SysInfo->memory.user_end = (uint32_t)0xC0000000;
    g_SysInfo->memory.kernel_stack_size = 8192; /* 8KB kernel stack */
 }
+
+uintptr_t __stack_chk_guard = 0xDEADBEEF;
+
+void __stack_chk_fail_local(void)
+{
+    printf("\n");
+    printf("╔════════════════════════════════════╗\n");
+    printf("║  STACK SMASHING DETECTED!          ║\n");
+    printf("║  Buffer overflow in stack frame    ║\n");
+    printf("╚════════════════════════════════════╝\n");
+    i686_Panic();
+    HAL_Panic();  // or infinite loop
+}

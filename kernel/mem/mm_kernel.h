@@ -7,6 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+extern uintptr_t __stack_chk_guard;
+void __stack_chk_fail_local(void);
+
 /* Memory management information */
 typedef struct
 {
