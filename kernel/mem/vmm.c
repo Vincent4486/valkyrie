@@ -25,11 +25,11 @@ void VMM_Initialize(void)
    kernel_page_dir = HAL_Paging_GetCurrentPageDirectory();
    if (!kernel_page_dir)
    {
-      printf("[vmm] ERROR: no kernel page directory!\n");
+      printf("[VMM] ERROR: no kernel page directory!\n");
       // Skip further VMM work to avoid faults
       return;
    }
-   printf("[vmm] initialized with kernel page dir at 0x%08x\n",
+   printf("[VMM] initialized with kernel page dir at 0x%08x\n",
           (uint32_t)kernel_page_dir);
 }
 
@@ -48,7 +48,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
    // Find a free virtual address range (simple bump allocator)
    if (*bump + aligned_size > KERNEL_BASE || *bump + aligned_size < *bump)
    {
-      printf("[vmm] VMM_Allocate: virtual address space exhausted\n");
+      printf("[VMM] VMM_Allocate: virtual address space exhausted\n");
       return NULL;
    }
 
@@ -62,7 +62,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
       uint32_t paddr = PMM_AllocatePhysicalPage();
       if (paddr == 0)
       {
-         printf("[vmm] VMM_Allocate: failed to allocate physical page %u/%u\n",
+         printf("[VMM] VMM_Allocate: failed to allocate physical page %u/%u\n",
                 i + 1, num_pages);
          goto fail_cleanup;
       }
@@ -70,7 +70,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
       uint32_t va = vaddr + (i * PAGE_SIZE);
       if (!HAL_Paging_MapPage(page_dir, va, paddr, flags | HAL_PAGE_PRESENT))
       {
-         printf("[vmm] VMM_Allocate: failed to map page at 0x%08x\n", va);
+         printf("[VMM] VMM_Allocate: failed to map page at 0x%08x\n", va);
          PMM_FreePhysicalPage(paddr);
          goto fail_cleanup;
       }
@@ -144,7 +144,7 @@ bool VMM_MapInDir(void *page_dir, uint32_t vaddr, uint32_t paddr, uint32_t size,
 
       if (!HAL_Paging_MapPage(page_dir, va, pa, flags | HAL_PAGE_PRESENT))
       {
-         printf("[vmm] VMM_Map: failed at offset 0x%x\n", i * PAGE_SIZE);
+         printf("[VMM] VMM_Map: failed at offset 0x%x\n", i * PAGE_SIZE);
          goto rollback;
       }
       mapped_pages++;
@@ -201,7 +201,7 @@ void *VMM_GetPageDirectory(void) { return kernel_page_dir; }
 
 void VMM_SelfTest(void)
 {
-   printf("[vmm] self-test: starting\n");
+   printf("[VMM] self-test: starting\n");
 
    // Allocate 3 pages via VMM
    void *v1 = VMM_Allocate(PAGE_SIZE, VMM_DEFAULT);
@@ -209,7 +209,7 @@ void VMM_SelfTest(void)
 
    if (!v1 || !v2)
    {
-      printf("[vmm] self-test: FAIL (VMM_Allocate returned NULL)\n");
+      printf("[VMM] self-test: FAIL (VMM_Allocate returned NULL)\n");
       return;
    }
 
@@ -225,7 +225,7 @@ void VMM_SelfTest(void)
 
    if (val1 != 0xDEADBEEFu || val2 != 0xCAFEBABEu)
    {
-      printf("[vmm] self-test: FAIL (write/read mismatch)\n");
+      printf("[VMM] self-test: FAIL (write/read mismatch)\n");
       return;
    }
 
@@ -235,7 +235,7 @@ void VMM_SelfTest(void)
 
    if (pa1 == 0 || pa2 == 0 || pa1 == pa2)
    {
-      printf("[vmm] self-test: FAIL (physical address issue)\n");
+      printf("[VMM] self-test: FAIL (physical address issue)\n");
       return;
    }
 
@@ -245,9 +245,9 @@ void VMM_SelfTest(void)
 
    if (pa1_after != 0)
    {
-      printf("[vmm] self-test: FAIL (page not unmapped)\n");
+      printf("[VMM] self-test: FAIL (page not unmapped)\n");
       return;
    }
 
-   printf("[vmm] self-test: PASS (alloc/map/write/read/free)\n");
+   printf("[VMM] self-test: PASS (alloc/map/write/read/free)\n");
 }

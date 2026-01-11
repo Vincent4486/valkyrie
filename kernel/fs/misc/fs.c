@@ -21,10 +21,10 @@ bool FS_Initialize()
    int disksDetected = DISK_Initialize();
    if (disksDetected < 0)
    {
-      printf("[FS] Disk initialization failed\n");
+      logfmt(LOG_ERROR, "[FS] Disk initialization failed\n");
       return false;
    }
-   printf("[FS] Filesystem initialization complete, disks detected: %d\n",
+   logfmt(LOG_INFO, "[FS] Filesystem initialization complete, disks detected: %d\n",
           disksDetected);
    return true;
 }

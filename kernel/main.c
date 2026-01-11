@@ -62,7 +62,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       g_SysInfo->uptime_seconds = system_ticks / 1000;
       if (g_SysInfo->uptime_seconds != last_uptime)
       {
-         printf("\rSystem up for %u seconds", g_SysInfo->uptime_seconds);
+         printf("\r\x1B[1;36mSystem up for %u seconds\x1B[0m", g_SysInfo->uptime_seconds);
          last_uptime = g_SysInfo->uptime_seconds;
       }
 

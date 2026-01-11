@@ -63,7 +63,7 @@ int DISK_Scan()
 
          // Copy partition data into system volume table
          g_SysInfo->volume[volumeIndex] = *(parts[p]);
-         printf(
+         logfmt(LOG_INFO,
              "[DISK] Populated volume[%d]: Offset=%u, Size=%u, Type=0x%02x\n",
              volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset,
              g_SysInfo->volume[volumeIndex].partitionSize,
@@ -90,13 +90,13 @@ int DISK_Scan()
             }
             else
             {
-               printf("[DISK] Failed to initialize FAT on volume[%d]\n",
+               logfmt(LOG_ERROR, "[DISK] Failed to initialize FAT on volume[%d]\n",
                       volumeIndex);
             }
          }
          else
          {
-            printf(
+            logfmt(LOG_INFO,
                 "[DISK] Skipping filesystem init for partition type 0x%02x\n",
                 partType);
          }

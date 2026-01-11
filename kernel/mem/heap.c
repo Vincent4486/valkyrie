@@ -26,20 +26,20 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (phys == 0)
    {
-      printf("[process] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
+      printf("[HEAP] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
       return -1;
    }
 
    // Map to process page directory
    if (!HAL_Paging_MapPage(proc->page_directory, heap_start_va, phys, 0x007))
    { // RW, Present
-      printf("[process] Heap_Initialize: map_page failed\n");
+      printf("[HEAP] Heap_Initialize: map_page failed\n");
       PMM_FreePhysicalPage(phys);
       return -1;
    }
 
    proc->heap_end = heap_start_va + PAGE_SIZE;
-   printf("[process] Heap_Initialize: pid=%u heap at 0x%08x-0x%08x\n",
+         printf("[HEAP] Heap_Initialize: pid=%u heap at 0x%08x-0x%08x\n",
           proc->pid, proc->heap_start, proc->heap_end);
    return 0;
 }
@@ -62,14 +62,14 @@ int Heap_ProcessBrk(Process *proc, void *addr)
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (phys == 0)
          {
-            printf("[process] brk: PMM_AllocatePhysicalPage failed at page "
+            printf("[HEAP] brk: PMM_AllocatePhysicalPage failed at page "
                    "%u/%u\n",
                    i, pages_needed);
             return -1;
          }
          if (!HAL_Paging_MapPage(proc->page_directory, va, phys, 0x007))
          { // RW, Present
-            printf("[process] brk: map_page failed at 0x%08x\n", va);
+            printf("[HEAP] brk: map_page failed at 0x%08x\n", va);
             PMM_FreePhysicalPage(phys);
             return -1;
          }
@@ -201,13 +201,13 @@ void *sbrk(intptr_t inc)
 /* Self-test ------------------------------------------------------------- */
 void Heap_SelfTest(void)
 {
-   printf("[heap] start=0x%08x end=0x%08x\n", (uint32_t)heap_start,
+   printf("[HEAP] start=0x%08x end=0x%08x\n", (uint32_t)heap_start,
           (uint32_t)heap_end);
 
    char *p = (char *)kmalloc(32);
    if (!p)
    {
-      printf("[heap] kmalloc failed\n");
+      printf("[HEAP] kmalloc failed\n");
       return;
    }
    for (int i = 0; i < 32; ++i) p[i] = (char)(i + 1);
@@ -215,7 +215,7 @@ void Heap_SelfTest(void)
    char *q = (char *)realloc(p, 64);
    if (!q)
    {
-      printf("[heap] realloc failed\n");
+      printf("[HEAP] realloc failed\n");
       return;
    }
    int ok = 1;
@@ -236,6 +236,6 @@ void Heap_SelfTest(void)
    int brk_ok = (brk1 != (void *)-1);
    brk(brk0);
 
-   printf("[heap] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
+   printf("[HEAP] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
           ok ? "OK" : "FAIL", zeroed ? "OK" : "FAIL", brk_ok ? "OK" : "FAIL");
 }

@@ -135,14 +135,14 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    VFS_File *file = VFS_Open(filename);
    if (!file)
    {
-      printf("[ELF] LoadProcess: VFS_Open failed for %s\n", filename);
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: VFS_Open failed for %s\n", filename);
       return NULL;
    }
 
    // Read ELF header
    if (!VFS_Seek(file, 0))
    {
-      printf("[ELF] LoadProcess: seek header failed\n");
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: seek header failed\n");
       VFS_Close(file);
       return NULL;
    }
@@ -150,7 +150,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    Elf32_Ehdr ehdr;
    if (VFS_Read(file, sizeof(ehdr), (uint8_t *)&ehdr) != sizeof(ehdr))
    {
-      printf("[ELF] LoadProcess: read header failed\n");
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: read header failed\n");
       VFS_Close(file);
       return NULL;
    }
@@ -159,7 +159,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
        ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
    {
-      printf("[ELF] LoadProcess: bad magic\n");
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: bad magic\n");
       VFS_Close(file);
       return NULL;
    }
@@ -168,7 +168,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    Process *proc = Process_Create(ehdr.e_entry, kernel_mode);
    if (!proc)
    {
-      printf("[ELF] LoadProcess: Process_Create failed\n");
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: Process_Create failed\n");
       VFS_Close(file);
       return NULL;
    }
@@ -180,7 +180,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
       if (!VFS_Seek(file, phoff))
       {
-         printf("[ELF] LoadProcess: seek phdr %u failed\n", i);
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: seek phdr %u failed\n", i);
          Process_Destroy(proc);
          VFS_Close(file);
          return NULL;
@@ -188,7 +188,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
 
       if (VFS_Read(file, sizeof(phdr), (uint8_t *)&phdr) != sizeof(phdr))
       {
-         printf("[ELF] LoadProcess: read phdr %u failed\n", i);
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: read phdr %u failed\n", i);
          Process_Destroy(proc);
          VFS_Close(file);
          return NULL;
@@ -202,7 +202,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t memsz = phdr.p_memsz;
       uint32_t filesz = phdr.p_filesz;
 
-      printf("[ELF] LoadProcess: loading segment %u at 0x%08x (filesz=%u, "
+      logfmt(LOG_INFO, "[ELF] LoadProcess: loading segment %u at 0x%08x (filesz=%u, "
              "memsz=%u)\n",
              i, vaddr, filesz, memsz);
 
@@ -214,7 +214,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (phys == 0)
          {
-            printf("[ELF] LoadProcess: PMM_AllocatePhysicalPage failed\n");
+            logfmt(LOG_ERROR, "[ELF] LoadProcess: PMM_AllocatePhysicalPage failed\n");
             Process_Destroy(proc);
             VFS_Close(file);
             return NULL;
@@ -225,7 +225,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
                                  HAL_PAGE_PRESENT | HAL_PAGE_RW |
                                      HAL_PAGE_USER))
          {
-            printf("[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
+            logfmt(LOG_ERROR, "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
                    page_va);
             PMM_FreePhysicalPage(phys);
             Process_Destroy(proc);
@@ -237,7 +237,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       // Read segment data from file and copy to process memory
       if (!VFS_Seek(file, phdr.p_offset))
       {
-         printf("[ELF] LoadProcess: seek segment data failed\n");
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: seek segment data failed\n");
          Process_Destroy(proc);
          VFS_Close(file);
          return NULL;
@@ -259,7 +259,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          uint32_t bytes_read = VFS_Read(file, chunk, buffer);
          if (bytes_read == 0)
          {
-            printf("[ELF] LoadProcess: VFS_Read failed\n");
+            logfmt(LOG_ERROR, "[ELF] LoadProcess: VFS_Read failed\n");
             HAL_Paging_SwitchPageDirectory(old_pdir);
             Process_Destroy(proc);
             VFS_Close(file);
@@ -283,7 +283,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    VFS_Close(file);
-   printf("[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
+   logfmt(LOG_INFO, "[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
           filename, proc->pid, ehdr.e_entry);
    return proc;

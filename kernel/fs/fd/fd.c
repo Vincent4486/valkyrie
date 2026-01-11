@@ -45,7 +45,7 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
    int fd = FD_FindFree(proc);
    if (fd == -1)
    {
-      printf("[fd] open: too many open files\n");
+      logfmt(LOG_ERROR, "[fd] open: too many open files\n");
       return -1; // EMFILE
    }
 
@@ -53,7 +53,7 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
    FileDescriptor *file = (FileDescriptor *)kmalloc(sizeof(FileDescriptor));
    if (!file)
    {
-      printf("[fd] open: kmalloc failed\n");
+      logfmt(LOG_ERROR, "[fd] open: kmalloc failed\n");
       return -1; // ENOMEM
    }
 
@@ -74,14 +74,14 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
    file->inode = VFS_Open(path);
    if (!file->inode)
    {
-      printf("[fd] open: file not found: %s\n", path);
+      logfmt(LOG_ERROR, "[fd] open: file not found: %s\n", path);
       free(file);
       return -1; // ENOENT
    }
 
    // Store in process FD table
    proc->fd_table[fd] = file;
-   printf("[fd] opened: fd=%d, path=%s\n", fd, path);
+   logfmt(LOG_INFO, "[fd] opened: fd=%d, path=%s\n", fd, path);
 
    return fd;
 }
@@ -105,7 +105,7 @@ int FD_Close(void *proc_ptr, int fd)
    free(file);
    proc->fd_table[fd] = NULL;
 
-   printf("[fd] closed: fd=%d\n", fd);
+   logfmt(LOG_INFO, "[fd] closed: fd=%d\n", fd);
    return 0;
 }
 
@@ -181,7 +181,7 @@ int FD_Lseek(void *proc_ptr, int fd, int32_t offset, int whence)
       break;
    case 2: // SEEK_END
       // Would need FAT_GetFileSize() to implement properly
-      printf("[fd] seek: SEEK_END not yet implemented\n");
+      logfmt(LOG_WARNING, "[fd] seek: SEEK_END not yet implemented\n");
       return -1;
    default:
       return -1; // EINVAL

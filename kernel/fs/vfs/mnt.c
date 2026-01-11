@@ -38,7 +38,7 @@ static bool vfs_normalize_mount(const char *location, char *normalized,
 
    if (location[0] != '/')
    {
-      printf("[VFS] Mount point '%s' must start with '/'\n", location);
+      logfmt(LOG_ERROR, "[VFS] Mount point '%s' must start with '/'", location);
       return false;
    }
 
@@ -117,26 +117,26 @@ int FS_Mount(Partition *volume, const char *location)
 {
    if (!volume || !volume->disk)
    {
-      printf("[VFS] Invalid volume for mount\n");
+      logfmt(LOG_ERROR, "Invalid volume for mount\n");
       return -1;
    }
 
    if (!volume->fs)
    {
-      printf("[VFS] No filesystem initialized on this volume\n");
+      logfmt(LOG_ERROR, "No filesystem initialized on this volume\n");
       return -1;
    }
 
    if (g_mount_count >= VFS_MAX_MOUNTS)
    {
-      printf("[VFS] Mount table full\n");
+      logfmt(LOG_ERROR, "Mount table full\n");
       return -1;
    }
 
    char normalized[VFS_MAX_PATH];
    if (!vfs_normalize_mount(location, normalized, sizeof(normalized)))
    {
-      printf("[VFS] Invalid mount location '%s'\n", location ? location : "");
+      logfmt(LOG_ERROR, "Invalid mount location '%s'\n", location ? location : "");
       return -1;
    }
 
@@ -145,7 +145,7 @@ int FS_Mount(Partition *volume, const char *location)
    {
       if (strncmp(g_mounts[i].mount_point, normalized, sizeof(normalized)) == 0)
       {
-         printf("[VFS] Mount point '%s' already in use\n", normalized);
+         logfmt(LOG_ERROR, "[VFS] Mount point '%s' already in use\n", normalized);
          return -1;
       }
    }
@@ -158,7 +158,7 @@ int FS_Mount(Partition *volume, const char *location)
    g_mount_count++;
 
    volume->fs->mounted = 1;
-   printf("[VFS] Mounted %s at %s\n", volume->disk->brand, normalized);
+   logfmt(LOG_INFO, "[VFS] Mounted %s at %s\n", volume->disk->brand, normalized);
    return 0;
 }
 
@@ -188,13 +188,13 @@ VFS_File *VFS_Open(const char *path)
 
    if (!vfs_resolve_path(path, &part, relative, sizeof(relative)))
    {
-      printf("[VFS] No mount found for path '%s'\n", path ? path : "");
+      logfmt(LOG_ERROR, "[VFS] No mount found for path '%s'\n", path ? path : "");
       return NULL;
    }
 
    if (!part || !part->fs)
    {
-      printf("[VFS] Missing filesystem for resolved partition\n");
+      logfmt(LOG_ERROR, "[VFS] Missing filesystem for resolved partition\n");
       return NULL;
    }
 
@@ -218,7 +218,7 @@ VFS_File *VFS_Open(const char *path)
       return vf;
    }
    default:
-      printf("[VFS] Unsupported filesystem type %d\n", part->fs->type);
+      logfmt(LOG_ERROR, "[VFS] Unsupported filesystem type %d\n", part->fs->type);
       return NULL;
    }
 }

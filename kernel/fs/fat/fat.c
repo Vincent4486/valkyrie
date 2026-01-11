@@ -141,14 +141,14 @@ bool FAT_Initialize(Partition *disk)
    uint8_t bootSector[512];
    if (!Partition_ReadSectors(disk, 0, 1, bootSector))
    {
-      printf("[FAT] Failed to read boot sector\n");
+      logfmt(LOG_ERROR, "[FAT] Failed to read boot sector\n");
       return false;
    }
 
    // Check for valid FAT signature (0x55AA at bytes 510-511)
    if (bootSector[510] != 0x55 || bootSector[511] != 0xAA)
    {
-      printf("[FAT] Invalid boot sector signature\n");
+      logfmt(LOG_ERROR, "[FAT] Invalid boot sector signature\n");
       return false;
    }
 
@@ -156,7 +156,7 @@ bool FAT_Initialize(Partition *disk)
    memcpy(g_Data->BS.BootSectorBytes, bootSector, SECTOR_SIZE);
 
    // Debug: print BPB values
-   printf("[FAT] BPB BytesPerSector=%u, SectorsPerCluster=%u\n",
+   logfmt(LOG_INFO, "[FAT] BPB BytesPerSector=%u, SectorsPerCluster=%u\n",
           g_Data->BS.BootSector.BytesPerSector,
           g_Data->BS.BootSector.SectorsPerCluster);
 
@@ -164,7 +164,7 @@ bool FAT_Initialize(Partition *disk)
    if (g_Data->BS.BootSector.BytesPerSector == 0 ||
        g_Data->BS.BootSector.SectorsPerCluster == 0)
    {
-      printf("[FAT] Invalid BPB (BytesPerSector=%u, "
+      logfmt(LOG_ERROR, "[FAT] Invalid BPB (BytesPerSector=%u, "
              "SectorsPerCluster=%u)\n",
              g_Data->BS.BootSector.BytesPerSector,
              g_Data->BS.BootSector.SectorsPerCluster);
@@ -202,10 +202,10 @@ bool FAT_Initialize(Partition *disk)
       g_DataSectionLba = g_Data->BS.BootSector.ReservedSectors +
                          g_SectorsPerFat * g_Data->BS.BootSector.FatCount;
 
-      printf("[FAT] ReservedSectors=%u, SectorsPerFat=%u, FatCount=%u\n",
+      logfmt(LOG_INFO, "[FAT] ReservedSectors=%u, SectorsPerFat=%u, FatCount=%u\n",
              g_Data->BS.BootSector.ReservedSectors, g_SectorsPerFat,
              g_Data->BS.BootSector.FatCount);
-      printf("[FAT] g_DataSectionLba=%u\n", g_DataSectionLba);
+      logfmt(LOG_INFO, "[FAT] g_DataSectionLba=%u\n", g_DataSectionLba);
 
       // For FAT32 the root directory is a normal cluster chain starting at
       // RootDirectoryCluster. Keep cluster number in

@@ -5,6 +5,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <mem/mm_kernel.h>
 
 const unsigned SCREEN_WIDTH = 80;
 const unsigned SCREEN_HEIGHT = 25;
@@ -330,7 +331,13 @@ int snprintf(char *buffer, size_t buf_size, const char *format, ...)
 {
    va_list ap;
    va_start(ap, format);
+   int result = vsnprintf(buffer, buf_size, format, ap);
+   va_end(ap);
+   return result;
+}
 
+int vsnprintf(char *buffer, size_t buf_size, const char *format, va_list ap)
+{
    size_t out_idx = 0;    /* next write position in buffer (0..buf_size-1) */
    size_t would_have = 0; /* total chars that would have been written */
 
@@ -461,6 +468,5 @@ int snprintf(char *buffer, size_t buf_size, const char *format, ...)
          buffer[buf_size - 1] = '\0';
    }
 
-   va_end(ap);
    return (int)would_have;
 }

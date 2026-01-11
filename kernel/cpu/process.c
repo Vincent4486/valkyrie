@@ -20,7 +20,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
    Process *proc = (Process *)kmalloc(sizeof(Process));
    if (!proc)
    {
-      printf("[process] create: kmalloc failed\n");
+      logfmt(LOG_ERROR, "[PROC] create: kmalloc failed\n");
       return NULL;
    }
 
@@ -48,7 +48,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       proc->page_directory = HAL_Paging_CreatePageDirectory();
       if (!proc->page_directory)
       {
-         printf("[process] create: HAL_Paging_CreatePageDirectory failed\n");
+         logfmt(LOG_ERROR, "[PROC] create: HAL_Paging_CreatePageDirectory failed\n");
          free(proc);
          return NULL;
       }
@@ -56,7 +56,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       // Initialize heap at 0x10000000 (user data segment)
       if (Heap_ProcessInitialize(proc, 0x10000000) == -1)
       {
-         printf("[process] create: Heap_Initialize failed\n");
+         logfmt(LOG_ERROR, "[PROC] create: Heap_Initialize failed\n");
          HAL_Paging_DestroyPageDirectory(proc->page_directory);
          free(proc);
          return NULL;
@@ -70,7 +70,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       // Map stack pages into the process address space
       if (Stack_ProcessInitialize(proc, stack_top, stack_size) != 0)
       {
-         printf("[process] create: Stack_ProcessInitialize failed\n");
+         logfmt(LOG_ERROR, "[PROC] create: Stack_ProcessInitialize failed\n");
          HAL_Paging_DestroyPageDirectory(proc->page_directory);
          free(proc);
          return NULL;
@@ -88,7 +88,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       void *kernel_pd = VMM_GetPageDirectory();
       if (!kernel_pd)
       {
-         printf("[process] ERROR: cannot get kernel page directory\n");
+         logfmt(LOG_ERROR, "[PROC] ERROR: cannot get kernel page directory\n");
          // Cleanup: unmap already mapped stack pages
          uint32_t pages_needed = stack_size / PAGE_SIZE;
          for (uint32_t j = 0; j < pages_needed; ++j)
@@ -124,7 +124,7 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
    // syscalls)
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
 
-   printf("[process] created: pid=%u, entry=0x%08x\n", proc->pid, entry_point);
+   logfmt(LOG_INFO, "[PROC] created: pid=%u, entry=0x%08x\n", proc->pid, entry_point);
    return proc;
 }
 
@@ -202,20 +202,20 @@ void Process_SetCurrent(Process *proc)
 
 void Process_SelfTest(void)
 {
-   printf("[process] self-test: starting\n");
+   printf("[PROC] self-test: starting\n");
 
    // Create a test process
    Process *p = Process_Create(0x08048000, false);
    if (!p)
    {
-      printf("[process] self-test: FAIL (Process_Create returned NULL)\n");
+      printf("[PROC] self-test: FAIL (Process_Create returned NULL)\n");
       return;
    }
 
    // Test per-process heap
    if (Heap_ProcessSbrk(p, 4096) == (void *)-1)
    {
-      printf("[process] self-test: FAIL (sbrk failed)\n");
+      printf("[PROC] self-test: FAIL (sbrk failed)\n");
       Process_Destroy(p);
       return;
    }
@@ -228,7 +228,7 @@ void Process_SelfTest(void)
 
    if (val != 0xCAFEBABEu)
    {
-      printf("[process] self-test: FAIL (heap write/read)\n");
+      printf("[PROC] self-test: FAIL (heap write/read)\n");
       Process_Destroy(p);
       return;
    }
@@ -240,11 +240,11 @@ void Process_SelfTest(void)
    uint32_t sval = *stack_test;
    if (sval != 0x11223344u)
    {
-      printf("[process] self-test: FAIL (stack write/read)\n");
+      printf("[PROC] self-test: FAIL (stack write/read)\n");
       Process_Destroy(p);
       return;
    }
 
-   printf("[process] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
+   printf("[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
    Process_Destroy(p);
 }

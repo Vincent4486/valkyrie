@@ -38,7 +38,7 @@ void Stack_InitializeKernel(void)
    kernel_stack = Stack_Create(stack_size);
    if (!kernel_stack)
    {
-      printf("[stack] ERROR: failed to create kernel stack\n");
+      printf("[STACK] ERROR: failed to create kernel stack\n");
    }
 }
 
@@ -95,7 +95,7 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
 
       if (phys == 0)
       {
-         printf("[stack] ERROR: PMM_AllocatePhysicalPage failed\n");
+         printf("[STACK] ERROR: PMM_AllocatePhysicalPage failed\n");
          // Cleanup already mapped pages
          for (uint32_t j = 0; j < i; ++j)
          {
@@ -112,7 +112,7 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
       if (!HAL_Paging_MapPage(proc->page_directory, va, phys,
                               HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
       {
-         printf("[stack] ERROR: map_page failed for stack at 0x%08x\n", va);
+         printf("[STACK] ERROR: map_page failed for stack at 0x%08x\n", va);
          PMM_FreePhysicalPage(phys);
          // Cleanup
          for (uint32_t j = 0; j < i; ++j)
@@ -131,7 +131,7 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
    proc->stack_start = stack_bottom_va;
    proc->stack_end = stack_top_va;
 
-   printf("[stack] Initialized user stack for pid=%u at 0x%08x-0x%08x\n",
+   printf("[STACK] Initialized user stack for pid=%u at 0x%08x-0x%08x\n",
           proc->pid, proc->stack_start, proc->stack_end);
 
    return 0;

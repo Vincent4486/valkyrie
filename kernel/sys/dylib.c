@@ -131,7 +131,7 @@ int Dylib_MemoryInitialize(void)
    dylib_mem_next_free = DYLIB_MEMORY_ADDR;
    dylib_mem_initialized = 1;
 
-   printf("[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
+   logfmt(LOG_INFO, "[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
           DYLIB_MEMORY_ADDR, DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE,
           DYLIB_MEMORY_SIZE / 0x100000);
 
@@ -147,7 +147,7 @@ int Dylib_AddGlobalSymbol(const char *name, uint32_t address,
 {
    if (global_symtab_count >= DYLIB_MAX_GLOBAL_SYMBOLS)
    {
-      printf("[ERROR] Global symbol table full (%d entries)\n",
+      logfmt(LOG_ERROR, "[ERROR] Global symbol table full (%d entries)\n",
              DYLIB_MAX_GLOBAL_SYMBOLS);
       return -1;
    }
@@ -193,7 +193,7 @@ void Dylib_PrintGlobalSymtab(void)
 void Dylib_ClearGlobalSymtab(void)
 {
    global_symtab_count = 0;
-   printf("[DYLIB] Global symbol table cleared\n");
+   logfmt(LOG_INFO, "[DYLIB] Global symbol table cleared\n");
 }
 
 // ============================================================================
@@ -218,7 +218,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
       /* Basic sanity checks before touching memory */
       if (r_offset == 0)
       {
-         printf("[ERROR] Relocation[%d] has r_offset == 0 (skipping)\n", i);
+         logfmt(LOG_ERROR, "[ERROR] Relocation[%d] has r_offset == 0 (skipping)\n", i);
          continue;
       }
 
@@ -663,7 +663,7 @@ int Dylib_ParseSymbols(LibRecord *lib)
    ExtendedLibData *ext = &extended_data[idx];
 
    // Parse ELF symbols from the pre-loaded library at its base address
-   printf("[DYLIB] Parsing symbols for pre-loaded library: %s at 0x%x\n",
+   logfmt(LOG_INFO, "[DYLIB] Parsing symbols for pre-loaded library: %s at 0x%x\n",
           lib->name, (unsigned int)lib->base);
 
    parse_elf_symbols(ext, (uint32_t)lib->base, lib->size);
@@ -693,7 +693,7 @@ int Dylib_MemoryFree(const char *lib_name)
 
    // Note: We don't actually free the memory in the pool since it's a linear
    // allocator Just mark as unloaded
-   printf("[DYLIB] Freed 0x%x bytes for %s\n", lib->size, lib_name);
+   logfmt(LOG_INFO, "[DYLIB] Freed 0x%x bytes for %s\n", lib->size, lib_name);
 
    return 0;
 }
@@ -736,7 +736,7 @@ int Dylib_Load(const char *name, const void *image, uint32_t size)
    lib->size = size;
    ext->loaded = 1;
 
-   printf("[DYLIB] Loaded %s (%d bytes) at 0x%x\n", name, size, load_addr);
+   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) at 0x%x\n", name, size, load_addr);
 
    // Parse ELF symbols from the loaded library
    parse_elf_symbols(ext, load_addr, size);
@@ -768,7 +768,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
 
    if (e_shoff == 0 || e_shnum == 0 || e_shentsize == 0)
    {
-      printf("[DYLIB] Invalid section headers\n");
+      logfmt(LOG_ERROR, "[DYLIB] Invalid section headers\n");
       return 0;
    }
 
@@ -829,7 +829,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    {
       original_base = 0x05000000; // Default for our libmath
    }
-   printf("[DYLIB] Detected original_base = 0x%x (from e_entry=0x%x)\n",
+   logfmt(LOG_INFO, "[DYLIB] Detected original_base = 0x%x (from e_entry=0x%x)\n",
           original_base, e_entry);
 
    // Find .symtab and .strtab sections
@@ -849,7 +849,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          symtab_size = sh->sh_size;
          symtab_entsize = sh->sh_entsize;
          strtab_link = sh->sh_link; // Index of associated string table
-         printf("[DYLIB] Found .symtab at file offset 0x%x, memory 0x%x, "
+         logfmt(LOG_INFO, "[DYLIB] Found .symtab at file offset 0x%x, memory 0x%x, "
                 "size=%d, entsize=%d, strtab_link=%d\n",
                 sh->sh_offset, symtab_addr, symtab_size, symtab_entsize,
                 strtab_link);
@@ -919,7 +919,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       }
    }
 
-   printf("[DYLIB] Extracted %d symbols\n", ext->symbol_count);
+   logfmt(LOG_INFO, "[DYLIB] Extracted %d symbols\n", ext->symbol_count);
 
    // NOTE: We previously had heuristic scanning that looked for embedded
    // addresses matching original_base and patched them. However, this caused
@@ -944,7 +944,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          uint32_t rel_entsize = sh->sh_entsize;
          int rel_count = rel_size / rel_entsize;
 
-         printf("[DYLIB]   Applying %d relocations from section %d\n",
+         logfmt(LOG_INFO, "[DYLIB]   Applying %d relocations from section %d\n",
                 rel_count, i);
 
          for (int j = 0; j < rel_count; j++)
@@ -988,7 +988,7 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    }
 
    // Open the library file from disk
-   printf("[DYLIB] Opening %s from disk...\n", filepath);
+   logfmt(LOG_INFO, "[DYLIB] Opening %s from disk...\n", filepath);
    VFS_File *file = VFS_Open(filepath);
    if (!file)
    {
@@ -1035,7 +1035,7 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    lib->size = file_size;
    ext->loaded = 1;
 
-   printf("[DYLIB] Loaded %s (%d bytes) from disk at 0x%x\n", name, file_size,
+   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) from disk at 0x%x\n", name, file_size,
           load_addr);
 
    // Parse ELF symbols from the loaded library
@@ -1081,7 +1081,7 @@ int Dylib_Remove(const char *name)
       ext->deps[i].resolved = 0;
    }
 
-   printf("[DYLIB] Removed %s from memory\n", name);
+   logfmt(LOG_INFO, "[DYLIB] Removed %s from memory\n", name);
 
    return 0;
 }
@@ -1090,7 +1090,7 @@ void Dylib_MemoryStatus(void)
 {
    if (!dylib_mem_initialized)
    {
-      printf("[DYLIB] Memory allocator not initialized\n");
+      logfmt(LOG_ERROR, "[DYLIB] Memory allocator not initialized\n");
       return;
    }
 

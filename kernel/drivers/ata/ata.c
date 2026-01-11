@@ -463,7 +463,7 @@ int ATA_Scan(DISK *disks, int maxDisks)
             }
             disks[count].size = total_sectors * 512; // Sector size is 512 bytes
 
-            printf("[DISK] Found ATA disk: ID=0x%x, Type=%u, Brand='%s', "
+            logfmt(LOG_INFO, "[DISK] Found ATA disk: ID=0x%x, Type=%u, Brand='%s', "
                    "Size=%llu bytes (Ch%d/Dr%d)\n",
                    disks[count].id, disks[count].type, disks[count].brand,
                    disks[count].size, ch, dr);

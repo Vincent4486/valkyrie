@@ -453,7 +453,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
    if (drive_types[0] == 0 && drive_types[1] == 0)
    {
-      printf("[DISK] CMOS reports no floppy drives; skipping probe\n");
+      logfmt(LOG_WARNING, "[DISK] CMOS reports no floppy drives; skipping probe\n");
       return 0;
    }
 
@@ -477,7 +477,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
       if (!ok)
       {
-         printf("[DISK] Floppy drive %u not responding\n", drive);
+         logfmt(LOG_WARNING, "[DISK] Floppy drive %u not responding\n", drive);
          continue;
       }
 
@@ -485,7 +485,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
       uint8_t sector_buffer[512];
       if (FDC_ReadLba(drive, 0, sector_buffer, 1) != 0)
       {
-         printf("[DISK] Floppy drive %u: No media or read error\n", drive);
+         logfmt(LOG_WARNING, "[DISK] Floppy drive %u: No media or read error\n", drive);
          continue;
       }
 
@@ -499,7 +499,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
       disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
                    FLOPPY_SECTOR_SIZE;
 
-      printf("[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
+      logfmt(LOG_INFO, "[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
              disk->id, disk->type, disk->size);
 
       count++;
