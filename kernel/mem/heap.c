@@ -39,8 +39,8 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    }
 
    proc->heap_end = heap_start_va + PAGE_SIZE;
-   printf("[process] Heap_Initialize: pid=%u heap at 0x%08x-0x%08x\n",
-          proc->pid, proc->heap_start, proc->heap_end);
+   // printf("[process] Heap_Initialize: pid=%u heap at 0x%08x-0x%08x\n",
+   //        proc->pid, proc->heap_start, proc->heap_end);
    return 0;
 }
 
@@ -108,15 +108,25 @@ void Heap_Initialize(void)
    /* place heap just after the kernel image end symbol */
    heap_start = align_up((uintptr_t)&__end, 8);
 
-   /* cap heap to 2 GiB from heap_start (but do not exceed 32-bit max) */
-   const uintptr_t two_gib = (uintptr_t)2 * 1024 * 1024 * 1024u;
-   uintptr_t desired_end = heap_start + (two_gib - 1);
-   if (desired_end < heap_start || desired_end > (uintptr_t)0xFFFFFFFFu)
-      heap_end = (uintptr_t)0xFFFFFFFFu;
+   /* Set heap to a reasonable size - 64 MiB should be plenty for a kernel */
+   const uintptr_t heap_size = 64 * 1024 * 1024u; // 64 MiB
+   uintptr_t desired_end = heap_start + heap_size;
+   
+   /* Check for overflow and cap at 32-bit max */
+   if (desired_end < heap_start || desired_end > 0xFFFFFFFFu)
+   {
+      heap_end = 0xFFFFFFFFu;
+   }
    else
+   {
       heap_end = desired_end;
+   }
 
    heap_ptr = heap_start;
+   
+   printf("[heap] initialized: start=0x%08x end=0x%08x size=%u MB\n",
+          (uint32_t)heap_start, (uint32_t)heap_end,
+          (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
 }
 
 void *kmalloc(size_t size)
@@ -124,14 +134,25 @@ void *kmalloc(size_t size)
    if (size == 0) return NULL;
 
    uintptr_t cur = align_up(heap_ptr, 8);
-   if (cur > heap_end) return NULL; /* heap already exhausted */
+   if (cur > heap_end)
+   {
+      printf("[heap] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n", 
+             (uint32_t)cur, (uint32_t)heap_end);
+      return NULL; /* heap already exhausted */
+   }
 
    /* available bytes from cur to heap_end (inclusive) */
    uintptr_t avail = (heap_end - cur) + 1;
-   if (size > avail) return NULL; /* not enough room */
+   if (size > avail)
+   {
+      printf("[heap] kmalloc: OUT OF MEMORY (need=%u avail=%u)\n",
+             (uint32_t)size, (uint32_t)avail);
+      return NULL; /* not enough room */
+   }
 
    uintptr_t next = cur + size;
    heap_ptr = next;
+   
    return (void *)cur;
 }
 

@@ -8,6 +8,7 @@
 #include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
+#include <std/string.h>
 #include <sys/sys.h>
 
 // Updated: Scan all disks and populate volumes
@@ -37,7 +38,16 @@ int DISK_Scan()
    // Populate volume[] with detected disks and partitions
    for (int i = 0; i < totalDisks; i++)
    {
-      DISK *disk = &detectedDisks[i];
+      DISK *source = &detectedDisks[i];
+      // Keep disk metadata on the heap so the pointer stays valid beyond this
+      // stack frame.
+      DISK *disk = (DISK *)kmalloc(sizeof(DISK));
+      if (!disk)
+      {
+         printf("[DISK] Failed to allocate disk entry for %s\n", source->brand);
+         continue;
+      }
+      memcpy(disk, source, sizeof(DISK));
       int volumeIndex = -1;
       for (int j = 0; j < 32; j++)
       {
@@ -71,6 +81,14 @@ int DISK_Scan()
 
          // Initialize filesystem on this partition (only for FAT types)
          Partition *volume = &g_SysInfo->volume[volumeIndex];
+         // Defensive: ensure partition has a backing disk before initializing
+         if (!volume->disk)
+         {
+            printf("[DISK] Skipping init: volume[%d] has no disk pointer\n",
+                   volumeIndex);
+            volumeIndex++;
+            continue;
+         }
          uint8_t partType = volume->partitionType & 0xFF;
          if (partType == 0x04 || partType == 0x06 || partType == 0x0B ||
              partType == 0x0C)
@@ -85,13 +103,24 @@ int DISK_Scan()
                   fs->read_only = 0;
                   fs->block_size = 512;
                   fs->type = FAT32; // TODO: detect actual FAT type
+                  fs->ops = NULL;   // Will be set during FS_Mount
                   volume->fs = fs;
+               }
+               else
+               {
+                  // FAT initialized but we couldn't allocate filesystem struct
+                  // Ensure we don't leave a dangling pointer
+                  printf("[DISK] Warning: FAT init succeeded but allocation "
+                         "failed for volume[%d]\n",
+                         volumeIndex);
+                  volume->fs = NULL;
                }
             }
             else
             {
                printf("[DISK] Failed to initialize FAT on volume[%d]\n",
                       volumeIndex);
+               volume->fs = NULL; // Explicitly clear to avoid later deref
             }
          }
          else
@@ -134,7 +163,7 @@ void DISK_LBA2CHS(DISK *disk, uint32_t lba, uint16_t *cylinderOut,
 
 bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
 {
-   if (sectors == 0) return false;
+   if (!disk || sectors == 0 || !dataOut) return false;
 
    if (disk->type == DISK_TYPE_FLOPPY)
    {
@@ -163,7 +192,7 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
 bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
                        const void *dataIn)
 {
-   if (sectors == 0) return false;
+   if (!disk || sectors == 0 || !dataIn) return false;
 
    if (disk->type == DISK_TYPE_FLOPPY)
    {

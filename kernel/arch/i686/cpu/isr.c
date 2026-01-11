@@ -72,6 +72,14 @@ void __attribute__((cdecl)) i686_ISR_Handler(Registers *regs)
              regs->ss);
 
       printf("  interrupt=%x  errorcode=%x\n", regs->interrupt, regs->error);
+      
+      // For page faults (exception 14), read CR2 to get the faulting address
+      if (regs->interrupt == 14)
+      {
+         uint32_t fault_addr;
+         __asm__ __volatile__("mov %%cr2, %0" : "=r"(fault_addr));
+         printf("  fault_address=%x\n", fault_addr);
+      }
 
       printf("KERNEL PANIC!\n");
       i686_Panic();

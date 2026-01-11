@@ -50,14 +50,38 @@ static inline uint32_t read_cr3(void)
    return val;
 }
 
-// Very small physical page allocator backed by the kernel's BSS end.
-// This is sufficient for testing and bootstrap; replace with a real PMM later.
+// Prefer the real physical memory manager when available.
+// Falls back to the tiny bump allocator only if PMM has not been initialized.
 static uint32_t alloc_frame(void)
 {
+   // If PMM is initialized, delegate to it.
+   extern uint32_t PMM_AllocatePhysicalPage(void);
+   extern int PMM_IsInitialized(void);
+   if (PMM_IsInitialized())
+   {
+      uint32_t p = PMM_AllocatePhysicalPage();
+      if (p == 0)
+      {
+         printf("[paging] CRITICAL: PMM exhausted while allocating frame\n");
+      }
+      return p;
+   }
+
+   // Fallback bump allocator (early bootstrap only)
    if (!phys_alloc_ptr)
    {
       phys_alloc_ptr = align_up((uintptr_t)&__end, PAGE_SIZE);
    }
+
+   // Cap to 256MB to avoid wrap/overlap; this is a soft guard for early use.
+   const uint32_t MAX_EARLY_BYTES = 256 * 1024 * 1024;
+   if (phys_alloc_ptr >= MAX_EARLY_BYTES)
+   {
+      printf("[paging] CRITICAL: alloc_frame early allocator exhausted (ptr=0x%08x)\n",
+             (uint32_t)phys_alloc_ptr);
+      return 0;
+   }
+
    uint32_t frame = (uint32_t)phys_alloc_ptr;
    phys_alloc_ptr += PAGE_SIZE;
    return frame;
@@ -66,6 +90,11 @@ static uint32_t alloc_frame(void)
 static uint32_t *alloc_page_table(void)
 {
    uint32_t phys = alloc_frame();
+   if (phys == 0)
+   {
+      printf("[paging] ERROR: alloc_page_table failed - no frames\n");
+      return NULL;
+   }
    uint32_t *tbl = (uint32_t *)phys; // identity mapped
    memset(tbl, 0, PAGE_SIZE);
    return tbl;
@@ -74,6 +103,11 @@ static uint32_t *alloc_page_table(void)
 static uint32_t *alloc_page_directory(void)
 {
    uint32_t phys = alloc_frame();
+   if (phys == 0)
+   {
+      printf("[paging] ERROR: alloc_page_directory failed - no frames\n");
+      return NULL;
+   }
    uint32_t *pd = (uint32_t *)phys; // identity mapped
    memset(pd, 0, PAGE_SIZE);
    return pd;
@@ -101,6 +135,11 @@ void i686_Paging_Initialize(void)
 {
    // Bootstrap identity-mapped kernel directory
    kernel_page_directory = alloc_page_directory();
+   if (!kernel_page_directory)
+   {
+      printf("[paging] FATAL: failed to allocate kernel page directory\n");
+      return;
+   }
    identity_map_range(kernel_page_directory, 0, IDENTITY_MAP_LIMIT);
 
    // Set current directory and enable
@@ -114,6 +153,11 @@ void i686_Paging_Enable(void) { enable_paging_hw(); }
 void *i686_Paging_CreatePageDirectory(void)
 {
    uint32_t *pd = alloc_page_directory();
+   if (!pd)
+   {
+      printf("[paging] ERROR: i686_Paging_CreatePageDirectory - alloc failed\n");
+      return NULL;
+   }
    // Copy kernel mappings so shared kernel space stays accessible
    for (size_t i = 0; i < PAGE_DIR_ENTRIES; ++i)
    {
@@ -136,6 +180,11 @@ static uint32_t *get_page_table(uint32_t *pd, uint32_t vaddr, bool create)
    {
       if (!create) return NULL;
       uint32_t *pt = alloc_page_table();
+      if (!pt)
+      {
+         printf("[paging] ERROR: get_page_table - alloc_page_table failed\n");
+         return NULL;
+      }
       pd[pd_idx] = ((uint32_t)pt) | PAGE_PRESENT | PAGE_RW;
       return pt;
    }

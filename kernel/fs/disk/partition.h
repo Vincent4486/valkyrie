@@ -11,7 +11,7 @@
 struct Filesystem;
 typedef struct Filesystem Filesystem;
 
-typedef struct
+typedef struct Partition
 {
    DISK *disk;
    uint32_t partitionOffset;

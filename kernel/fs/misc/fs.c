@@ -24,7 +24,5 @@ bool FS_Initialize()
       printf("[FS] Disk initialization failed\n");
       return false;
    }
-   printf("[FS] Filesystem initialization complete, disks detected: %d\n",
-          disksDetected);
    return true;
 }
