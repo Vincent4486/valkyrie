@@ -2,11 +2,11 @@
 
 #include "fd.h"
 #include <cpu/process.h>
-#include <fs/fs.h>
 #include <fs/vfs/vfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
+#include <valkyrie/fs.h>
 
 // Helper: Get file descriptor from process
 FileDescriptor *FD_Get(void *proc_ptr, int fd)

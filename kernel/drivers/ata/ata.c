@@ -88,7 +88,7 @@ static int ata_wait_busy(uint16_t tf_port)
 
    while (timeout--)
    {
-      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
       if (!(status & ATA_STATUS_BSY)) return 0;
 
       // Small delay to prevent bus saturation
@@ -108,7 +108,7 @@ static int ata_wait_drq(uint16_t tf_port)
 
    while (timeout--)
    {
-      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
       if (status & ATA_STATUS_DRQ) return 0;
       if (status & ATA_STATUS_ERR)
       {
@@ -131,7 +131,7 @@ static int ata_wait_for_ready(uint16_t tf_port)
 
    while (timeout--)
    {
-      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
       if (!(status & ATA_STATUS_BSY) && (status & ATA_STATUS_DRDY)) return 0;
 
       // Small delay
@@ -150,7 +150,7 @@ static int ata_wait_for_data(uint16_t tf_port)
 
    while (timeout--)
    {
-      uint8_t status = HAL_inb(tf_port + ATA_REG_STATUS);
+      uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
       if (status & ATA_STATUS_DRQ) return 0;
       if (status & ATA_STATUS_ERR) return -1;
 
@@ -167,13 +167,13 @@ static int ata_wait_for_data(uint16_t tf_port)
 static void ata_soft_reset(uint16_t dcr_port)
 {
    // Set SRST bit (software reset)
-   HAL_outb(dcr_port, 0x04);
+   g_HalIoOperations->outb(dcr_port, 0x04);
 
    // Wait a bit
    for (volatile int i = 0; i < 100000; i++);
 
    // Clear SRST bit
-   HAL_outb(dcr_port, 0x00);
+   g_HalIoOperations->outb(dcr_port, 0x00);
 
    // Wait for reset to complete
    for (volatile int i = 0; i < 100000; i++);
@@ -225,17 +225,18 @@ int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
 
    // Write all command registers in the correct sequence
    // This is critical - must follow ATA protocol
-   HAL_outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
-   HAL_outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_LBA_HIGH, ((lba >> 16) & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_DEVICE, device);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,
+                           ((lba >> 16) & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_DEVICE, device);
 
    // Small delay to allow registers to settle
    for (volatile int i = 0; i < 50000; i++);
 
    // Issue READ SECTORS command
-   HAL_outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 
    // Read sectors
    for (uint32_t sec = 0; sec < count; sec++)
@@ -252,7 +253,7 @@ int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
       for (int i = 0; i < 256; i++)
       {
          // Read 16-bit word from data port
-         dest_words[i] = HAL_inw(drv->tf_port + ATA_REG_DATA);
+         dest_words[i] = g_HalIoOperations->inw(drv->tf_port + ATA_REG_DATA);
       }
    }
 
@@ -285,17 +286,18 @@ int ATA_Write(int channel, int drive, uint32_t lba, const uint8_t *buffer,
    uint8_t device = drv->slave_bits | 0x40 | ((lba >> 24) & 0x0F);
 
    // Write all command registers in the correct sequence
-   HAL_outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
-   HAL_outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_LBA_HIGH, ((lba >> 16) & 0xFF));
-   HAL_outb(drv->tf_port + ATA_REG_DEVICE, device);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,
+                           ((lba >> 16) & 0xFF));
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_DEVICE, device);
 
    // Small delay to allow registers to settle
    for (volatile int i = 0; i < 50000; i++);
 
    // Issue WRITE SECTORS command
-   HAL_outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 
    // Write sectors
    for (uint32_t sec = 0; sec < count; sec++)
@@ -312,7 +314,7 @@ int ATA_Write(int channel, int drive, uint32_t lba, const uint8_t *buffer,
       for (int i = 0; i < 256; i++)
       {
          // Write 16-bit word to data port
-         HAL_outw(drv->tf_port + ATA_REG_DATA, src_words[i]);
+         g_HalIoOperations->outw(drv->tf_port + ATA_REG_DATA, src_words[i]);
       }
 
       // For all sectors except the last, wait briefly before next sector
@@ -333,10 +335,10 @@ int ATA_Write(int channel, int drive, uint32_t lba, const uint8_t *buffer,
    }
 
    // Final status check to catch any errors
-   uint8_t final_status = HAL_inb(drv->tf_port + ATA_REG_STATUS);
+   uint8_t final_status = g_HalIoOperations->inb(drv->tf_port + ATA_REG_STATUS);
    if (final_status & ATA_STATUS_ERR)
    {
-      uint8_t error = HAL_inb(drv->tf_port + ATA_REG_ERROR);
+      uint8_t error = g_HalIoOperations->inb(drv->tf_port + ATA_REG_ERROR);
       return -1;
    }
 
@@ -364,14 +366,14 @@ int ATA_Identify(int channel, int drive, uint16_t *buffer)
    if (!driver) return -1;
 
    // Select drive
-   HAL_outb(driver->tf_port + ATA_REG_DEVICE,
-            driver->slave_bits | ((drive & 1) << 4));
+   g_HalIoOperations->outb(driver->tf_port + ATA_REG_DEVICE,
+                           driver->slave_bits | ((drive & 1) << 4));
 
    // Wait for drive to be ready
    ata_wait_for_ready(driver->tf_port);
 
    // Send IDENTIFY command
-   HAL_outb(driver->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+   g_HalIoOperations->outb(driver->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 
    // Wait for data
    if (ata_wait_for_data(driver->tf_port) != 0) return -1;
@@ -379,7 +381,7 @@ int ATA_Identify(int channel, int drive, uint16_t *buffer)
    // Read 256 words
    for (int i = 0; i < 256; i++)
    {
-      buffer[i] = HAL_inw(driver->tf_port + ATA_REG_DATA);
+      buffer[i] = g_HalIoOperations->inw(driver->tf_port + ATA_REG_DATA);
    }
 
    return 0;

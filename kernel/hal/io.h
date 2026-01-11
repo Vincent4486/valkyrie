@@ -24,40 +24,21 @@
 #error "Unsupported architecture for HAL I/O"
 #endif
 
-static inline void HAL_outb(uint16_t port, uint8_t value)
+typedef struct HAL_IoOperations
 {
-   HAL_ARCH_outb(port, value);
-}
+   void (*outb)(uint16_t port, uint8_t value);
+   void (*outw)(uint16_t port, uint16_t value);
+   void (*outl)(uint16_t port, uint32_t value);
+   uint8_t (*inb)(uint16_t port);
+   uint16_t (*inw)(uint16_t port);
+   uint32_t (*inl)(uint16_t port);
+   uint8_t (*EnableInterrupts)();
+   uint8_t (*DisableInterrupts)();
+   void (*iowait)();
+   void (*Halt)();
+   void (*Panic)();
+} HAL_IoOperations;
 
-static inline void HAL_outw(uint16_t port, uint16_t value)
-{
-   HAL_ARCH_outw(port, value);
-}
+extern const HAL_IoOperations *g_HalIoOperations;
 
-static inline void HAL_outl(uint16_t port, uint32_t value)
-{
-   HAL_ARCH_outl(port, value);
-}
-
-static inline uint8_t HAL_inb(uint16_t port) { return HAL_ARCH_inb(port); }
-
-static inline uint16_t HAL_inw(uint16_t port) { return HAL_ARCH_inw(port); }
-
-static inline uint32_t HAL_inl(uint16_t port) { return HAL_ARCH_inl(port); }
-
-static inline uint8_t HAL_EnableInterrupts()
-{
-   return HAL_ARCH_EnableInterrupts();
-}
-
-static inline uint8_t HAL_DisableInterrupts()
-{
-   return HAL_ARCH_DisableInterrupts();
-}
-
-static inline void HAL_IOWait() { HAL_ARCH_iowait(); }
-
-static inline void HAL_Halt() { HAL_ARCH_Halt(); }
-
-static inline void HAL_Panic() { HAL_ARCH_Panic(); }
 #endif

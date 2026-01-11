@@ -72,7 +72,7 @@ void __attribute__((cdecl)) i686_ISR_Handler(Registers *regs)
              regs->ss);
 
       printf("  interrupt=%x  errorcode=%x\n", regs->interrupt, regs->error);
-      
+
       // For page faults (exception 14), read CR2 to get the faulting address
       if (regs->interrupt == 14)
       {

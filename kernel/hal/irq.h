@@ -15,11 +15,12 @@ typedef IRQ_Info HAL_IRQ_Info;
 #error "Unsupported architecture for HAL IRQ"
 #endif
 
-static inline void HAL_IRQ_RegisterHandler(int irq, HAL_IRQHandler handler)
+typedef struct HAL_IrqOperations
 {
-   HAL_ARCH_IRQ_RegisterHandler(irq, handler);
-}
+   void (*RegisterHandler)(int irq, void (*handler)(Registers *));
+   void (*Unmask)(int irq);
+} HAL_IrqOperations;
 
-static inline void HAL_IRQ_Unmask(int irq) { HAL_ARCH_IRQ_Unmask(irq); }
+extern const HAL_IrqOperations *g_HalIrqOperations;
 
 #endif

@@ -77,7 +77,8 @@ static uint32_t alloc_frame(void)
    const uint32_t MAX_EARLY_BYTES = 256 * 1024 * 1024;
    if (phys_alloc_ptr >= MAX_EARLY_BYTES)
    {
-      printf("[paging] CRITICAL: alloc_frame early allocator exhausted (ptr=0x%08x)\n",
+      printf("[paging] CRITICAL: alloc_frame early allocator exhausted "
+             "(ptr=0x%08x)\n",
              (uint32_t)phys_alloc_ptr);
       return 0;
    }
@@ -155,7 +156,8 @@ void *i686_Paging_CreatePageDirectory(void)
    uint32_t *pd = alloc_page_directory();
    if (!pd)
    {
-      printf("[paging] ERROR: i686_Paging_CreatePageDirectory - alloc failed\n");
+      printf(
+          "[paging] ERROR: i686_Paging_CreatePageDirectory - alloc failed\n");
       return NULL;
    }
    // Copy kernel mappings so shared kernel space stays accessible

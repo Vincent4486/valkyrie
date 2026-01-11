@@ -17,39 +17,16 @@
 #error "Unsupported architecture for HAL Stack"
 #endif
 
-static inline void HAL_Stack_SetupProcess(Stack *stack, uint32_t entry_point)
+typedef struct HAL_StackOperations
 {
-   HAL_ARCH_Stack_SetupProcess(stack, entry_point);
-}
+   void (*SetupProcess)(Stack *stack, uint32_t entry_point);
+   uint32_t (*GetESP)(void);
+   uint32_t (*GetEBP)(void);
+   void (*SetRegisters)(uint32_t esp, uint32_t ebp);
+   void (*GetRegisters)(uint32_t *esp_out, uint32_t *ebp_out);
+   void (*SetupException)(Stack *stack, uint32_t handler, uint32_t error_code);
+   void (*InitializeKernel)(void);
+} HAL_StackOperations;
 
-static inline uint32_t HAL_Stack_GetESP(void)
-{
-   return HAL_ARCH_Stack_GetESP();
-}
-
-static inline uint32_t HAL_Stack_GetEBP(void)
-{
-   return HAL_ARCH_Stack_GetEBP();
-}
-
-static inline void HAL_Stack_SetRegisters(uint32_t esp, uint32_t ebp)
-{
-   HAL_ARCH_Stack_SetRegisters(esp, ebp);
-}
-
-static inline void HAL_Stack_GetRegisters(uint32_t *esp_out, uint32_t *ebp_out)
-{
-   HAL_ARCH_Stack_GetRegisters(esp_out, ebp_out);
-}
-
-static inline void HAL_Stack_SetupException(Stack *stack, uint32_t handler,
-                                            uint32_t error_code)
-{
-   HAL_ARCH_Stack_SetupException(stack, handler, error_code);
-}
-
-static inline void HAL_Stack_InitializeKernel(void)
-{
-   HAL_ARCH_Stack_InitializeKernel();
-}
+extern const HAL_StackOperations *g_HalStackOperations;
 #endif

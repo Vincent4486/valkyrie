@@ -2,10 +2,10 @@
 
 #ifndef FDC_H
 #define FDC_H
-#include <fs/fs.h> // For DISK struct
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <valkyrie/fs.h> // For DISK struct
 
 #define FDC_SECTOR_SIZE 512
 

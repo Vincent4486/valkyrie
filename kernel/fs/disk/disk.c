@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "disk.h"
-#include "partition.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
 #include <fs/fat/fat.h>
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 // Updated: Scan all disks and populate volumes
 int DISK_Initialize()

@@ -7,13 +7,13 @@
  */
 
 #include "dylib.h"
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 // ELF32 relocation types (i686)
 #define R_386_NONE 0
@@ -402,7 +402,7 @@ int Dylib_ApplyKernelRelocations(void)
 
 uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
 {
-   if (!dylib_mem_initialized) 
+   if (!dylib_mem_initialized)
    {
       printf("[DYLIB] Initializing memory allocator...\n");
       if (Dylib_MemoryInitialize() != 0)
@@ -411,12 +411,13 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
          return 0;
       }
    }
-   
+
    // Validate allocator state
-   if (dylib_mem_next_free < DYLIB_MEMORY_ADDR || 
+   if (dylib_mem_next_free < DYLIB_MEMORY_ADDR ||
        dylib_mem_next_free > DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE)
    {
-      printf("[ERROR] Memory allocator corrupted: next_free=0x%x\n", dylib_mem_next_free);
+      printf("[ERROR] Memory allocator corrupted: next_free=0x%x\n",
+             dylib_mem_next_free);
       return 0;
    }
 
@@ -460,7 +461,7 @@ LibRecord *Dylib_Find(const char *name)
       printf("[ERROR] Invalid parameters to Dylib_Find\n");
       return NULL;
    }
-   
+
    LibRecord *reg = LIB_REGISTRY_ADDR;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
@@ -773,7 +774,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       printf("[ERROR] Invalid parameters to parse_elf_symbols\n");
       return -1;
    }
-   
+
    // ELF header at the beginning of the loaded binary
    uint8_t *elf_data = (uint8_t *)base_addr;
 
@@ -784,7 +785,8 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
     * crashes. */
    if (size < 52 || elf_data == NULL)
    {
-      printf("[ERROR] ELF image too small or invalid (size=%d, data=%p)\n", size, elf_data);
+      printf("[ERROR] ELF image too small or invalid (size=%d, data=%p)\n",
+             size, elf_data);
       return -1;
    }
 
@@ -1018,13 +1020,15 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
             /* r_offset in REL entries is typically a virtual address
              * relative to the linked base. Make sure we never write outside
              * the loaded image. */
-            uint64_t target_addr = (uint64_t)base_addr + (uint64_t)rel->r_offset;
+            uint64_t target_addr =
+                (uint64_t)base_addr + (uint64_t)rel->r_offset;
             uint32_t image_start = base_addr;
             uint32_t image_end = base_addr + size; // one past last byte
 
             if (target_addr < image_start || target_addr >= image_end)
             {
-               printf("[DYLIB]   Skipping relocation %d: target 0x%08x outside image 0x%08x-0x%08x\n",
+               printf("[DYLIB]   Skipping relocation %d: target 0x%08x outside "
+                      "image 0x%08x-0x%08x\n",
                       j, (uint32_t)target_addr, image_start, image_end);
                continue;
             }
@@ -1207,21 +1211,21 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
    symbol_callback = callback;
 }
 
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/dylib.h>
+#include <valkyrie/fs.h>
 
 static int load_libmath(void)
 {
    // Validate critical pointers before proceeding
-   if (LIB_REGISTRY_ADDR == NULL) 
+   if (LIB_REGISTRY_ADDR == NULL)
    {
       printf("[ERROR] Library registry address is NULL\n");
       return -1;
    }
-   
+
    // First, ensure libmath is registered in the library registry
    LibRecord *lib_registry = LIB_REGISTRY_ADDR;
 
@@ -1255,7 +1259,9 @@ static int load_libmath(void)
    int dep_result = Dylib_ResolveDependencies("libmath");
    if (dep_result != 0)
    {
-      printf("[WARNING] Dependency resolution failed (error=%d), continuing...\n", dep_result);
+      printf(
+          "[WARNING] Dependency resolution failed (error=%d), continuing...\n",
+          dep_result);
    }
 
    // Dylib_ListSymbols("libmath");
@@ -1343,7 +1349,7 @@ static int load_libmath(void)
       printf("[ERROR] Kernel relocation failed (error=%d)\n", reloc_result);
       return -1;
    }
-   
+
    return 0;
 }
 

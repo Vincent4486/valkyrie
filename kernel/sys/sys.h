@@ -2,11 +2,11 @@
 
 #ifndef SYS_H
 #define SYS_H
-#include <fs/fs.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 #include <valkyrie/system.h>
 
 extern __attribute__((cdecl)) void get_arch(uint8_t *arch);

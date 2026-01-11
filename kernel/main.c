@@ -3,7 +3,6 @@
 #include <cpu/cpu.h>
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
-#include <fs/fs.h>
 #include <hal/hal.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
@@ -13,6 +12,7 @@
 #include <sys/dylib.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 #include <valkyrie/system.h>
 
 #include <display/startscreen.h>
@@ -44,7 +44,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    }
    FS_Mount(&g_SysInfo->volume[0], "/");
    VFS_SelfTest();
-   
+
    if (!Dylib_Initialize())
    {
       printf("Failed to load dynamic libraries...");

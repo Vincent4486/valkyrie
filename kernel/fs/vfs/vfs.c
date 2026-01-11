@@ -3,13 +3,13 @@
 #include "vfs.h"
 
 #include <fs/fat/fat.h>
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 /* Get VFS operations for a filesystem type */
 static const VFS_Operations *get_fs_operations(FilesystemType type)
@@ -164,7 +164,7 @@ int FS_Mount(Partition *volume, const char *location)
       printf("[VFS] Failed to allocate mount path buffer\n");
       return -1;
    }
-   
+
    if (!vfs_normalize_mount(location, normalized, VFS_MAX_PATH))
    {
       printf("[VFS] Invalid mount location '%s'\n", location ? location : "");
@@ -286,7 +286,7 @@ bool VFS_Delete(const char *path)
       return false;
    }
 
-   bool result = part->fs->ops->delete (part, relative);
+   bool result = part->fs->ops->delete(part, relative);
    free(relative);
    return result;
 }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include <fs/fat/fat.h>
-#include <fs/fs.h>
 #include <fs/vfs/vfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stdint.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 /**
  * Initialize storage system: scan and initialize all disks

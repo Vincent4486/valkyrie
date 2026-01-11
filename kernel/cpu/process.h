@@ -3,11 +3,11 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 
 #define HEAP_MAX 0xC0000000u // Don't allow heap
 
