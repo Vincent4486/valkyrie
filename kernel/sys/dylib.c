@@ -7,12 +7,13 @@
  */
 
 #include "dylib.h"
-#include <fs/vfs/vfs.h>
+#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/elf.h>
+#include <sys/sys.h>
 
 // ELF32 relocation types (i686)
 #define R_386_NONE 0
@@ -113,8 +114,8 @@ int Dylib_MemoryInitialize(void)
 {
    if (dylib_mem_initialized) return 0;
 
-   // Clear the memory region
-   memset((void *)DYLIB_MEMORY_ADDR, 0, DYLIB_MEMORY_SIZE);
+   // Don't memset the entire DYLIB region - it's not mapped yet
+   // Libraries will be loaded into this space as needed
 
    // Clear extended data
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
@@ -405,7 +406,23 @@ int Dylib_ApplyKernelRelocations(void)
 
 uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
 {
-   if (!dylib_mem_initialized) Dylib_MemoryInitialize();
+   if (!dylib_mem_initialized) 
+   {
+      printf("[DYLIB] Initializing memory allocator...\n");
+      if (Dylib_MemoryInitialize() != 0)
+      {
+         printf("[ERROR] Failed to initialize dylib memory\n");
+         return 0;
+      }
+   }
+   
+   // Validate allocator state
+   if (dylib_mem_next_free < DYLIB_MEMORY_ADDR || 
+       dylib_mem_next_free > DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE)
+   {
+      printf("[ERROR] Memory allocator corrupted: next_free=0x%x\n", dylib_mem_next_free);
+      return 0;
+   }
 
    // Round up to 16-byte boundary for alignment
    uint32_t aligned_size = (size + 15) & ~15;
@@ -442,6 +459,12 @@ static int dylib_find_index(const char *name)
 
 LibRecord *Dylib_Find(const char *name)
 {
+   if (!name || !LIB_REGISTRY_ADDR)
+   {
+      printf("[ERROR] Invalid parameters to Dylib_Find\n");
+      return NULL;
+   }
+   
    LibRecord *reg = LIB_REGISTRY_ADDR;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
@@ -748,10 +771,28 @@ int Dylib_Load(const char *name, const void *image, uint32_t size)
 static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
                              uint32_t size)
 {
+   // Validate input parameters
+   if (!ext || base_addr == 0 || size == 0)
+   {
+      printf("[ERROR] Invalid parameters to parse_elf_symbols\n");
+      return -1;
+   }
+   
    // ELF header at the beginning of the loaded binary
    uint8_t *elf_data = (uint8_t *)base_addr;
 
-   // Check ELF magic number
+   /* Basic bounds validation to avoid dereferencing beyond the provided
+    * image. The minimal ELF32 header size we need is 52 bytes. If the size
+    * passed in is smaller than that, treat the image as invalid. This
+    * prevents accidental reads into unmapped memory which can cause kernel
+    * crashes. */
+   if (size < 52 || elf_data == NULL)
+   {
+      printf("[ERROR] ELF image too small or invalid (size=%d, data=%p)\n", size, elf_data);
+      return -1;
+   }
+
+   /* Check ELF magic number */
    if (elf_data[0] != 0x7f || elf_data[1] != 'E' || elf_data[2] != 'L' ||
        elf_data[3] != 'F')
    {
@@ -760,29 +801,53 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    }
 
    // Parse ELF32 header (little-endian)
-   uint32_t e_shoff =
-       *(uint32_t *)(elf_data + 32); // Section header offset (in file)
-   uint16_t e_shnum = *(uint16_t *)(elf_data + 48); // Number of sections
-   uint16_t e_shentsize =
-       *(uint16_t *)(elf_data + 46); // Section header entry size
+   /* Validate we can read the header fields safely within the provided
+    * image. Offsets 32, 46 and 48 are within the 52-byte header validated
+    * above. */
+   uint32_t e_shoff = *(uint32_t *)(elf_data + 32);
+   uint16_t e_shnum = *(uint16_t *)(elf_data + 48);
+   uint16_t e_shentsize = *(uint16_t *)(elf_data + 46);
 
+   /* Quick sanity checks on section header metadata. Ensure the computed
+    * section table fits inside the provided image. */
    if (e_shoff == 0 || e_shnum == 0 || e_shentsize == 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Invalid section headers\n");
       return 0;
    }
 
-   // Find the first PROGBITS section to determine the offset adjustment
-   // When we load the ELF file, all sections keep their relative offsets
-   // But the sections that need to be in memory are those with SHF_ALLOC flag
-   // We need to find where .text actually starts in the file
+   /* Prevent overflow when computing total section headers area */
+   uint64_t sh_table_size = (uint64_t)e_shnum * (uint64_t)e_shentsize;
+   if (e_shoff + sh_table_size > size)
+   {
+      printf("[DYLIB] Section header table out of bounds\n");
+      return -1;
+   }
+
+   /* Find the first PROGBITS + SHF_ALLOC section (typically .text). Ensure
+    * every access to section header fields is validated to lie within the
+    * image. */
    uint32_t text_section_file_offset = 0;
    for (int i = 0; i < e_shnum; i++)
    {
-      Elf32_Shdr *sh = (Elf32_Shdr *)(elf_data + e_shoff + (i * e_shentsize));
-      // Find the first allocable section - this is where code actually starts
-      if (sh->sh_type == 1 && (sh->sh_flags & 0x2)) // PROGBITS with ALLOC
+      uint64_t sh_off = e_shoff + (uint64_t)(i * e_shentsize);
+      Elf32_Shdr *sh = (Elf32_Shdr *)(elf_data + sh_off);
+
+      /* Ensure the section header itself fits inside the image */
+      if (sh_off + sizeof(Elf32_Shdr) > size)
       {
+         printf("[DYLIB] Section header %d out of bounds\n", i);
+         return -1;
+      }
+
+      if (sh->sh_type == 1 && (sh->sh_flags & 0x2)) /* PROGBITS + ALLOC */
+      {
+         /* Validate the referenced file offset is within the loaded image */
+         if ((uint64_t)sh->sh_offset + sh->sh_size > size)
+         {
+            printf("[DYLIB] .text section out of bounds\n");
+            return -1;
+         }
          text_section_file_offset = sh->sh_offset;
          break;
       }
@@ -797,12 +862,12 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    // where st_value_offset = st_value - original_base (offset from link
    // address)
 
-   // Read ELF header fields for detecting original_base
-   uint32_t e_entry = *(uint32_t *)(elf_data + 24); // Entry point address
-   uint32_t e_phoff = *(uint32_t *)(elf_data + 28); // Program header offset
-   uint16_t e_phentsize =
-       *(uint16_t *)(elf_data + 42);                // Program header entry size
-   uint16_t e_phnum = *(uint16_t *)(elf_data + 44); // Number of program headers
+   /* Read program header / entry fields. Offsets are within the standard
+    * ELF header (validated above). */
+   uint32_t e_entry = *(uint32_t *)(elf_data + 24);
+   uint32_t e_phoff = *(uint32_t *)(elf_data + 28);
+   uint16_t e_phentsize = *(uint16_t *)(elf_data + 42);
+   uint16_t e_phnum = *(uint16_t *)(elf_data + 44);
 
    // Detect original_base from the ELF entry point (e_entry) which is an
    // absolute address in the linked image. For libmath linked at 0x05000000,
@@ -815,7 +880,15 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       // Fallback: scan program headers for first PT_LOAD segment
       for (int i = 0; i < e_phnum; i++)
       {
-         uint8_t *ph = elf_data + e_phoff + (i * e_phentsize);
+         uint64_t ph_off = (uint64_t)e_phoff + (uint64_t)(i * e_phentsize);
+
+         /* Ensure program header fits inside image */
+         if (ph_off + e_phentsize > size)
+         {
+            continue;
+         }
+
+         uint8_t *ph = elf_data + ph_off;
          uint32_t p_type = *(uint32_t *)(ph + 0);
          uint32_t p_vaddr = *(uint32_t *)(ph + 8);
          if (p_type == 1)
@@ -829,8 +902,11 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    {
       original_base = 0x05000000; // Default for our libmath
    }
+<<<<<<< HEAD
    logfmt(LOG_INFO, "[DYLIB] Detected original_base = 0x%x (from e_entry=0x%x)\n",
           original_base, e_entry);
+=======
+>>>>>>> 4c79315c43c2cb11cfe4bf7991687db7a82b80d2
 
    // Find .symtab and .strtab sections
    uint32_t symtab_addr = 0, symtab_size = 0, symtab_entsize = 0;
@@ -849,10 +925,13 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          symtab_size = sh->sh_size;
          symtab_entsize = sh->sh_entsize;
          strtab_link = sh->sh_link; // Index of associated string table
+<<<<<<< HEAD
          logfmt(LOG_INFO, "[DYLIB] Found .symtab at file offset 0x%x, memory 0x%x, "
                 "size=%d, entsize=%d, strtab_link=%d\n",
                 sh->sh_offset, symtab_addr, symtab_size, symtab_entsize,
                 strtab_link);
+=======
+>>>>>>> 4c79315c43c2cb11cfe4bf7991687db7a82b80d2
       }
    }
 
@@ -950,8 +1029,23 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          for (int j = 0; j < rel_count; j++)
          {
             Elf32_Rel *rel = (Elf32_Rel *)(rel_addr + (j * rel_entsize));
-            uint32_t *patch_addr = (uint32_t *)(base_addr + rel->r_offset);
             uint32_t type = ELF32_R_TYPE(rel->r_info);
+
+            /* r_offset in REL entries is typically a virtual address
+             * relative to the linked base. Make sure we never write outside
+             * the loaded image. */
+            uint64_t target_addr = (uint64_t)base_addr + (uint64_t)rel->r_offset;
+            uint32_t image_start = base_addr;
+            uint32_t image_end = base_addr + size; // one past last byte
+
+            if (target_addr < image_start || target_addr >= image_end)
+            {
+               printf("[DYLIB]   Skipping relocation %d: target 0x%08x outside image 0x%08x-0x%08x\n",
+                      j, (uint32_t)target_addr, image_start, image_end);
+               continue;
+            }
+
+            uint32_t *patch_addr = (uint32_t *)(uint32_t)target_addr;
 
             // For R_386_RELATIVE, just add the difference between load and
             // original base
@@ -1137,6 +1231,13 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
 
 static int load_libmath(void)
 {
+   // Validate critical pointers before proceeding
+   if (LIB_REGISTRY_ADDR == NULL) 
+   {
+      printf("[ERROR] Library registry address is NULL\n");
+      return -1;
+   }
+   
    // First, ensure libmath is registered in the library registry
    LibRecord *lib_registry = LIB_REGISTRY_ADDR;
 
@@ -1159,14 +1260,19 @@ static int load_libmath(void)
    }
 
    // Load libmath from disk using the standard loader
-   if (Dylib_LoadFromDisk("libmath", "/usr/lib/libmath.so") != 0)
+   int load_result = Dylib_LoadFromDisk("libmath", "/usr/lib/libmath.so");
+   if (load_result != 0)
    {
-      printf("[ERROR] Failed to load libmath.so\n");
+      printf("[ERROR] Failed to load libmath.so (error=%d)\n", load_result);
       return -1;
    }
 
-   // Resolve dependencies
-   Dylib_ResolveDependencies("libmath");
+   // Resolve dependencies with error checking
+   int dep_result = Dylib_ResolveDependencies("libmath");
+   if (dep_result != 0)
+   {
+      printf("[WARNING] Dependency resolution failed (error=%d), continuing...\n", dep_result);
+   }
 
    // Dylib_ListSymbols("libmath");
 
@@ -1247,16 +1353,23 @@ static int load_libmath(void)
    Dylib_AddGlobalSymbol("fmod", (uint32_t)Dylib_FindSymbol("libmath", "fmod"),
                          "libmath", 0);
 
-   Dylib_ApplyKernelRelocations();
+   int reloc_result = Dylib_ApplyKernelRelocations();
+   if (reloc_result != 0)
+   {
+      printf("[ERROR] Kernel relocation failed (error=%d)\n", reloc_result);
+      return -1;
+   }
+   
    return 0;
 }
 
 bool Dylib_Initialize(void)
 {
-   // Load math library
-   if (load_libmath() != 0)
+   // Load math library with error handling
+   int result = load_libmath();
+   if (result != 0)
    {
-      printf("[ERROR] Failed to initialize libmath\n");
+      printf("[ERROR] Failed to initialize libmath (error=%d)\n", result);
       return false;
    }
 

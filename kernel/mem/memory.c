@@ -39,6 +39,10 @@ void mem_fault_handler(void *addr, size_t len, int code)
 extern void *memcpy_asm(void *dst, const void *src, size_t num);
 void *memcpy(void *dst, const void *src, size_t num)
 {
+   if (num > 1024) {
+        printf("[MEMCPY] Large copy:  %u bytes from 0x%x to 0x%x\n", 
+               num, (uint32_t)src, (uint32_t)dst);
+   }
    return memcpy_asm(dst, src, num);
 }
 
@@ -91,21 +95,20 @@ void *memmove(void *dest, const void *src, size_t n)
    return dest;
 }
 
-int strncmp(const char *s1, const char *s2, size_t n) {
-    if (n == 0)
-        return (0);
-    do {
-        if (*s1 != *s2++)
-            /*
-             * We could return *s1 - *--s2, but that's not
-             * guaranteed to be in the range of int.  Better
-             * to do the right thing instead.
-             */
-            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
-        if (*s1++ == 0)
-            break;
-    } while (--n != 0);
-    return (0);
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+   if (n == 0) return (0);
+   do {
+      if (*s1 != *s2++)
+         /*
+          * We could return *s1 - *--s2, but that's not
+          * guaranteed to be in the range of int.  Better
+          * to do the right thing instead.
+          */
+         return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+      if (*s1++ == 0) break;
+   } while (--n != 0);
+   return (0);
 }
 
 /**
@@ -183,12 +186,16 @@ void MEM_Initialize(void *multiboot_info_ptr)
    Heap_SelfTest();
    Stack_Initialize();
    Stack_SelfTest();
+
+   // Initialize physical memory manager before paging so page tables can use it
+   PMM_Initialize(total_memory);
+   PMM_SelfTest();
+
+   // Paging after PMM so alloc_frame can use real frames
    HAL_Paging_Initialize();
    HAL_Paging_SelfTest();
 
-   // Initialize physical and virtual memory managers
-   PMM_Initialize(total_memory);
-   PMM_SelfTest();
+   // Virtual memory manager on top of paging
    VMM_Initialize();
    VMM_SelfTest();
 
@@ -201,4 +208,17 @@ void MEM_Initialize(void *multiboot_info_ptr)
    g_SysInfo->memory.user_start = (uint32_t)0x08000000;
    g_SysInfo->memory.user_end = (uint32_t)0xC0000000;
    g_SysInfo->memory.kernel_stack_size = 8192; /* 8KB kernel stack */
+}
+
+uintptr_t __stack_chk_guard = 0xDEADBEEF;
+
+void __stack_chk_fail_local(void)
+{
+    printf("\n");
+    printf("╔════════════════════════════════════╗\n");
+    printf("║  STACK SMASHING DETECTED!          ║\n");
+    printf("║  Buffer overflow in stack frame    ║\n");
+    printf("╚════════════════════════════════════╝\n");
+    i686_Panic();
+    HAL_Panic();  // or infinite loop
 }

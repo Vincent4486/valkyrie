@@ -5,7 +5,7 @@
 #define ELF_H
 
 #include <cpu/process.h>
-#include <fs/vfs/vfs.h>
+#include <fs/fs.h>
 #include <stdbool.h>
 #include <stdint.h>
 

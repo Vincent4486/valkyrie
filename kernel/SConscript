@@ -27,7 +27,7 @@ env.Append(
         # Create relocation records for undefined symbols (GOT/PLT)
         # The linker will generate R_386_GLOB_DAT and R_386_JMP_SLOT relocations
         '-Wl,-z,notext',  # Allow relocations in text segment
-        '-Wl,--unresolved-symbols=ignore-all',  # Allow undefined symbols - will be resolved at runtime
+        # '-Wl,--unresolved-symbols=ignore-all',  # Allow undefined symbols - will be resolved at runtime
         '-Wl,--as-needed',
         '-Wl,--export-dynamic',
         '-pie',

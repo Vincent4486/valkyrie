@@ -124,7 +124,8 @@ TARGET_ENVIRONMENT.Append(
     ],
     CCFLAGS = [
         '-ffreestanding',
-        '-nostdlib'
+        '-nostdlib',
+        '-fstack-protector-all'
         # Note: -fPIC added per-target (e.g., kernel SConscript) for dynamic linking support
     ],
     CXXFLAGS = [

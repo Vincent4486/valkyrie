@@ -7,6 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+extern uintptr_t __stack_chk_guard;
+void __stack_chk_fail_local(void);
+
 /* Memory management information */
 typedef struct
 {
@@ -54,6 +57,7 @@ void *realloc(void *ptr, size_t size);
 int brk(void *addr);      /* returns 0 on success, -1 on failure */
 void *sbrk(intptr_t inc); /* returns previous break or (void*)-1 on failure */
 
+int PMM_IsInitialized(void);
 /* Self-test helper */
 void Heap_SelfTest(void);
 
@@ -205,9 +209,9 @@ int Stack_SelfTest(void);
 
 #define MEMORY_KERNEL_ADDR ((void *)0x00A00000)
 
-// Dylib memory configuration (10 MiB reserved)
-#define DYLIB_MEMORY_ADDR 0x1000000 // Base address for dylib memory pool
-#define DYLIB_MEMORY_SIZE 0xA00000  // 10 MiB reserved for dylibs
+// Dylib memory configuration (8 MiB reserved at 1 MiB)
+#define DYLIB_MEMORY_ADDR 0x100000 // Base address for dylib memory pool (1 MiB)
+#define DYLIB_MEMORY_SIZE 0x800000 // 8 MiB reserved for dylibs
 
 // Library registry placed in low memory (inside FAT area). Stage2 populates
 // this with loaded modules so the kernel can find them.
@@ -224,8 +228,9 @@ typedef struct
 #define LIB_REGISTRY_MAX 16
 
 #define BUFFER_LINES 2048
-#define BUFFER_BASE_ADDR 0x00800000
+#define BUFFER_BASE_ADDR 0x00900000 // Must match linker script BUFFER_START
 
-#define SYS_INFO_ADDR 0x0087D000
+// Place SYS_INFO after kernel in high memory (kernel ends ~11 MiB)
+#define SYS_INFO_ADDR 0x00B00000 // 11 MiB - safe from user processes and DYLIB
 
 #endif
