@@ -275,12 +275,13 @@ static void lba_to_chs(uint32_t lba, uint8_t *head, uint8_t *track,
    *sector = (lba % FLOPPY_SECTORS_PER_TRACK) + 1;
 }
 
-int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
+int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
 {
-   if (count == 0)
-   {
-      return 0;
-   }
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_FLOPPY) return -1;
+
+   FDC_DISK *private = (FDC_DISK *)disk->private;
+   int drive = private->drive;
 
    fdc_motor_on(drive);
 
@@ -352,13 +353,14 @@ int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
    return 0;
 }
 
-int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer,
+int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer,
                  size_t count)
 {
-   if (count == 0)
-   {
-      return 0;
-   }
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_FLOPPY) return -1;
+
+   FDC_DISK *private = (FDC_DISK *)disk->private;
+   int drive = private->drive;
 
    fdc_motor_on(drive);
 
@@ -486,11 +488,23 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
       // Try to read sector 0 to verify media presence
       uint8_t sector_buffer[512];
-      if (FDC_ReadLba(drive, 0, sector_buffer, 1) != 0)
+      /* We don't yet have a full DISK entry to store in `disks`, but
+       * FDC_ReadLba expects a DISK* whose `private` points to an
+       * FDC_DISK. Build temporary probe structures on the stack and
+       * call the function with a pointer to the probe. */
+      DISK probe_disk;
+      FDC_DISK probe_private;
+      probe_private.drive = drive;
+      probe_disk.private = &probe_private;
+      probe_disk.type = DISK_TYPE_FLOPPY;
+      if (FDC_ReadLba(&probe_disk, 0, sector_buffer, 1) != 0)
       {
          printf("[DISK] Floppy drive %u: No media or read error\n", drive);
          continue;
       }
+
+      FDC_DISK *private = kmalloc(sizeof(FDC_DISK));
+      private->drive = drive;
 
       DISK *disk = &disks[count];
       disk->id = drive;
@@ -498,6 +512,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
       disk->cylinders = FLOPPY_TRACKS;
       disk->heads = FLOPPY_HEADS;
       disk->sectors = FLOPPY_SECTORS_PER_TRACK;
+      disk->private = private;
       disk->brand[0] = '\0';
       disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
                    FLOPPY_SECTOR_SIZE;

@@ -200,11 +200,18 @@ int ATA_Init(int channel, int drive, uint32_t partition_start,
 /**
  * Read sectors from ATA drive using PIO mode (28-bit LBA)
  */
-int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
+int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer,
              uint32_t count)
 {
+   /* Validate inputs and ensure private driver data exists */
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_ATA) return -1;
+
+   ATA_DISK *priv = (ATA_DISK *)disk->private;
+   int channel = priv->channel;
+   int drive = priv->drive;
    ata_driver_t *drv = ata_get_driver(channel, drive);
-   if (!drv || !buffer || count == 0) return -1;
+   if (!drv) return -1;
 
    // Limit to 255 sectors per read (8-bit sector count)
    if (count > 255)
@@ -263,11 +270,19 @@ int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
 /**
  * Write sectors to ATA drive using PIO mode (28-bit LBA)
  */
-int ATA_Write(int channel, int drive, uint32_t lba, const uint8_t *buffer,
+int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer,
               uint32_t count)
 {
+   /* Validate inputs and ensure private driver data exists */
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_ATA) return -1;
+
+   ATA_DISK *priv = (ATA_DISK *)disk->private;
+   int channel = priv->channel;
+   int drive = priv->drive;
+   
    ata_driver_t *drv = ata_get_driver(channel, drive);
-   if (!drv || !buffer || count == 0) return -1;
+   if (!drv) return -1;
 
    // Limit to 255 sectors per write (8-bit sector count)
    if (count > 255)
@@ -428,6 +443,14 @@ int ATA_Scan(DISK *disks, int maxDisks)
          uint16_t identify_buffer[256];
          if (ATA_Identify(ch, dr, identify_buffer) == 0)
          {
+            ATA_DISK *private = kmalloc(sizeof(ATA_DISK));
+            if (!private) {
+               printf("[DISK] Failed to allocate ATA_DISK for ch%d dr%d\n", ch, dr);
+               continue;
+            }
+            private->channel = ch;
+            private->drive = dr;
+
             disks[count].id =
                 driveStartIndex + count; // Assign BIOS-style ID (0x80, 0x81...)
             disks[count].type = 1;       // DISK_TYPE_ATA
@@ -464,6 +487,7 @@ int ATA_Scan(DISK *disks, int maxDisks)
                    identify_buffer[60] | ((uint32_t)identify_buffer[61] << 16);
             }
             disks[count].size = total_sectors * 512; // Sector size is 512 bytes
+            disks[count].private = private;
 
             printf("[DISK] Found ATA disk: ID=0x%x, Type=%u, Brand='%s', "
                    "Size=%llu bytes (Ch%d/Dr%d)\n",

@@ -22,6 +22,25 @@ extern uint8_t __bss_start;
 extern uint8_t __end;
 extern void _init();
 
+void hold(void){
+   uint32_t last_uptime = 0;
+   while (g_SysInfo->uptime_seconds < 1000)
+   {
+      /* Update uptime from tick counter */
+      g_SysInfo->uptime_seconds = system_ticks / 1000;
+      if (g_SysInfo->uptime_seconds != last_uptime)
+      {
+         printf("\rSystem up for %u seconds", g_SysInfo->uptime_seconds);
+         last_uptime = g_SysInfo->uptime_seconds;
+      }
+
+      /* Idle efficiently until next interrupt: enable interrupts, HLT,
+         then disable again. Matches i686 PS/2 idle usage. */
+      __asm__ volatile("sti; hlt; cli");
+   }
+   printf("\n");
+}
+
 void __attribute__((section(".entry"))) start(uint16_t bootDrive,
                                               void *multiboot_info_ptr)
 {
@@ -55,22 +74,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);
 
-   uint32_t last_uptime = 0;
-   while (g_SysInfo->uptime_seconds < 1000)
-   {
-      /* Update uptime from tick counter */
-      g_SysInfo->uptime_seconds = system_ticks / 1000;
-      if (g_SysInfo->uptime_seconds != last_uptime)
-      {
-         printf("\rSystem up for %u seconds", g_SysInfo->uptime_seconds);
-         last_uptime = g_SysInfo->uptime_seconds;
-      }
-
-      /* Idle efficiently until next interrupt: enable interrupts, HLT,
-         then disable again. Matches i686 PS/2 idle usage. */
-      __asm__ volatile("sti; hlt; cli");
-   }
-   printf("\n");
+   hold();
 
 end:
    for (;;);

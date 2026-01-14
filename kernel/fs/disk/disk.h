@@ -15,6 +15,10 @@ this file, so for external modules, include fs/fs.h instead.
 #define DISK_TYPE_FLOPPY 0
 #define DISK_TYPE_ATA 1
 
+typedef struct DISK_Operations{
+
+} DISK_Operations;
+
 typedef struct
 {
    uint8_t id;   // bios drive number
@@ -22,6 +26,8 @@ typedef struct
    uint16_t cylinders;
    uint16_t sectors;
    uint16_t heads;
+
+   void *private;
    char brand[41]; // Model name (up to 40 chars + null)
    uint64_t size;  // Total size in bytes
 } DISK;
