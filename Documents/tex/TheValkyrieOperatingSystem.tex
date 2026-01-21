@@ -31,6 +31,118 @@ The Valkyrie Operating System is an OS designed to run on the x86 architecture. 
 \newpage
 \section{Building}
 
+The Valkyrie Operating System uses SCons as its build system and requires a cross-toolchain for x86 targets. The build process is designed primarily for Linux hosts, with partial macOS support for the toolchain.
+
+\subsection{Prerequisites}
+
+\subsubsection{Supported Host Environments}
+\begin{itemize}
+\item \textbf{Primary:} Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine).
+\item \textbf{macOS:} Partial support for building the cross-toolchain.
+\end{itemize}
+
+\subsubsection{Required Build Artifacts}
+\begin{itemize}
+\item binutils: 2.37
+\item gcc: 15.2.0
+\item musl (for sysroot): 1.2.5
+\end{itemize}
+
+\subsubsection{Installing Dependencies}
+
+On Linux, use the provided script to install packages:
+
+\begin{verbatim}
+sudo ./scripts/base/dependencies.sh
+\end{verbatim}
+
+This script detects your distribution and installs the necessary packages, such as:
+\begin{itemize}
+\item Debian/Ubuntu: \texttt{libmpfr-dev libgmp-dev libmpc-dev gcc python3 scons python3-sh dosfstools}
+\item Fedora: \texttt{mpfr-devel gmp-devel libmpc-devel gcc python3 scons python3-sh dosfstools}
+\item Arch: \texttt{mpfr gmp mpc gcc python scons python-sh dosfstools}
+\end{itemize}
+
+On macOS, install GMP/MPFR/MPC libraries with Homebrew:
+
+\begin{verbatim}
+brew install gmp mpfr libmpc wget make automake autoconf pkg-config
+\end{verbatim}
+
+\subsection{Build Steps}
+
+1) \textbf{(Optional) Install distribution packages on Linux:}
+
+\begin{verbatim}
+sudo ./scripts/base/dependencies.sh
+\end{verbatim}
+
+2) \textbf{Build a cross-toolchain (recommended):}
+
+Use the SCons phony target:
+
+\begin{verbatim}
+scons toolchain
+\end{verbatim}
+
+This creates a \texttt{toolchain/} directory with subdirectories like \texttt{toolchain/i686-elf}.
+
+Alternatively, run the helper script directly:
+
+\begin{verbatim}
+./scripts/base/toolchain.sh toolchain i686-elf
+\end{verbatim}
+
+3) \textbf{Build the project:}
+
+\begin{verbatim}
+scons
+\end{verbatim}
+
+Common build options:
+\begin{itemize}
+\item \texttt{config=debug|release} - Build configuration (default: debug)
+\item \texttt{arch=i686|x64} - Target architecture (default: i686)
+\item \texttt{imageFS=fat12|fat16|fat32|ext2} - Filesystem for image (default: fat32)
+\item \texttt{imageSize=250m} - Image size (supports k/m/g)
+\item \texttt{outputFile=<name>} - Base name for output image (default: image)
+\item \texttt{buildType=full|kernel|usr|image} - What to build (default: full)
+\end{itemize}
+
+Examples:
+
+\begin{verbatim}
+scons config=release
+scons arch=x64 config=release
+scons buildType=kernel  # build only the kernel
+\end{verbatim}
+
+\subsection{Running and Debugging}
+
+The SConstruct file provides phony targets for common tasks:
+
+\begin{itemize}
+\item \texttt{scons run} — Run the built image under QEMU
+\item \texttt{scons debug} — Start a GDB-enabled debug session
+\item \texttt{scons bochs} — Run with Bochs
+\item \texttt{scons toolchain} — (Re)build the cross-toolchain
+\end{itemize}
+
+Or call helper scripts directly:
+
+\begin{verbatim}
+./scripts/base/qemu.sh disk build/i686_debug/valkyrix
+./scripts/base/gdb.sh disk build/i686_debug/valkyrix
+\end{verbatim}
+
+\subsection{Notes and Tips}
+
+\begin{itemize}
+\item The build is designed for Linux hosts; full image creation tools are Linux-focused.
+\item Building the toolchain can take significant time and requires build dependencies.
+\item If you have a prebuilt cross-toolchain, place it in \texttt{toolchain/<target>} and SCons will use it.
+\end{itemize}
+
 \newpage
 \section{Code}
 \end{document}
