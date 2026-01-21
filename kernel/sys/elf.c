@@ -309,7 +309,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
 
       uint32_t remaining = filesz;
       uint32_t offset = 0;
-      void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
+      void *old_pdir = g_HalPagingOperations->GetCurrentPageDirectory();
 
       while (remaining > 0)
       {
