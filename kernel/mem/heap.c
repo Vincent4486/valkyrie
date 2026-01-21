@@ -16,10 +16,11 @@ static uintptr_t heap_end = 0;
 static uintptr_t heap_ptr = 0;
 
 /* Heap block header for safety checks */
-typedef struct {
-    size_t size;
-    uint32_t canary_before;
-    uint32_t canary_after;
+typedef struct
+{
+   size_t size;
+   uint32_t canary_before;
+   uint32_t canary_after;
 } HeapBlockHeader;
 
 #define HEAP_CANARY 0xDEADBEEF
@@ -40,7 +41,8 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    }
 
    // Map to process page directory
-   if (!HAL_Paging_MapPage(proc->page_directory, heap_start_va, phys, 0x007))
+   if (!g_HalPagingOperations->MapPage(proc->page_directory, heap_start_va,
+                                       phys, 0x007))
    { // RW, Present
       printf("[HEAP] Heap_Initialize: map_page failed\n");
       PMM_FreePhysicalPage(phys);
@@ -74,7 +76,8 @@ int Heap_ProcessBrk(Process *proc, void *addr)
                    i, pages_needed);
             return -1;
          }
-         if (!HAL_Paging_MapPage(proc->page_directory, va, phys, 0x007))
+         if (!g_HalPagingOperations->MapPage(proc->page_directory, va, phys,
+                                             0x007))
          { // RW, Present
             printf("[HEAP] brk: map_page failed at 0x%08x\n", va);
             PMM_FreePhysicalPage(phys);
@@ -118,7 +121,7 @@ void Heap_Initialize(void)
    /* Set heap to a reasonable size - 64 MiB should be plenty for a kernel */
    const uintptr_t heap_size = 64 * 1024 * 1024u; // 64 MiB
    uintptr_t desired_end = heap_start + heap_size;
-   
+
    /* Check for overflow and cap at 32-bit max */
    if (desired_end < heap_start || desired_end > 0xFFFFFFFFu)
    {
@@ -130,7 +133,7 @@ void Heap_Initialize(void)
    }
 
    heap_ptr = heap_start;
-   
+
    printf("[heap] initialized: start=0x%08x end=0x%08x size=%u MB\n",
           (uint32_t)heap_start, (uint32_t)heap_end,
           (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
@@ -143,10 +146,10 @@ void *kmalloc(size_t size)
    /* Allocate extra space for header with canaries */
    size_t total = size + sizeof(HeapBlockHeader);
    uintptr_t cur = align_up(heap_ptr, 8);
-   
+
    if (cur > heap_end)
    {
-      printf("[heap] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n", 
+      printf("[heap] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n",
              (uint32_t)cur, (uint32_t)heap_end);
       return NULL; /* heap already exhausted */
    }
@@ -165,9 +168,9 @@ void *kmalloc(size_t size)
    header->size = size;
    header->canary_before = HEAP_CANARY;
    header->canary_after = HEAP_CANARY;
-   
+
    heap_ptr = cur + total;
-   
+
    /* Return pointer after header */
    return (void *)(cur + sizeof(HeapBlockHeader));
 }
@@ -187,24 +190,28 @@ void heap_check_integrity(void)
 {
    uintptr_t cur = heap_start;
    uint32_t block_count = 0;
-   
+
    while (cur < heap_ptr)
    {
       HeapBlockHeader *h = (HeapBlockHeader *)cur;
-      
+
       if (h->canary_before != HEAP_CANARY || h->canary_after != HEAP_CANARY)
       {
-         printf("[HEAP] CORRUPTION at 0x%08x! Block size=%u canary_before=0x%08x canary_after=0x%08x\n",
-                (uint32_t)cur, (uint32_t)h->size, h->canary_before, h->canary_after);
+         printf("[HEAP] CORRUPTION at 0x%08x! Block size=%u "
+                "canary_before=0x%08x canary_after=0x%08x\n",
+                (uint32_t)cur, (uint32_t)h->size, h->canary_before,
+                h->canary_after);
          /* Call panic function if available */
          printf("[HEAP] PANIC: Heap corruption detected!\n");
-         while(1) {} /* Hang */
+         while (1)
+         {
+         } /* Hang */
       }
-      
+
       cur += sizeof(HeapBlockHeader) + h->size;
       block_count++;
    }
-   
+
    printf("[heap] integrity check passed: %u blocks verified\n", block_count);
 }
 

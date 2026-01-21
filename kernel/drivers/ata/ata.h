@@ -2,9 +2,9 @@
 
 #ifndef ATA_H
 #define ATA_H
-#include <fs/fs.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 #define ATA_SECTOR_SIZE 512
 
 // IDE Channel constants
@@ -14,6 +14,11 @@
 // Drive constants
 #define ATA_DRIVE_MASTER 0
 #define ATA_DRIVE_SLAVE 1
+
+typedef struct ATA_DISK {
+    int channel;
+    int drive;
+} ATA_DISK;
 
 /**
  * Initialize ATA driver for a specific drive
@@ -35,7 +40,7 @@ int ATA_Init(int channel, int drive, uint32_t partition_start,
  * @param count - Number of sectors to read
  * @return 0 on success, -1 on failure
  */
-int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
+int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer,
              uint32_t count);
 
 /**
@@ -47,7 +52,7 @@ int ATA_Read(int channel, int drive, uint32_t lba, uint8_t *buffer,
  * @param count - Number of sectors to write
  * @return 0 on success, -1 on failure
  */
-int ATA_Write(int channel, int drive, uint32_t lba, const uint8_t *buffer,
+int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer,
               uint32_t count);
 
 /**

@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+/*
+This is a local header file, and it is not allowed to directly include
+this file, so for external modules, include fs/fs.h instead.
+*/
+
 #ifndef VFS_H
 #define VFS_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <fs/disk/partition.h>
+#include <fs/disk/disk.h>
 #include <fs/misc/fs_types.h>
 
 /* Forward declarations */

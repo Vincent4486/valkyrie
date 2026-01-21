@@ -6,9 +6,9 @@
 #ifndef DYLIB_H
 #define DYLIB_H
 
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 
 // Maximum dependencies per library
 #define DYLIB_MAX_DEPS 16

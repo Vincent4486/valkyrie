@@ -37,13 +37,13 @@ bool ELF_Load(VFS_File *file, void **entryOut)
       return false;
    }
 
-      uint32_t hdr_read = VFS_Read(file, sizeof(ehdr), hdr_buf);
-      if (hdr_read != sizeof(ehdr))
-      {
-         printf("ELF: read header failed (got %u)\n", hdr_read);
-         free(hdr_buf);
-         return false;
-      }
+   uint32_t hdr_read = VFS_Read(file, sizeof(ehdr), hdr_buf);
+   if (hdr_read != sizeof(ehdr))
+   {
+      printf("ELF: read header failed (got %u)\n", hdr_read);
+      free(hdr_buf);
+      return false;
+   }
 
    memcpy(&ehdr, hdr_buf, sizeof(ehdr));
    free(hdr_buf);
@@ -210,7 +210,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    // Save kernel page directory at the start - we'll need to restore it
-   void *kernel_pdir = HAL_Paging_GetCurrentPageDirectory();
+   void *kernel_pdir = g_HalPagingOperations->GetCurrentPageDirectory();
 
    // Load each program header (PT_LOAD segments)
    Elf32_Phdr phdr;
@@ -237,7 +237,8 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t ph_read = VFS_Read(file, sizeof(phdr), (uint8_t *)ph_buf);
       if (ph_read != sizeof(phdr))
       {
-         printf("[ELF] LoadProcess: read phdr %u failed (got %u)\n", i, ph_read);
+         printf("[ELF] LoadProcess: read phdr %u failed (got %u)\n", i,
+                ph_read);
          free(ph_buf);
          Process_Destroy(proc);
          VFS_Close(file);
@@ -271,9 +272,9 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          }
 
          // Map page into process's page directory (user mode, read+write)
-         if (!HAL_Paging_MapPage(proc->page_directory, page_va, phys,
-                                 HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                     HAL_PAGE_USER))
+         if (!g_HalPagingOperations->MapPage(
+                 proc->page_directory, page_va, phys,
+                 HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
          {
             logfmt(LOG_ERROR, "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
                    page_va);
@@ -317,20 +318,21 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          if (bytes_read == 0 || bytes_read > chunk)
          {
             logfmt(LOG_ERROR, "[ELF] LoadProcess: VFS_Read failed\n");
-            HAL_Paging_SwitchPageDirectory(old_pdir);
+            free(buffer);
             Process_Destroy(proc);
             VFS_Close(file);
             return NULL;
          }
 
          // Temporarily switch to process page directory to write to its memory
-         HAL_Paging_SwitchPageDirectory(proc->page_directory);
+         void *old_pdir = g_HalPagingOperations->GetCurrentPageDirectory();
+         g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
 
          // Copy to process memory
          memcpy((void *)(vaddr + offset), buffer, bytes_read);
 
          // Immediately restore kernel page directory
-         HAL_Paging_SwitchPageDirectory(old_pdir);
+         g_HalPagingOperations->SwitchPageDirectory(old_pdir);
 
          offset += bytes_read;
          remaining -= bytes_read;
@@ -342,13 +344,13 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       if (memsz > filesz)
       {
          // Temporarily switch to process page directory for BSS zeroing
-         void *old_pdir = HAL_Paging_GetCurrentPageDirectory();
-         HAL_Paging_SwitchPageDirectory(proc->page_directory);
+         void *old_pdir = g_HalPagingOperations->GetCurrentPageDirectory();
+         g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
 
          memset((void *)(vaddr + filesz), 0, memsz - filesz);
 
          // Restore kernel page directory
-         HAL_Paging_SwitchPageDirectory(old_pdir);
+         g_HalPagingOperations->SwitchPageDirectory(old_pdir);
       }
    }
 
@@ -356,5 +358,9 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    logfmt(LOG_INFO, "[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
           filename, proc->pid, ehdr.e_entry);
+
+   // Force restore kernel page directory to ensure we're back in kernel space
+   g_HalPagingOperations->SwitchPageDirectory(kernel_pdir);
+
    return proc;
 }

@@ -3,7 +3,6 @@
 #include "fat.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
-#include <fs/fs.h>
 #include <fs/vfs/vfs.h>
 #include <mem/mm_kernel.h>
 #include <std/ctype.h>
@@ -12,6 +11,7 @@
 #include <std/string.h>
 #include <stddef.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 #define SECTOR_SIZE 512
 #define MAX_PATH_SIZE 256
@@ -898,7 +898,7 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
                FAT_Close(previous);
             }
 
-         FAT_File *created = FAT_Create(disk, normalizedPath);
+            FAT_File *created = FAT_Create(disk, normalizedPath);
             if (!created)
             {
                printf("FAT: %s not found and create failed\n", name);
@@ -1536,7 +1536,8 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
                          ((uint32_t)updated.FirstClusterHigh << 16);
                   }
 
-                  bool result = Partition_WriteSectors(disk, lba, 1, sectorBuffer);
+                  bool result =
+                      Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                   free(sectorBuffer);
                   return result;
                }
@@ -2158,16 +2159,13 @@ static uint32_t fat_vfs_get_size(void *fs_file)
 /* FAT operations structure - directly points to FAT functions */
 static const VFS_Operations fat_vfs_ops = {
     .open = fat_vfs_open, /* Special wrapper - returns VFS_File */
-    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */
     .delete = (bool (*)(Partition *, const char *))FAT_Delete};
 
 /* Public function to get FAT VFS operations */
-const VFS_Operations *FAT_GetVFSOperations(void) 
-{ 
-   return &fat_vfs_ops; 
-}
+const VFS_Operations *FAT_GetVFSOperations(void) { return &fat_vfs_ops; }

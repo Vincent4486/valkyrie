@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+/*
+This is a local header file, and it is not allowed to directly include
+this file, so for external modules, include fs/fs.h instead.
+To interact with the filesystem, use the VFS interface defined in fs/fs.h.
+*/
+
 #ifndef FAT_H
 #define FAT_H
-#include <fs/fs.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 
 typedef struct
 {

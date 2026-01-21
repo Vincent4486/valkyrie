@@ -5,9 +5,9 @@
 #define ELF_H
 
 #include <cpu/process.h>
-#include <fs/fs.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <valkyrie/fs.h>
 
 // ELF structures for 32-bit little-endian
 typedef struct

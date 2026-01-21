@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "disk.h"
-#include "partition.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
 #include <fs/fat/fat.h>
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 // Updated: Scan all disks and populate volumes
 int DISK_Initialize()
@@ -171,7 +170,7 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
        * floppy controller. This avoids relying on BIOS INT13 services from
        * the kernel.
        */
-      int rc = FDC_ReadLba(disk->id, lba, (uint8_t *)dataOut, sectors);
+      int rc = FDC_ReadLba(disk, lba, (uint8_t *)dataOut, sectors);
       if (rc != 0) return false;
       return true;
    }
@@ -180,7 +179,7 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Read(ATA_CHANNEL_PRIMARY, ATA_DRIVE_MASTER, lba,
+      int rc = ATA_Read(disk, lba,
                         (uint8_t *)dataOut, sectors);
       if (rc != 0) return false;
       return true;
@@ -199,7 +198,7 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
       /* Floppy drive: use the kernel FDC driver which speaks directly to the
        * floppy controller.
        */
-      int rc = FDC_WriteLba(disk->id, lba, (const uint8_t *)dataIn, sectors);
+      int rc = FDC_WriteLba(disk, lba, (const uint8_t *)dataIn, sectors);
       if (rc != 0) return false;
       return true;
    }
@@ -208,7 +207,7 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Write(ATA_CHANNEL_PRIMARY, ATA_DRIVE_MASTER, lba,
+      int rc = ATA_Write(disk, lba,
                          (const uint8_t *)dataIn, sectors);
       if (rc != 0) return false;
       return true;

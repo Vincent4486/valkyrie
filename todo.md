@@ -2,7 +2,7 @@
 
 4) fat data to private data struct for each fs
 5) Get root partition via cmdline uuid and label + find root partition
-6) ansi escape codes, and vga to arch
+6) vga to `arch/`
 7) remove global scope x86 cpu registers
 
 # ValkyrieOS glibc Implementation Roadmap

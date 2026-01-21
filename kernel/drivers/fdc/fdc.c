@@ -50,8 +50,8 @@ static volatile bool g_fdc_irq_received = false;
 // Read a CMOS register (index in 0x00-0x7F)
 static uint8_t cmos_read(uint8_t idx)
 {
-   HAL_outb(0x70, idx & 0x7F); // Keep NMI enabled; clear bit7
-   return HAL_inb(0x71);
+   g_HalIoOperations->outb(0x70, idx & 0x7F); // Keep NMI enabled; clear bit7
+   return g_HalIoOperations->inb(0x71);
 }
 
 static void fdc_dma_init(bool is_read)
@@ -73,11 +73,12 @@ static void fdc_dma_init(bool is_read)
    }
 
    // Mask DMA channel 2
-   HAL_outb(DMA_SINGLE_MASK,
-            0x06); // 0x06 = 0b0110 = mask set (bit 2) | channel 2
+   g_HalIoOperations->outb(
+       DMA_SINGLE_MASK,
+       0x06); // 0x06 = 0b0110 = mask set (bit 2) | channel 2
 
    // Reset flip-flop
-   HAL_outb(DMA_FLIP_FLOP_RESET, 0x0C);
+   g_HalIoOperations->outb(DMA_FLIP_FLOP_RESET, 0x0C);
 
    // Set DMA mode for channel 2
    // For FDC read (disk->memory): mode = 0x46
@@ -87,25 +88,26 @@ static void fdc_dma_init(bool is_read)
    //   0100 1010 = single transfer, address increment, autoinit disabled, read
    //   mode, channel 2
    uint8_t mode = is_read ? 0x46 : 0x4A;
-   HAL_outb(DMA_MODE, mode);
+   g_HalIoOperations->outb(DMA_MODE, mode);
 
    // Set address (must be physical address, low 16 bits)
    uint32_t addr = FDC_DMA_BUFFER;
-   HAL_outb(DMA_FLIP_FLOP_RESET, 0x0C);
-   HAL_outb(DMA_CHANNEL_2_ADDR, addr & 0xFF);
-   HAL_outb(DMA_CHANNEL_2_ADDR, (addr >> 8) & 0xFF);
+   g_HalIoOperations->outb(DMA_FLIP_FLOP_RESET, 0x0C);
+   g_HalIoOperations->outb(DMA_CHANNEL_2_ADDR, addr & 0xFF);
+   g_HalIoOperations->outb(DMA_CHANNEL_2_ADDR, (addr >> 8) & 0xFF);
 
    // Set page register (bits 16-23 of address)
-   HAL_outb(DMA_CHANNEL_2_PAGE, (addr >> 16) & 0xFF);
+   g_HalIoOperations->outb(DMA_CHANNEL_2_PAGE, (addr >> 16) & 0xFF);
 
    // Set count (number of bytes - 1)
    uint16_t count = FLOPPY_SECTOR_SIZE - 1;
-   HAL_outb(DMA_FLIP_FLOP_RESET, 0x0C);
-   HAL_outb(DMA_CHANNEL_2_COUNT, count & 0xFF);
-   HAL_outb(DMA_CHANNEL_2_COUNT, (count >> 8) & 0xFF);
+   g_HalIoOperations->outb(DMA_FLIP_FLOP_RESET, 0x0C);
+   g_HalIoOperations->outb(DMA_CHANNEL_2_COUNT, count & 0xFF);
+   g_HalIoOperations->outb(DMA_CHANNEL_2_COUNT, (count >> 8) & 0xFF);
 
    // Unmask DMA channel 2 to allow transfers
-   HAL_outb(DMA_SINGLE_MASK, 0x02); // 0x02 = 0b0010 = mask clear | channel 2
+   g_HalIoOperations->outb(DMA_SINGLE_MASK,
+                           0x02); // 0x02 = 0b0010 = mask clear | channel 2
 }
 
 // Build the Digital Output Register value for a drive
@@ -118,12 +120,12 @@ static inline uint8_t fdc_make_dor(uint8_t drive, bool motor_on)
 
 static void fdc_motor_on(uint8_t drive)
 {
-   HAL_outb(FDC_DOR, fdc_make_dor(drive, true));
+   g_HalIoOperations->outb(FDC_DOR, fdc_make_dor(drive, true));
 }
 
 static void fdc_motor_off(uint8_t drive)
 {
-   HAL_outb(FDC_DOR, fdc_make_dor(drive, false));
+   g_HalIoOperations->outb(FDC_DOR, fdc_make_dor(drive, false));
 }
 
 // FDC IRQ handler - sets flag when interrupt is received
@@ -159,10 +161,10 @@ static void fdc_send_byte(uint8_t byte)
 
    while (timeout--)
    {
-      msr = HAL_inb(FDC_MSR);
+      msr = g_HalIoOperations->inb(FDC_MSR);
       if ((msr & 0xC0) == 0x80) // RQM=1, DIO=0
       {
-         HAL_outb(FDC_FIFO, byte);
+         g_HalIoOperations->outb(FDC_FIFO, byte);
          return;
       }
       i686_iowait();
@@ -177,10 +179,10 @@ static uint8_t fdc_read_byte(void)
 
    while (timeout--)
    {
-      msr = HAL_inb(FDC_MSR);
+      msr = g_HalIoOperations->inb(FDC_MSR);
       if ((msr & 0xC0) == 0xC0) // RQM=1, DIO=1
       {
-         return HAL_inb(FDC_FIFO);
+         return g_HalIoOperations->inb(FDC_FIFO);
       }
       i686_iowait();
    }
@@ -216,9 +218,9 @@ void FDC_Reset(void)
    i686_IRQ_Unmask(FDC_IRQ);
 
    // Reset controller
-   HAL_outb(FDC_DOR, 0x00);
+   g_HalIoOperations->outb(FDC_DOR, 0x00);
    i686_iowait();
-   HAL_outb(FDC_DOR, FDC_MOTOR_ON);
+   g_HalIoOperations->outb(FDC_DOR, FDC_MOTOR_ON);
 
    // Wait for IRQ after reset
    if (!fdc_wait_irq())
@@ -234,7 +236,7 @@ void FDC_Reset(void)
    }
 
    // Set data rate (500 Kbps for 1.44MB floppy)
-   HAL_outb(FDC_CCR, 0x00);
+   g_HalIoOperations->outb(FDC_CCR, 0x00);
 
    // Configure controller (SPECIFY command)
    fdc_send_byte(FDC_CMD_SPECIFY);
@@ -273,12 +275,13 @@ static void lba_to_chs(uint32_t lba, uint8_t *head, uint8_t *track,
    *sector = (lba % FLOPPY_SECTORS_PER_TRACK) + 1;
 }
 
-int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
+int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
 {
-   if (count == 0)
-   {
-      return 0;
-   }
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_FLOPPY) return -1;
+
+   FDC_DISK *private = (FDC_DISK *)disk->private;
+   int drive = private->drive;
 
    fdc_motor_on(drive);
 
@@ -350,13 +353,14 @@ int FDC_ReadLba(uint8_t drive, uint32_t lba, uint8_t *buffer, size_t count)
    return 0;
 }
 
-int FDC_WriteLba(uint8_t drive, uint32_t lba, const uint8_t *buffer,
+int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer,
                  size_t count)
 {
-   if (count == 0)
-   {
-      return 0;
-   }
+   if (!disk || !disk->private || !buffer || count == 0) return -1;
+   if (disk->type != DISK_TYPE_FLOPPY) return -1;
+
+   FDC_DISK *private = (FDC_DISK *)disk->private;
+   int drive = private->drive;
 
    fdc_motor_on(drive);
 
@@ -458,7 +462,8 @@ int FDC_Scan(DISK *disks, int maxDisks)
    }
 
    FDC_Reset();
-   HAL_outb(FDC_DOR, fdc_make_dor(0, false)); // Ensure all motors are off
+   g_HalIoOperations->outb(FDC_DOR,
+                           fdc_make_dor(0, false)); // Ensure all motors are off
 
    for (uint8_t drive = 0; drive < 2 && count < maxDisks; drive++)
    {
@@ -467,13 +472,13 @@ int FDC_Scan(DISK *disks, int maxDisks)
          continue; // CMOS says no drive here
       }
 
-      HAL_outb(FDC_DOR, fdc_make_dor(drive, true));
+      g_HalIoOperations->outb(FDC_DOR, fdc_make_dor(drive, true));
 
       for (volatile int i = 0; i < 100000; i++);
 
       bool ok = fdc_recalibrate(drive);
 
-      HAL_outb(FDC_DOR, fdc_make_dor(drive, false));
+      g_HalIoOperations->outb(FDC_DOR, fdc_make_dor(drive, false));
 
       if (!ok)
       {
@@ -483,11 +488,23 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
       // Try to read sector 0 to verify media presence
       uint8_t sector_buffer[512];
-      if (FDC_ReadLba(drive, 0, sector_buffer, 1) != 0)
+      /* We don't yet have a full DISK entry to store in `disks`, but
+       * FDC_ReadLba expects a DISK* whose `private` points to an
+       * FDC_DISK. Build temporary probe structures on the stack and
+       * call the function with a pointer to the probe. */
+      DISK probe_disk;
+      FDC_DISK probe_private;
+      probe_private.drive = drive;
+      probe_disk.private = &probe_private;
+      probe_disk.type = DISK_TYPE_FLOPPY;
+      if (FDC_ReadLba(&probe_disk, 0, sector_buffer, 1) != 0)
       {
          logfmt(LOG_WARNING, "[DISK] Floppy drive %u: No media or read error\n", drive);
          continue;
       }
+
+      FDC_DISK *private = kmalloc(sizeof(FDC_DISK));
+      private->drive = drive;
 
       DISK *disk = &disks[count];
       disk->id = drive;
@@ -495,6 +512,7 @@ int FDC_Scan(DISK *disks, int maxDisks)
       disk->cylinders = FLOPPY_TRACKS;
       disk->heads = FLOPPY_HEADS;
       disk->sectors = FLOPPY_SECTORS_PER_TRACK;
+      disk->private = private;
       disk->brand[0] = '\0';
       disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
                    FLOPPY_SECTOR_SIZE;

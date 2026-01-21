@@ -4,6 +4,7 @@
 #define HAL_PAGING_H
 #include <stdbool.h>
 #include <stdint.h>
+
 #if defined(I686)
 #include <arch/i686/mem/paging.h>
 #define HAL_PAGE_PRESENT 0x001
@@ -31,75 +32,27 @@
 #error "Unsupported architecture for HAL IRQ"
 #endif
 
-static inline void HAL_Paging_Initialize(void) { HAL_ARCH_Paging_Initialize(); }
-
-static inline void HAL_Paging_Enable(void) { HAL_ARCH_Paging_Enable(); }
-
-static inline void *HAL_Paging_CreatePageDirectory(void)
+typedef struct HAL_PagingOperations
 {
-   return HAL_ARCH_Paging_CreatePageDirectory();
-}
+   void (*Initialize)(void);
+   void (*Enable)(void);
+   void *(*CreatePageDirectory)(void);
+   void (*DestroyPageDirectory)(void *page_dir);
+   bool (*MapPage)(void *page_dir, uint32_t vaddr, uint32_t paddr,
+                   uint32_t flags);
+   bool (*UnmapPage)(void *page_dir, uint32_t vaddr);
+   uint32_t (*GetPhysicalAddress)(void *page_dir, uint32_t vaddr);
+   bool (*IsPageMapped)(void *page_dir, uint32_t vaddr);
+   void (*PageFaultHandler)(uint32_t fault_address, uint32_t error_code);
+   void (*InvalidateTlbEntry)(uint32_t vaddr);
+   void (*FlushTlb)(void);
+   void (*SwitchPageDirectory)(void *page_dir);
+   void *(*GetCurrentPageDirectory)(void);
+   void *(*AllocateKernelPages)(int page_count);
+   void (*FreeKernelPages)(void *addr, int page_count);
+   void (*SelfTest)(void);
+} HAL_PagingOperations;
 
-static inline void HAL_Paging_DestroyPageDirectory(void *page_dir)
-{
-   HAL_ARCH_Paging_DestroyPageDirectory(page_dir);
-}
-
-static inline bool HAL_Paging_MapPage(void *page_dir, uint32_t vaddr,
-                                      uint32_t paddr, uint32_t flags)
-{
-   return HAL_ARCH_Paging_MapPage(page_dir, vaddr, paddr, flags);
-}
-
-static inline bool HAL_Paging_UnmapPage(void *page_dir, uint32_t vaddr)
-{
-   return HAL_ARCH_Paging_UnmapPage(page_dir, vaddr);
-}
-
-static inline uint32_t HAL_Paging_GetPhysicalAddress(void *page_dir,
-                                                     uint32_t vaddr)
-{
-   return HAL_ARCH_Paging_GetPhysicalAddress(page_dir, vaddr);
-}
-
-static inline bool HAL_Paging_IsPageMapped(void *page_dir, uint32_t vaddr)
-{
-   return HAL_ARCH_Paging_IsPageMapped(page_dir, vaddr);
-}
-
-static inline void HAL_Paging_PageFaultHandler(uint32_t fault_address,
-                                               uint32_t error_code)
-{
-   HAL_ARCH_Paging_PageFaultHandler(fault_address, error_code);
-}
-
-static inline void HAL_Paging_InvalidateTlbEntry(uint32_t vaddr)
-{
-   HAL_ARCH_Paging_InvalidateTlbEntry(vaddr);
-}
-
-static inline void HAL_Paging_FlushTlb(void) { HAL_ARCH_Paging_FlushTlb(); }
-
-static inline void HAL_Paging_SwitchPageDirectory(void *page_dir)
-{
-   HAL_ARCH_Paging_SwitchPageDirectory(page_dir);
-}
-
-static inline void *HAL_Paging_GetCurrentPageDirectory(void)
-{
-   return HAL_ARCH_Paging_GetCurrentPageDirectory();
-}
-
-static inline void *HAL_Paging_AllocateKernelPages(int page_count)
-{
-   return HAL_ARCH_Paging_AllocateKernelPages(page_count);
-}
-
-static inline void HAL_Paging_FreeKernelPages(void *addr, int page_count)
-{
-   HAL_ARCH_Paging_FreeKernelPages(addr, page_count);
-}
-
-static inline void HAL_Paging_SelfTest(void) { HAL_ARCH_Paging_SelfTest(); }
+extern const HAL_PagingOperations *g_HalPagingOperations;
 
 #endif

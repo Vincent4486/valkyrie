@@ -3,13 +3,13 @@
 #include "vfs.h"
 
 #include <fs/fat/fat.h>
-#include <fs/fs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/sys.h>
+#include <valkyrie/fs.h>
 
 /* Get VFS operations for a filesystem type */
 static const VFS_Operations *get_fs_operations(FilesystemType type)
@@ -164,7 +164,7 @@ int FS_Mount(Partition *volume, const char *location)
       printf("[VFS] Failed to allocate mount path buffer\n");
       return -1;
    }
-   
+
    if (!vfs_normalize_mount(location, normalized, VFS_MAX_PATH))
    {
       logfmt(LOG_ERROR, "Invalid mount location '%s'\n", location ? location : "");
@@ -277,29 +277,9 @@ bool VFS_Delete(const char *path)
       return NULL;
    }
 
-   switch (part->fs->type)
-   {
-   case FAT12:
-   case FAT16:
-   case FAT32:
-   {
-      FAT_File *fat_file = FAT_Open(part, relative);
-      if (!fat_file) return NULL;
-
-      VFS_File *vf = (VFS_File *)kmalloc(sizeof(VFS_File));
-      if (!vf) return NULL;
-
-      vf->partition = part;
-      vf->type = part->fs->type;
-      vf->fs_file = fat_file;
-      vf->is_directory = fat_file->IsDirectory;
-      vf->size = fat_file->Size;
-      return vf;
-   }
-   default:
-      logfmt(LOG_ERROR, "[VFS] Unsupported filesystem type %d\n", part->fs->type);
-      return NULL;
-   }
+   bool result = part->fs->ops->delete(part, relative);
+   free(relative);
+   return result;
 }
 
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut)

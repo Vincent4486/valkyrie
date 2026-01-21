@@ -7,14 +7,16 @@
 
 #if defined(I686)
 #include <arch/i686/syscall/syscall.h>
-#define HAL_ARCH_syscall_handler i686_Syscall_IRQ
+#define HAL_ARCH_Syscall_Handler i686_Syscall_IRQ
 #else
 #error "Unsupported architecture for HAL syscall"
 #endif
 
-static inline void HAL_syscall_handler(Registers *regs)
+typedef struct HAL_SyscallOperations
 {
-   HAL_ARCH_syscall_handler(regs);
-}
+   void (*Handler)(Registers *regs);
+} HAL_SyscallOperations;
+
+extern const HAL_SyscallOperations *g_HalSyscallOperations;
 
 #endif

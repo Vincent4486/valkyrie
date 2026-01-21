@@ -6,12 +6,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "devfs/devfs.h"
-#include "disk/disk.h"
-#include "disk/partition.h"
-#include "fd/fd.h"
-#include "misc/fs_types.h"
-#include "vfs/vfs.h"
+#include <fs/devfs/devfs.h>
+#include <fs/disk/disk.h>
+#include <fs/fd/fd.h>
+#include <fs/misc/fs_types.h>
+#include <fs/vfs/vfs.h>
 
 /* Forward declaration to avoid circular dependency */
 struct VFS_Operations;

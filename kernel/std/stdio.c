@@ -37,10 +37,10 @@ void setcursor(int x, int y)
 {
    int pos = y * SCREEN_WIDTH + x;
 
-   HAL_outb(0x3D4, 0x0F);
-   HAL_outb(0x3D5, (uint8_t)(pos & 0xFF));
-   HAL_outb(0x3D4, 0x0E);
-   HAL_outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+   g_HalIoOperations->outb(0x3D4, 0x0F);
+   g_HalIoOperations->outb(0x3D5, (uint8_t)(pos & 0xFF));
+   g_HalIoOperations->outb(0x3D4, 0x0E);
+   g_HalIoOperations->outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
 void clrscr() { Buffer_Clear(); }
@@ -66,7 +66,7 @@ void scrollback(int lines)
 
 void putc(char c)
 {
-   HAL_outb(0xe9, c);
+   g_HalIoOperations->outb(0xe9, c);
    Buffer_PutChar(c);
 }
 
@@ -84,7 +84,8 @@ void printf_unsigned(unsigned long long number, int radix, int width,
    int pos = 0;
 
    // convert number to ASCII
-   do {
+   do
+   {
       unsigned long long rem = number % radix;
       number /= radix;
       buffer[pos++] = g_HexChars[rem];
@@ -343,14 +344,16 @@ int vsnprintf(char *buffer, size_t buf_size, const char *format, va_list ap)
 
 /* helper to emit a single char */
 #define EMIT_CH(c)                                                             \
-   do {                                                                        \
+   do                                                                          \
+   {                                                                           \
       if (out_idx + 1 < buf_size) buffer[out_idx++] = (c);                     \
       would_have++;                                                            \
    } while (0)
 
 /* helper to emit a whole string */
 #define EMIT_STR(s)                                                            \
-   do {                                                                        \
+   do                                                                          \
+   {                                                                           \
       const char *_p = (s);                                                    \
       while (*_p)                                                              \
       {                                                                        \
