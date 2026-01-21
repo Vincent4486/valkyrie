@@ -1,6 +1,5 @@
 #!/bin/bash 
-
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: BSD-3-Clause
 
 BINUTILS_VERSION=2.37
 GCC_VERSION=15.2.0

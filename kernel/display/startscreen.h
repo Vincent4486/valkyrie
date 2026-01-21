@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 
 #ifndef START_SCREEN_H
 #define START_SCREEN_H

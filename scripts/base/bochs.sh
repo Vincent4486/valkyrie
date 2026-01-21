@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: BSD-3-Clause
 
 if [ "$#" -le 1 ]; then
     echo "Usage: ./bochs.sh <image_type> <image>"

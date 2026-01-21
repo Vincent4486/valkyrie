@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: GPL-3.0-only */
 
 ENTRY(_start)
 /* Program headers: place the multiboot header in a small PT_LOAD (mb),

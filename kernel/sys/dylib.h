@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 
 // Dynamic-linking helper for kernel side to find, load, and relocate ELF
 // modules. Supports true dynamic linking with PLT/GOT relocation like Linux

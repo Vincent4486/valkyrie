@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ps2.h"
 #include <arch/i686/cpu/irq.h>

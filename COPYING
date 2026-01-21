@@ -1,0 +1,34 @@
+
+Repository licensing summary
+----------------------------
+
+This repository uses multiple licenses for different parts of the tree.
+Full license references and canonical texts are provided in the
+`LICENCES/` directory.
+
+Per-directory license mapping (SPDX identifiers):
+
+- `kernel/` : GNU General Public License v3.0 only
+	- SPDX-License-Identifier: GPL-3.0-only
+	- See: LICENCES/GPL-3.0.txt
+
+- `usr/` : BSD 3-Clause "New" or "Revised" License
+	- SPDX-License-Identifier: BSD-3-Clause
+	- See: LICENCES/BSD-3-Clause.txt
+
+- `docs/` : Creative Commons Attribution-ShareAlike 4.0 International
+	- SPDX-License-Identifier: CC-BY-SA-4.0
+	- See: LICENCES/CC-BY-SA-4.0.txt
+
+- build system and related top-level build scripts (e.g. `scripts/`,
+  SCons helpers):
+	- SPDX-License-Identifier: BSD-3-Clause
+	- See: LICENCES/BSD-3-Clause.txt
+
+Notes:
+- Files not mentioned above are covered by the SPDX identifiers at the
+  top of the file.
+- SPDX identifiers above are authoritative short identifiers for the
+  stated licenses. The full texts (or links to canonical texts) are
+  included in the `LICENCES/` directory.
+

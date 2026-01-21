@@ -1,7 +1,8 @@
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Documentation - Valkyrie OS</title>
+        <title>Downloads - Valkyrie OS</title>
         <link rel="stylesheet" href="stylesheet/stylesheet.css" type="text/css">
         <script src="js/searchweb.js"></script>
     </head>
@@ -50,50 +51,45 @@
             
             <!-- Main Content Area -->
             <div class="website-content">
-                <h2>Documentation</h2>
+                <h2>Downloads</h2>
                 <p>
-                    Complete documentation for Valkyrie OS development, architecture, and usage.
+                    Pre-built disk images and source code for Valkyrie OS.
                 </p>
                 
-                <h3>Getting Started</h3>
+                <h3>Latest Release</h3>
                 <p>
-                    To get started with Valkyrie OS development, you'll need to install the required 
-                    dependencies and build the cross-toolchain. Refer to the README for detailed 
-                    installation instructions.
+                    The latest stable release is available on GitHub. Download pre-built disk images
+                    or build from source using the instructions in the documentation.
                 </p>
                 
-                <h3>Architecture</h3>
                 <p>
-                    <strong>Bootloader (Stage 1):</strong> Loads Stage 2 from disk<br>
-                    <strong>Bootloader (Stage 2):</strong> Initializes hardware and loads the kernel<br>
-                    <strong>Kernel:</strong> Manages system resources, drivers, and JVM execution<br>
-                    <strong>JVM:</strong> Executes Java bytecode programs
-                </p>
-                
-                <h3>Building</h3>
-                <p>
-                    Use SCons to build the project:
-                    <pre><code>./scripts/base/dependencies.sh  # Install dependencies
-./scripts/base/toolchain.sh toolchain  # Build cross-toolchain
-scons  # Build the OS</code></pre>
-                </p>
-                
-                <h3>Running</h3>
-                <p>
-                    Run the OS in QEMU:
-                    <pre><code>scons run</code></pre>
-                    Or debug with GDB:
-                    <pre><code>scons debug</code></pre>
-                </p>
-                
-                <h3>Documentation Files</h3>
-                <p>
-                    Download the complete technical documentation PDF from GitHub:
-                </p>
-                <p>
-                    <a href="https://github.com/Vincent4486/ValkyrieOS/blob/main/docs/tex/TheValkyrieOperatingSystem.pdf" target="_blank" download>
-                        <strong>📄 Download Technical Documentation (PDF)</strong>
+                    <a href="https://github.com/Vincent4486/ValkyrieOS/releases/latest" target="_blank">
+                        <strong>Download Latest Release</strong>
                     </a>
+                </p>
+                
+                <h3>Source Code</h3>
+                <p>
+                    The complete source code is available on GitHub. Clone the repository to build
+                    Valkyrie OS yourself:
+                    <pre><code>git clone https://github.com/Vincent4486/ValkyrieOS.git
+cd ValkyrieOS
+./scripts/base/dependencies.sh
+./scripts/base/toolchain.sh toolchain
+scons</code></pre>
+                </p>
+                
+                <h3>Pre-built Images</h3>
+                <p>
+                    FAT16/32/ext2 (up to 250MB)<br>
+                    <strong>Formats:</strong> Available as .img files for direct writing to media or use in emulators<br>
+                    <strong>Architecture:</strong> x86 32-bit (i686)
+                </p>
+                
+                <h3>System Requirements</h3>
+                <p>
+                    <strong>Build Requirements:</strong> GCC, NASM, Python 3, SCons, GNU Binutils<br>
+                    <strong>Runtime:</strong> QEMU, Bochs, or real x86 hardware
                 </p>
             </div>
         </div>

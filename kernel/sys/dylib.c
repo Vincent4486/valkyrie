@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 
 /* Dynamic link helpers for the kernel. Supports true ELF dynamic linking
  * with PLT/GOT relocation. The bootloader (stage2) loads libraries and

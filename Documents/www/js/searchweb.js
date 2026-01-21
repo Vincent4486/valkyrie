@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+
 // Search functionality for Valkyrie OS website
 
 // Define searchable pages and their content

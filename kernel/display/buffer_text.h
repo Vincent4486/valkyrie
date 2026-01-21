@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-only
 
 #ifndef BUFFER_TEXT_H
 #define BUFFER_TEXT_H
