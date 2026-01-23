@@ -1,7 +1,7 @@
 #!/bin/bash 
 # SPDX-License-Identifier: BSD-3-Clause
 
-BINUTILS_VERSION=2.37
+BINUTILS_VERSION=2.45
 GCC_VERSION=15.2.0
 MUSL_VERSION=1.2.5
 
@@ -80,9 +80,9 @@ build_gcc_stage1() {
         tar -xf gcc-${GCC_VERSION}.tar.xz
     fi
     mkdir -p ${GCC_BUILD}
-    CFLAGS= ASMFLAGS= LD= ASM= LINKFLAGS= LIBS= 
     cd ${GCC_BUILD}
-    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --disable-nls --enable-languages=c --without-headers"
+    
+    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --disable-nls --enable-languages=c --without-headers --disable-threads --disable-isl --disable-shared --with-newlib"
     if [ "$OS" = "Darwin" ]; then
         GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc"
     fi
@@ -106,19 +106,19 @@ build_musl() {
     
     # Export toolchain to PATH so musl finds cross-compiler
     export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
-    export CC="${TARGET}-gcc"
-    export CXX="${TARGET}-g++"
-    export LD="${TARGET}-ld"
-    export AR="${TARGET}-ar"
-    export RANLIB="${TARGET}-ranlib"
-    export STRIP="${TARGET}-strip"
+    export CC="${MUSL_TARGET}-gcc"
+    export CXX="${MUSL_TARGET}-g++"
+    export AS="${MUSL_TARGET}-as"
+    export LD="${MUSL_TARGET}-ld"
+    export AR="${MUSL_TARGET}-ar"
+    export RANLIB="${MUSL_TARGET}-ranlib"
+    export STRIP="${MUSL_TARGET}-strip"
     
-    CFLAGS= ASMFLAGS= LINKFLAGS= LIBS=
     ../musl-${MUSL_VERSION}/configure \
-            --prefix="${TOOLCHAIN_PREFIX}/usr" \
+            --prefix="${TOOLCHAIN_PREFIX}/i686-linux-musl/sysroot/usr" \
             --host=${MUSL_TARGET} \
             --enable-static \
-            --disable-shared
+            --enable-shared
     make -j8
     make install
 
@@ -133,11 +133,10 @@ build_gcc_stage2() {
     # Export toolchain to PATH so GCC stage 2 finds binutils
     export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
     
-    CFLAGS= ASMFLAGS= LD= ASM= LINKFLAGS= LIBS= 
     cd ${GCC_BUILD_STAGE2}
-    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${TOOLCHAIN_PREFIX} --disable-nls --enable-languages=c"
+    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${TOOLCHAIN_PREFIX}/i686-linux-musl/sysroot --disable-nls --enable-languages=c,c++ --disable-isl --disable-libsanitizer"
     if [ "$OS" = "Darwin" ]; then
-        GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc"
+        GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc --with-isl=/opt/homebrew/opt/isl"
     fi
     ../gcc-${GCC_VERSION}/configure $GCC_OPTS
     make -j8
@@ -148,7 +147,7 @@ build_gcc_stage2() {
 
 # ---------------------------
 
-# build_binutils
-# build_gcc_stage1
+build_binutils
+build_gcc_stage1
 build_musl
-# build_gcc_stage2
+build_gcc_stage2

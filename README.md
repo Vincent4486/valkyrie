@@ -9,7 +9,7 @@ This repository targets low-level, cross-compiled builds for x86 (i686 and x64 v
 - macOS: partial support for building the cross-toolchain (toolchain script includes Darwin-specific flags). The overall image build and tooling are intended for Linux hosts.
 
 Required build artifacts created by the toolchain script:
-- binutils: 2.37
+- binutils: 2.45
 - gcc: 15.2.0
 - musl (for sysroot): 1.2.5
 

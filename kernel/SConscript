@@ -20,14 +20,12 @@ src_node = '#kernel'
 env.Append(
     # Enable position-independent code for dynamic linking support
     # Use PIC so object files generate GOT/PLT entries for dynamic linking.
-    CCFLAGS = ['-fPIC'],
+    CCFLAGS = ['-fPIC', '-ffreestanding', '-nostdlib', '-fstack-protector-all'],
     LINKFLAGS = [
+        '-nostdlib',
         '-Wl,-T', os.path.join(src_dir, 'arch', TARGET_ENVIRONMENT['arch'], 'boot', 'linker.ld'),
         '-Wl,-Map=' + env.File('core.map').path,
-        # Create relocation records for undefined symbols (GOT/PLT)
-        # The linker will generate R_386_GLOB_DAT and R_386_JMP_SLOT relocations
-        '-Wl,-z,notext',  # Allow relocations in text segment
-        # '-Wl,--unresolved-symbols=ignore-all',  # Allow undefined symbols - will be resolved at runtime
+        '-Wl,-z,relro,-z,now',  # Security: read-only relocations, immediate binding
         '-Wl,--as-needed',
         '-Wl,--export-dynamic',
         '-pie',

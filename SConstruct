@@ -48,7 +48,7 @@ VARS.Add("kernelName",
          default="valkyrix")
 
 DEPS = {
-    'binutils': '2.37',
+    'binutils': '2.45',
     'gcc': '15.2.0'
 }
 
@@ -87,19 +87,20 @@ else:
 
 platform_prefix = ''
 if HOST_ENVIRONMENT['arch'] == 'i686':
-    platform_prefix = 'i686-elf-'
-    target = 'i686-elf'
+    platform_prefix = 'i686-linux-musl-'
+    target = 'i686-linux-musl'
 elif HOST_ENVIRONMENT['arch'] == 'x64':
-    platform_prefix = 'x86_64-elf-'
-    target = 'x86_64-elf'
+    platform_prefix = 'x86_64-linux-musl-'
+    target = 'x86_64-linux-musl'
 else:
     platform_prefix = ''
     target = 'unknown'
 
-toolchainDir = Path(HOST_ENVIRONMENT['toolchain'], target).resolve()
+toolchainDir = Path(HOST_ENVIRONMENT['toolchain']).resolve()
 toolchainBin = Path(toolchainDir, 'bin')
 toolchainGccLibs = Path(toolchainDir, 'lib', 'gcc', platform_prefix.removesuffix('-'), DEPS['gcc'])
 
+print(toolchainDir)
 TARGET_ENVIRONMENT = HOST_ENVIRONMENT.Clone(
     AS = f'{platform_prefix}as',
     AR = f'{platform_prefix}ar',
@@ -123,18 +124,12 @@ TARGET_ENVIRONMENT.Append(
         '-g'
     ],
     CCFLAGS = [
-        '-ffreestanding',
-        '-nostdlib',
-        '-fstack-protector-all'
-        # Note: -fPIC added per-target (e.g., kernel SConscript) for dynamic linking support
     ],
     CXXFLAGS = [
         '-fno-exceptions',
         '-fno-rtti',
     ],
     LINKFLAGS = [
-        '-nostdlib'
-        # Note: --unresolved-symbols=ignore-all added in kernel SConscript for dynamic linking
     ],
     LIBS = ['gcc'],
     LIBPATH = [ str(toolchainGccLibs) ]
