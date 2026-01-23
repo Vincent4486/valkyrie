@@ -6,15 +6,32 @@ set(KERNEL_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 # Create kernel executable
 add_executable(${KERNEL_NAME})
 
+# Common flags used across kernel objects
+set(KERNEL_COMMON_CFLAGS
+    -m32
+    -ffreestanding
+    -nostdlib
+    -fstack-protector-all
+    -fPIC
+    -g
+    -I${KERNEL_SRC_DIR}
+    -I${CMAKE_SOURCE_DIR}/include
+)
+
 # ============================================================================
 # Compilation and Linker Flags
 # ============================================================================
 
 target_compile_options(${KERNEL_NAME} PRIVATE
     -fPIC
+    -ffreestanding
+    -nostdlib
+    -fstack-protector-all
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>
 )
 
 target_link_options(${KERNEL_NAME} PRIVATE
+    -nostdlib
     -Wl,-T,${KERNEL_SRC_DIR}/arch/${ARCH}/boot/linker.ld
     -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/core.map
     -Wl,-z,notext
@@ -73,7 +90,7 @@ endforeach()
 if(CRTI_FILE)
     set(OBJ_CRTI "${CMAKE_CURRENT_BINARY_DIR}/crti.o")
     add_custom_command(OUTPUT "${OBJ_CRTI}"
-        COMMAND ${CMAKE_C_COMPILER} -m32 -ffreestanding -nostdlib -fstack-protector-all -fPIC -g -I${KERNEL_SRC_DIR} -I${CMAKE_SOURCE_DIR}/include -c "${CRTI_FILE}" -o "${OBJ_CRTI}"
+        COMMAND ${CMAKE_C_COMPILER} ${KERNEL_COMMON_CFLAGS} -c "${CRTI_FILE}" -o "${OBJ_CRTI}"
         DEPENDS "${CRTI_FILE}"
     )
     list(APPEND OBJ_FILES "${OBJ_CRTI}")
@@ -83,7 +100,7 @@ endif()
 if(CRTN_FILE)
     set(OBJ_CRTN "${CMAKE_CURRENT_BINARY_DIR}/crtn.o")
     add_custom_command(OUTPUT "${OBJ_CRTN}"
-        COMMAND ${CMAKE_C_COMPILER} -m32 -ffreestanding -nostdlib -fstack-protector-all -fPIC -g -I${KERNEL_SRC_DIR} -I${CMAKE_SOURCE_DIR}/include -c "${CRTN_FILE}" -o "${OBJ_CRTN}"
+        COMMAND ${CMAKE_C_COMPILER} ${KERNEL_COMMON_CFLAGS} -c "${CRTN_FILE}" -o "${OBJ_CRTN}"
         DEPENDS "${CRTN_FILE}"
     )
 endif()

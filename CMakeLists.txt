@@ -69,7 +69,6 @@ message(STATUS "ASM Compiler: ${CMAKE_ASM_COMPILER}")
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
 
-# Host compilation flags
 add_compile_options(-std=c99)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
@@ -90,23 +89,6 @@ elseif(ARCH STREQUAL "x64")
 else()
     add_compile_definitions(NOARCH)
 endif()
-
-# ============================================================================
-# Target compilation flags
-# ============================================================================
-
-# Common target flags
-add_compile_options(
-    -ffreestanding
-    -nostdlib
-    -fstack-protector-all
-)
-
-# C++ specific
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-rtti")
-
-# Linker flags (will be applied to targets that need them)
-set(CMAKE_EXE_LINKER_FLAGS "-nostdlib")
 
 # ============================================================================
 # Build subdirectories based on BUILD_TYPE_OPTION
