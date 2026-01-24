@@ -7,6 +7,7 @@
 #include "scheduler.h"
 #include "stack.h"
 #include "syscall.h"
+#include "tty.h"
 
 const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
     .outb = HAL_ARCH_outb,
@@ -20,6 +21,13 @@ const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
     .iowait = HAL_ARCH_iowait,
     .Halt = HAL_ARCH_Halt,
     .Panic = HAL_ARCH_Panic,
+};
+
+const HAL_TtyOperations *g_HalTtyOperations = &(HAL_TtyOperations){
+    .putc = HAL_ARCH_Tty_putc,
+    .getc = HAL_ARCH_Tty_getc,
+    .set_cursor = HAL_ARCH_Tty_set_cursor,
+    .clear = HAL_ARCH_Tty_clear,
 };
 
 const HAL_IrqOperations *g_HalIrqOperations = &(HAL_IrqOperations){

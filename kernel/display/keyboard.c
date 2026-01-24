@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "keyboard.h"
-#include <display/buffer_text.h>
-#include <std/stdio.h> // for putc/printf
+#include <drivers/tty/tty.h>
+#include <std/stdio.h> // for printf if needed
 #include <stdint.h>
-
-/* Input line buffer for simple line editing */
-#define KB_LINE_BUF 256
-static char kb_line[KB_LINE_BUF];
-static int kb_len = 0;
-static int kb_ready = 0; /* 1 when a full line (\n) is available */
 
 /* modifier state */
 static int shift = 0;
@@ -76,136 +70,29 @@ void Keyboard_HandleScancode(uint8_t scancode)
       return;
    }
 
-   /* If we previously saw 0xE0, handle extended keys (arrows) here */
+   /* Handle simple extended keys (E0 prefix) such as arrow keys */
    if (extended)
    {
+      /* capture device and position */
+      TTY_Device *dev = TTY_GetDevice();
+      int cx = 0, cy = 0;
+      if (dev) TTY_GetCursor(dev, &cx, &cy);
       switch (scancode)
       {
-      case 0x48: /* up */
-      {
-         int x, y;
-         Buffer_GetCursor(&x, &y);
-         /* Compute whether there is older content above the visible start
-          * + current cursor row. If so, prefer to scroll the view rather
-          * than moving the cursor further up within the window. */
-         uint32_t visible_start = Buffer_GetVisibleStart();
-         uint32_t logical_index = visible_start + (uint32_t)y;
-
-         if (y > 0)
-         {
-            /* still room to move up within visible window */
-            y--;
-            Buffer_SetCursor(x, y);
-         }
-         else if (logical_index > 0)
-         {
-            /* There is older content above the visible window: scroll up by
-             * one line instead of jumping to the very top. This lets users
-             * reach the middle lines incrementally. */
-            Buffer_Scroll(1);
-            /* keep cursor at the top row of the visible window */
-            Buffer_SetCursor(x, y);
-         }
-         else
-         {
-            /* at very top already */
-         }
-         break;
-      }
-      case 0x50: /* down */
-      {
-         int x, y;
-         Buffer_GetCursor(&x, &y);
-         uint32_t visible_start = Buffer_GetVisibleStart();
-         uint32_t logical_index = visible_start + (uint32_t)y;
-         uint32_t max_scroll = Buffer_GetMaxScroll();
-
-         if (y < SCREEN_HEIGHT - 1)
-         {
-            /* move down within visible window */
-            y++;
-            Buffer_SetCursor(x, y);
-         }
-         else if (visible_start < max_scroll)
-         {
-            /* There is newer content below: scroll down by one line rather
-             * than jumping straight to the bottom so the user can traverse
-             * the middle region. */
-            Buffer_Scroll(-1);
-            Buffer_SetCursor(x, y);
-         }
-         else
-         {
-            /* at very bottom already */
-         }
-         break;
-      }
-      case 0x4B: /* left */
-      {
-         int x, y;
-         Buffer_GetCursor(&x, &y);
-         if (x > 0)
-         {
-            x--;
-            Buffer_SetCursor(x, y);
-         }
-         else if (y > 0)
-         {
-            /* move to end of previous visible line */
-            int prev_len = Buffer_GetVisibleLineLength(y - 1);
-            y--;
-            x = prev_len;
-            Buffer_SetCursor(x, y);
-         }
-         else
-         {
-            /* at top: scroll up */
-            Buffer_Scroll(1);
-            Buffer_SetCursor(0, 0);
-         }
-         break;
-      }
-      case 0x4D: /* right */
-      {
-         int x, y;
-         Buffer_GetCursor(&x, &y);
-         int len = Buffer_GetVisibleLineLength(y);
-         if (x < len)
-         {
-            x++;
-            Buffer_SetCursor(x, y);
-         }
-         else
-         {
-            /* At end of current visible line. Only move to the next visible
-               line if that line actually exists (has characters). Otherwise
-               stay at the end of the current line. */
-            if (y < SCREEN_HEIGHT - 1)
-            {
-               int next_len = Buffer_GetVisibleLineLength(y + 1);
-               if (next_len > 0)
-               {
-                  y++;
-                  x = 0;
-                  Buffer_SetCursor(x, y);
-               }
-               else
-               {
-                  /* no next visible content: keep cursor at end */
-                  Buffer_SetCursor(len, y);
-               }
-            }
-            else
-            {
-               /* bottom row: don't create lines by scrolling; keep cursor at
-                  end of current line */
-               Buffer_SetCursor(len, y);
-            }
-         }
-         break;
-      }
-      default:
-         break;
+         case 0x4B: /* left */
+            if (dev && cx > 0) TTY_SetCursor(dev, cx - 1, cy);
+            break;
+         case 0x4D: /* right */
+            if (dev) TTY_SetCursor(dev, cx + 1, cy);
+            break;
+         case 0x48: /* up */
+            if (dev && cy > 0) TTY_SetCursor(dev, cx, cy - 1);
+            break;
+         case 0x50: /* down */
+            if (dev) TTY_SetCursor(dev, cx, cy + 1);
+            break;
+         default:
+            break;
       }
       extended = 0;
       return;
@@ -302,35 +189,8 @@ void Keyboard_HandleScancode(uint8_t scancode)
          }
       }
 
-      /* handle backspace specially to update buffer */
-      if (out == '\b')
-      {
-         if (kb_len > 0)
-         {
-            kb_len--;
-            putc('\b');
-         }
-         return;
-      }
-
-      /* append to buffer if printable; on newline mark ready */
-      if (out == '\n')
-      {
-         if (kb_len < KB_LINE_BUF - 1)
-         {
-            kb_line[kb_len++] = '\n';
-         }
-         kb_ready = 1;
-         putc('\n');
-      }
-      else
-      {
-         if (kb_len < KB_LINE_BUF - 1)
-         {
-            kb_line[kb_len++] = out;
-            putc(out);
-         }
-      }
+      /* push to TTY input only; do not echo to the screen here */
+      TTY_InputPush(out);
    }
 }
 
@@ -340,16 +200,34 @@ void Keyboard_HandleScancode(uint8_t scancode)
  */
 int Keyboard_ReadlineNb(char *buf, int bufsize)
 {
-   if (!kb_ready) return 0;
-   int copy = kb_len;
-   if (copy > bufsize - 1) copy = bufsize - 1;
-   for (int i = 0; i < copy; ++i) buf[i] = kb_line[i];
-   buf[copy] = '\0';
+   static char line_buf[256];
+   static int line_len = 0;
 
-   /* reset buffer */
-   kb_len = 0;
-   kb_ready = 0;
-   return copy;
+   TTY_Device *dev = TTY_GetDevice();
+   if (!dev) return 0;
+
+   char c;
+   while (TTY_Read(dev, &c, 1) > 0)
+   {
+      if (c == '\n' || line_len >= sizeof(line_buf) - 1)
+      {
+         line_buf[line_len] = '\0';
+         int copy = line_len + 1; // include \0
+         if (copy > bufsize) copy = bufsize;
+         for (int i = 0; i < copy; i++) buf[i] = line_buf[i];
+         line_len = 0;
+         return copy - 1; // exclude \0
+      }
+      else if (c == '\b')
+      {
+         if (line_len > 0) line_len--;
+      }
+      else
+      {
+         line_buf[line_len++] = c;
+      }
+   }
+   return 0;
 }
 
 /**

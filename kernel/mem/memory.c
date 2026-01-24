@@ -208,5 +208,5 @@ void MEM_Initialize(void *multiboot_info_ptr)
        g_SysInfo->memory.kernel_start + 0x100000; /* Approximate */
    g_SysInfo->memory.user_start = (uint32_t)0x08000000;
    g_SysInfo->memory.user_end = (uint32_t)0xC0000000;
-   g_SysInfo->memory.kernel_stack_size = 8192; /* 8KB kernel stack */
+   g_SysInfo->memory.kernel_stack_size = 65536; /* 64KB kernel stack */
 }

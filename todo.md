@@ -2,6 +2,7 @@
 
 ## Current todo
 
+3) organize tty + virtual filesystems handler + devfs register device
 4) fat data to private data struct for each fs
 5) Get root partition via cmdline uuid and label + find root partition
 6) vga to `arch/`
