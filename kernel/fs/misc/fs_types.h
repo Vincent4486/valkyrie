@@ -14,7 +14,8 @@ typedef enum FilesystemType
    FAT12 = 1,
    FAT16 = 2,
    FAT32 = 3,
-   EXT2 = 4
+   EXT2 = 4,
+   DEVFS = 5,
 } FilesystemType;
 
 #endif

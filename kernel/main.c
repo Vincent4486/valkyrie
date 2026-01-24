@@ -42,6 +42,13 @@ void hold(void)
    printf("\n");
 }
 
+void perform_mount(void){
+   int devfsIndex = DISK_GetDevfsIndex();
+   FS_Mount(&g_SysInfo->volume[0], "/");
+   FS_Mount(&g_SysInfo->volume[devfsIndex], "/dev");
+   VFS_SelfTest();
+}
+
 void __attribute__((section(".entry"))) start(uint16_t bootDrive,
                                               void *multiboot_info_ptr)
 {
@@ -62,8 +69,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       printf("FS initialization failed\n");
       goto end;
    }
-   FS_Mount(&g_SysInfo->volume[0], "/");
-   VFS_SelfTest();
+   perform_mount();
 
    if (!Dylib_Initialize())
    {
@@ -74,7 +80,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    /* Mark system as fully initialized */
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);
-   logfmt(LOG_FATAL, "Haha\n");
+
    hold();
 
 end:

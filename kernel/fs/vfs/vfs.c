@@ -3,6 +3,7 @@
 #include "vfs.h"
 
 #include <fs/fat/fat.h>
+#include <fs/devfs/devfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -20,6 +21,8 @@ static const VFS_Operations *get_fs_operations(FilesystemType type)
    case FAT16:
    case FAT32:
       return FAT_GetVFSOperations();
+   case DEVFS:
+      return DEVFS_GetVFSOperations();
    default:
       return NULL;
    }
@@ -140,9 +143,16 @@ static bool vfs_resolve_path(const char *path, Partition **part_out,
 
 int FS_Mount(Partition *volume, const char *location)
 {
-   if (!volume || !volume->disk)
+   if (!volume)
    {
       logfmt(LOG_ERROR, "Invalid volume for mount\n");
+      return -1;
+   }
+
+   /* Allow NULL disk for in-memory filesystems like devfs */
+   if (!volume->disk && (!volume->fs || volume->fs->type != DEVFS))
+   {
+      logfmt(LOG_ERROR, "Invalid volume for mount (no disk)\n");
       return -1;
    }
 
@@ -209,8 +219,8 @@ int FS_Mount(Partition *volume, const char *location)
    g_mount_count++;
 
    volume->fs->mounted = 1;
-   logfmt(LOG_INFO, "[VFS] Mounted %s at %s\n", volume->disk->brand,
-          normalized);
+   const char *fs_name = volume->disk ? volume->disk->brand : "devfs";
+   logfmt(LOG_INFO, "[VFS] Mounted %s at %s\n", fs_name, normalized);
    return 0;
 }
 
