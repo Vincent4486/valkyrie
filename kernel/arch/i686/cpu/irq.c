@@ -19,6 +19,13 @@ void i686_IRQ_Handler(Registers *regs)
 {
    int irq = regs->interrupt - PIC_REMAP_OFFSET;
 
+   // Bounds check to prevent array out-of-bounds access
+   if (irq < 0 || irq >= 16)
+   {
+      printf("IRQ out of bounds: interrupt=%d, irq=%d\n", regs->interrupt, irq);
+      return;
+   }
+
    if (g_IRQHandlers[irq] != NULL)
    {
       // handle IRQ
@@ -75,11 +82,21 @@ void i686_IRQ_Initialize()
 
 void i686_IRQ_RegisterHandler(int irq, IRQHandler handler)
 {
+   if (irq < 0 || irq >= 16)
+   {
+      printf("i686_IRQ_RegisterHandler: invalid IRQ %d\n", irq);
+      return;
+   }
    g_IRQHandlers[irq] = handler;
 }
 
 void i686_IRQ_Unmask(int irq)
 {
+   if (irq < 0 || irq >= 16)
+   {
+      printf("i686_IRQ_Unmask: invalid IRQ %d\n", irq);
+      return;
+   }
    if (g_Driver != NULL)
    {
       g_Driver->Unmask(irq);

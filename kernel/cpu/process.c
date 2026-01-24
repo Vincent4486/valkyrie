@@ -47,7 +47,8 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
       proc->page_directory = g_HalPagingOperations->CreatePageDirectory();
       if (!proc->page_directory)
       {
-         logfmt(LOG_ERROR, "[PROC] create: HAL_Paging_CreatePageDirectory failed\n");
+         logfmt(LOG_ERROR,
+                "[PROC] create: HAL_Paging_CreatePageDirectory failed\n");
          free(proc);
          return NULL;
       }
@@ -125,7 +126,8 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
    // syscalls)
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
 
-   logfmt(LOG_INFO, "[PROC] created: pid=%u, entry=0x%08x\n", proc->pid, entry_point);
+   logfmt(LOG_INFO, "[PROC] created: pid=%u, entry=0x%08x\n", proc->pid,
+          entry_point);
    return proc;
 }
 

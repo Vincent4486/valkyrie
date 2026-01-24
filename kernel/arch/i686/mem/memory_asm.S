@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 	.global memcpy_asm
 .global memcmp_asm
 .global memset_asm

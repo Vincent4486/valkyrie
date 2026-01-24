@@ -72,7 +72,8 @@ int DISK_Scan()
 
          // Copy partition data into system volume table
          g_SysInfo->volume[volumeIndex] = *(parts[p]);
-         logfmt(LOG_INFO,
+         logfmt(
+             LOG_INFO,
              "[DISK] Populated volume[%d]: Offset=%u, Size=%u, Type=0x%02x\n",
              volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset,
              g_SysInfo->volume[volumeIndex].partitionSize,
@@ -117,14 +118,16 @@ int DISK_Scan()
             }
             else
             {
-               logfmt(LOG_ERROR, "[DISK] Failed to initialize FAT on volume[%d]\n",
+               logfmt(LOG_ERROR,
+                      "[DISK] Failed to initialize FAT on volume[%d]\n",
                       volumeIndex);
                volume->fs = NULL; // Explicitly clear to avoid later deref
             }
          }
          else
          {
-            logfmt(LOG_INFO,
+            logfmt(
+                LOG_INFO,
                 "[DISK] Skipping filesystem init for partition type 0x%02x\n",
                 partType);
          }
@@ -179,8 +182,7 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Read(disk, lba,
-                        (uint8_t *)dataOut, sectors);
+      int rc = ATA_Read(disk, lba, (uint8_t *)dataOut, sectors);
       if (rc != 0) return false;
       return true;
    }
@@ -207,8 +209,7 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Write(disk, lba,
-                         (const uint8_t *)dataIn, sectors);
+      int rc = ATA_Write(disk, lba, (const uint8_t *)dataIn, sectors);
       if (rc != 0) return false;
       return true;
    }

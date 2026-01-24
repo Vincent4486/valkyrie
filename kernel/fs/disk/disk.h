@@ -15,7 +15,8 @@ this file, so for external modules, include fs/fs.h instead.
 #define DISK_TYPE_FLOPPY 0
 #define DISK_TYPE_ATA 1
 
-typedef struct DISK_Operations{
+typedef struct DISK_Operations
+{
 
 } DISK_Operations;
 

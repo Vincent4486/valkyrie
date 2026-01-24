@@ -3,9 +3,9 @@
 #include "stdio.h"
 #include <hal/io.h>
 
+#include <mem/mm_kernel.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <mem/mm_kernel.h>
 
 const unsigned SCREEN_WIDTH = 80;
 const unsigned SCREEN_HEIGHT = 25;
@@ -83,13 +83,15 @@ void printf_unsigned(unsigned long long number, int radix, int width,
    char buffer[32];
    int pos = 0;
 
+   // Limit width to buffer size to prevent stack overflow
+   if (width > 31) width = 31;
+
    // convert number to ASCII
-   do
-   {
+   do {
       unsigned long long rem = number % radix;
       number /= radix;
       buffer[pos++] = g_HexChars[rem];
-   } while (number > 0);
+   } while (number > 0 && pos < 31);
 
    // pad with zeros or spaces if needed
    while (pos < width)
@@ -344,16 +346,14 @@ int vsnprintf(char *buffer, size_t buf_size, const char *format, va_list ap)
 
 /* helper to emit a single char */
 #define EMIT_CH(c)                                                             \
-   do                                                                          \
-   {                                                                           \
+   do {                                                                        \
       if (out_idx + 1 < buf_size) buffer[out_idx++] = (c);                     \
       would_have++;                                                            \
    } while (0)
 
 /* helper to emit a whole string */
 #define EMIT_STR(s)                                                            \
-   do                                                                          \
-   {                                                                           \
+   do {                                                                        \
       const char *_p = (s);                                                    \
       while (*_p)                                                              \
       {                                                                        \

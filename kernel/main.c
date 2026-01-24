@@ -22,7 +22,8 @@ extern uint8_t __bss_start;
 extern uint8_t __end;
 extern void _init();
 
-void hold(void){
+void hold(void)
+{
    uint32_t last_uptime = 0;
    while (g_SysInfo->uptime_seconds < 1000)
    {
@@ -73,7 +74,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    /* Mark system as fully initialized */
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);
-
+   logfmt(LOG_FATAL, "Haha\n");
    hold();
 
 end:

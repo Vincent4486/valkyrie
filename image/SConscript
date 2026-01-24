@@ -1,298 +1,200 @@
 # SPDX-License-Identifier: BSD-3-Clause
+"""
+Disk image build configuration.
+"""
 
 import os
 import re
-import sh
-import sys
 
 from SCons.Action import Action
 from SCons.Environment import Environment
 from SCons.Script import Flatten
 
 from scripts.scons.utility import GlobRecursive
+from scripts.scons.disk import (
+    DiskImage,
+    copy_c_library,
+    install_grub,
+    get_current_user,
+)
+from scripts.scons.arch import get_arch_config
 
 Import('core')
 Import('user_libraries')
 Import('user_applications')
-
 Import('TARGET_ENVIRONMENT')
+
 TARGET_ENVIRONMENT: Environment
-env:Environment = TARGET_ENVIRONMENT
-
-SECTOR_SIZE = 512
-
-def generate_image_file(target: str, size_sectors: int):
-    with open(target, 'wb') as fout:
-        fout.write(bytes(size_sectors * SECTOR_SIZE))
-        fout.close()
-
-def create_filesystem(target: str, filesystem, reserved_sectors=0, offset=0):
-    if filesystem in ['fat12', 'fat16', 'fat32']:
-        reserved_sectors += 1
-        if filesystem == 'fat32':
-            reserved_sectors += 1
-
-        mkfs_fat = sh.Command('mkfs.fat')
-        mkfs_fat(target,
-                 F=filesystem[3:],            # fat size
-                 n='VALKYRIE',                    # label
-                 R=reserved_sectors,      # reserved sectors
-                 offset=offset
-        )
-    elif filesystem == 'ext2':
-        mkfs_ext2 = sh.Command('mkfs.ext2')
-        mkfs_ext2(target,
-                  L='VALKYRIE',                   # label
-                  E=f'offset={offset * SECTOR_SIZE}'
-        )
-    else:
-        raise ValueError('Unsupported filesystem ' + filesystem)
+env: Environment = TARGET_ENVIRONMENT
 
 
-def install_grub(mount_dir: str):
+# =============================================================================
+# Build Functions
+# =============================================================================
 
-    device_file = mount_dir + '.device'
-    if not os.path.exists(device_file):
-        raise RuntimeError(f"Device file {device_file} not found; cannot install GRUB")
-
-    with open(device_file, 'r') as f:
-        device = f.read().strip()
-
-    bootdir = os.path.join(mount_dir, 'boot')
-    sh.sudo.mkdir('-p', bootdir)
-
-    # Run grub-install against the loop device. Use i386-pc (BIOS) target for
-    # the project's boot layout. --recheck forces probe of device.
-    sh.sudo('grub-install', '--target=i386-pc', f'--boot-directory={bootdir}', '--recheck', device)
-
-def create_partition_table(target: str, align_start: int, filesystem: str = 'fat32'):
-    """Create MBR partition table with correct filesystem type.
+def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
+    """Build the complete disk image with all components.
     
-    Uses parted CLI to ensure the partition type ID is set correctly.
-    (python-parted defaults to 0x83 Linux, which mkfs.fat does not change.)
+    Args:
+        image_path: Output disk image path
+        core_exe: Kernel executable path
+        libraries: List of user library paths
+        applications: List of user application paths
+        extra_files: Additional files to copy
+        env: SCons environment
     """
-    if sys.platform.startswith('darwin'):
-        sh.sgdisk('--zap-all', target)
-        sh.sgdisk('-o', target)
-        # Single FAT-friendly partition starting at align_start, extend to end
-        sh.sgdisk('-n', f'1:{align_start}:0', '-t', '1:0700', '-c', '1:VALKYRIE', target)
-        return
-    # Create msdos (MBR) label
-    sh.parted('-s', target, 'mklabel', 'msdos')
-    
-    # Map filesystem type to parted filesystem name
-    parted_fs = {
-        'fat12': 'fat12',
-        'fat16': 'fat16',
-        'fat32': 'fat32',
-        'ext2': 'ext2'
-    }.get(filesystem, 'fat32')
-    
-    # Create partition starting at align_start and spanning to end of disk
-    # parted's mkpart requires: <name> <type> <fs-type> <start> <end>
-    sh.parted('-s', target, 'mkpart', 'primary', parted_fs, f'{align_start}s', '100%')
-    
-    # Set boot flag on partition 1
-    sh.parted('-s', target, 'set', '1', 'boot', 'on')
-
-
-def mount_fs(image: str, mount_dir: str):
-    # Use losetup + mount instead of guestmount (avoids kernel read permission issues)
     import sh
-    import time
-    import subprocess
+    import shutil
     
-    device = sh.sudo.losetup('-fP', '--show', image).strip()
-    
-    # Wait for loop device to be set up and partitions to appear
-    partition = f'{device}p1'
-    max_retries = 10
-    retry_count = 0
-    while retry_count < max_retries:
-        try:
-            # Check if partition device exists
-            result = subprocess.run(['ls', '-la', partition], capture_output=True, timeout=1)
-            if result.returncode == 0:
-                break
-        except:
-            pass
-        time.sleep(0.5)
-        retry_count += 1
-    
-    if retry_count >= max_retries:
-        print(f"ERROR: Partition {partition} did not appear after losetup")
-        # Try to list what loop devices we have
-        subprocess.run(['losetup', '-l'], check=False)
-        raise RuntimeError(f"Loop partition {partition} not found")
-    
-    # Store the device path BEFORE mounting (in the parent directory on the host FS)
-    device_file = mount_dir + '.device'
-    with open(device_file, 'w') as f:
-        f.write(device)
-    
-    print(f"   MOUNT {partition} {mount_dir}")
-    sh.sudo.mount(partition, mount_dir)
-
-def unmount_fs(mount_dir: str):
-    import sh
-    import time
-    time.sleep(2)
-    
-    # Read the device path from the host FS (not inside the mount)
-    device_file = mount_dir + '.device'
-    
-    # Unmount the directory first. Requires root.
-    sh.sudo.umount(mount_dir)
-    
-    # Read the loop device path we saved.
-    with open(device_file, 'r') as f:
-        device = f.read().strip()
-        
-    # Detach the loop device. Requires root.
-    sh.sudo.losetup('-d', device)
-    
-    # Clean up the device file
-    os.remove(device_file)
-
-
-def build_disk(image, core_exe, user_libraries, user_applications, files, env):
-    size_sectors = (env['imageSize'] + SECTOR_SIZE - 1) // SECTOR_SIZE
-    file_system = env['imageFS']
+    size = env['imageSize']
+    filesystem = env['imageFS']
     partition_offset = 2048
-
-    generate_image_file(image, size_sectors)
-
-    # create partition table
-    print(f"   PARTITIONING")
-    create_partition_table(image, partition_offset)
-
-    # create file system
-    print(f"   FORMATING DISK")
-    create_filesystem(image, file_system, offset=partition_offset)
-
-    # Create temp directory in the build folder (same directory as the image)
-    tempdir = os.path.join(os.path.dirname(image), 'tmp_mount')
+    toolchain_prefix = env.get('TOOLCHAIN_PREFIX', '')
+    arch = env.get('arch', 'i686')
+    
+    # Get architecture configuration
+    arch_config = get_arch_config(arch)
+    target_triple = arch_config['target_triple']
+    
+    current_user = get_current_user()
+    
+    # Create and setup disk image
+    disk = DiskImage(image_path, size, sector_size=512)
+    disk.create()
+    
+    print("   PARTITIONING")
+    disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
+    
+    print("   FORMATTING DISK")
+    disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
+    
+    # Mount and populate the image
+    tempdir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
+    os.makedirs(tempdir, exist_ok=True)
+    
     try:
-        # mount
-        os.makedirs(tempdir, exist_ok=True)
-
-        mount_fs(image, tempdir)
-
-        # copy kernel core
+        disk.mount(tempdir)
+        
+        # Copy kernel
         print(f"   CP {os.path.basename(core_exe)}")
         bootdir = os.path.join(tempdir, 'boot')
         sh.sudo.mkdir('-p', bootdir)
         sh.sudo.cp(core_exe, bootdir)
         
-        # copy user libraries to /usr/lib
-        libdir = os.path.join(tempdir, 'usr', 'lib')
-        sh.sudo.mkdir('-p', libdir)
-        for library in user_libraries:
-            print(f"   CP {os.path.basename(library)} /usr/lib")
-            sh.sudo.cp(library, libdir)
+        # Copy C library and runtime
+        copy_c_library(tempdir, toolchain_prefix, target_triple, arch_config)
         
-        # copy user applications to /usr/bin
-        bindir = os.path.join(tempdir, 'usr', 'bin')
-        sh.sudo.mkdir('-p', bindir)
-        for application in user_applications:
-            print(f"   CP {os.path.basename(application)} /usr/bin")
-            sh.sudo.cp(application, bindir)
-
-        # copy rest of files
+        # Copy user libraries
+        if libraries:
+            libdir = os.path.join(tempdir, 'usr', 'lib')
+            sh.sudo.mkdir('-p', libdir)
+            for lib in libraries:
+                print(f"   CP {os.path.basename(lib)} /usr/lib")
+                sh.sudo.cp(lib, libdir)
+        
+        # Copy user applications
+        if applications:
+            bindir = os.path.join(tempdir, 'usr', 'bin')
+            sh.sudo.mkdir('-p', bindir)
+            for app in applications:
+                print(f"   CP {os.path.basename(app)} /usr/bin")
+                sh.sudo.cp(app, bindir)
+        
+        # Copy extra files preserving directory structure
         src_root = env['BASEDIR']
-        for file in files:
+        for file in extra_files:
             file_src = file.srcnode().path
             file_rel = os.path.relpath(file_src, src_root)
             file_dst = os.path.join(tempdir, file_rel)
-
+            
             if os.path.isdir(file_src):
                 print('   MKDIR', file_rel)
                 sh.sudo.mkdir('-p', file_dst)
             else:
                 print('   CP', file_rel)
                 sh.sudo.cp(file_src, file_dst)
-
+        
+        # Install GRUB bootloader
         install_grub(tempdir)
-
+        
     finally:
         try:
             print(f"   UMOUNT {tempdir}")
-            unmount_fs(tempdir)
-            # Change ownership of temp directory back to the user before deleting
-            # Remove the entire directory tree
-            import shutil
-            shutil.rmtree(tempdir)
+            disk.unmount(tempdir)
+            shutil.rmtree(tempdir, ignore_errors=True)
         except Exception as e:
             print(f"Error during cleanup: {e}")
             raise
     
-    # Change ownership of the final image file to the current user
-    username=os.getlogin()
-    print(f"   CHOWN {username} {image}")
-    sh.sudo.chown(f'{username}:{username}', image)
-
-    sh.sudo.chown('-R', f'{username}:{username}', 'build/')
+    # Fix ownership of generated files
+    print(f"   CHOWN {current_user} {image_path}")
+    sh.sudo.chown(f'{current_user}:{current_user}', image_path)
+    sh.sudo.chown('-R', f'{current_user}:{current_user}', 'build/')
 
 
-def build_image(target, source, env):
-    # Source list may contain many nodes; try to reliably find the kernel ELF
-    core_exe = None
+def build_image_action(target, source, env):
+    """SCons action to build the disk image."""
+    # Find kernel executable in sources
     kernel_name = env["kernelName"]
+    core_exe = None
+    
     for src in source:
-        p = str(src)
-        basename = os.path.basename(p)
-        # Match by kernel executable name (with or without extension)
+        path = str(src)
+        basename = os.path.basename(path)
         if basename == kernel_name or basename.startswith(kernel_name + '.'):
-            core_exe = p
+            core_exe = path
             break
-        # fallback: match ELF/binary files containing 'kernel' or 'core'
-        elif (re.search(r'(kernel|core)', basename) and 
-              (p.endswith('.elf') or p.endswith('.bin') or p.endswith('.iso'))):
-            core_exe = p
-            break
+        # Fallback: match by pattern
+        if re.search(r'(kernel|core)', basename):
+            if path.endswith(('.elf', '.bin', '.iso')):
+                core_exe = path
+                break
+    
     if core_exe is None:
-        raise RuntimeError("Core executable not found in build inputs")
-
-    # Flatten the library and application lists and normalize paths for copying
+        raise RuntimeError("Kernel executable not found in build inputs")
+    
+    # Process library list
     lib_nodes = Flatten(user_libraries)
-    libs = []
-    lib_compare = set()
+    libs, lib_paths = [], set()
     for lib in lib_nodes:
-        try:
-            path = lib.get_abspath()
-        except Exception:
-            path = str(lib)
+        path = lib.get_abspath() if hasattr(lib, 'get_abspath') else str(lib)
         libs.append(path)
-        lib_compare.add(str(lib))
-
+        lib_paths.add(str(lib))
+    
+    # Process application list
     app_nodes = Flatten(user_applications)
-    apps = []
-    app_compare = set()
+    apps, app_paths = [], set()
     for app in app_nodes:
-        try:
-            path = app.get_abspath()
-        except Exception:
-            path = str(app)
+        path = app.get_abspath() if hasattr(app, 'get_abspath') else str(app)
         apps.append(path)
-        app_compare.add(str(app))
+        app_paths.add(str(app))
+    
+    # Filter extra files (not kernel, libs, or apps)
+    extra = [
+        src for src in source
+        if str(src) != core_exe and str(src) not in lib_paths and str(src) not in app_paths
+    ]
+    
+    build_disk(str(target[0]), core_exe, libs, apps, extra, env)
 
-    files = [src for src in source if str(src) != core_exe and str(src) not in lib_compare and str(src) not in app_compare]
 
-    image = str(target[0])
+# =============================================================================
+# Build Target
+# =============================================================================
 
-    build_disk(image, core_exe, libs, apps, files, env)
- 
-# Setup image target
 root = env.Dir('root')
 root_content = GlobRecursive(env, '*', root)
+
 inputs = [core] + user_libraries + user_applications + root_content
 
 output_fmt = env["outputFormat"]
-
 output = f'{env["outputFile"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
 
-image = env.Command(output, inputs,
-                    action=Action(build_image, '   CREATING DISK'), 
-                    BASEDIR=root.srcnode().path)
+image = env.Command(
+    output,
+    inputs,
+    action=Action(build_image_action, '   CREATING DISK'),
+    BASEDIR=root.srcnode().path,
+)
 
 Export('image')

@@ -175,7 +175,8 @@ bool FAT_Initialize(Partition *disk)
    if (g_Data->BS.BootSector.BytesPerSector == 0 ||
        g_Data->BS.BootSector.SectorsPerCluster == 0)
    {
-      logfmt(LOG_ERROR, "[FAT] Invalid BPB (BytesPerSector=%u, "
+      logfmt(LOG_ERROR,
+             "[FAT] Invalid BPB (BytesPerSector=%u, "
              "SectorsPerCluster=%u)\n",
              g_Data->BS.BootSector.BytesPerSector,
              g_Data->BS.BootSector.SectorsPerCluster);
@@ -567,6 +568,15 @@ uint32_t FAT_NextCluster(Partition *disk, uint32_t currentCluster)
 uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                   void *dataOut)
 {
+   // Validate file handle before accessing array
+   if (!file || !dataOut) return 0;
+   if (file->Handle != ROOT_DIRECTORY_HANDLE &&
+       (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES))
+   {
+      printf("FAT_Read: invalid file handle %d\n", file->Handle);
+      return 0;
+   }
+
    // get file data
    FAT_FileData *fd = (file->Handle == ROOT_DIRECTORY_HANDLE)
                           ? &g_Data->RootDirectory
@@ -740,6 +750,8 @@ bool FAT_ReadEntry(Partition *disk, FAT_File *file,
 
 void FAT_Close(FAT_File *file)
 {
+   if (!file) return;
+
    if (file->Handle == ROOT_DIRECTORY_HANDLE)
    {
       file->Position = 0;
@@ -747,6 +759,12 @@ void FAT_Close(FAT_File *file)
    }
    else
    {
+      // Validate handle before accessing array
+      if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
+      {
+         printf("FAT_Close: invalid file handle %d\n", file->Handle);
+         return;
+      }
       g_Data->OpenedFiles[file->Handle].Opened = false;
    }
 }
@@ -942,6 +960,16 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
    if (!disk)
    {
       printf("FAT_Seek: disk is NULL\n");
+      return false;
+   }
+
+   if (!file) return false;
+
+   // Validate handle before accessing array
+   if (file->Handle != ROOT_DIRECTORY_HANDLE &&
+       (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES))
+   {
+      printf("FAT_Seek: invalid file handle %d\n", file->Handle);
       return false;
    }
 
@@ -1147,23 +1175,22 @@ bool FAT_WriteEntry(Partition *disk, FAT_File *file,
 uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                    const void *dataIn)
 {
-   // get file data
-   FAT_FileData *fd = (file->Handle == ROOT_DIRECTORY_HANDLE)
-                          ? &g_Data->RootDirectory
-                          : &g_Data->OpenedFiles[file->Handle];
-
    // Don't write to directories or root
-   if (file->IsDirectory || file->Handle == ROOT_DIRECTORY_HANDLE)
+   if (!file || file->IsDirectory || file->Handle == ROOT_DIRECTORY_HANDLE)
    {
-      printf("FAT_Write: cannot write to directory\n");
+      printf("FAT_Write: cannot write to directory or null file\n");
       return 0;
    }
 
+   // Validate file handle BEFORE accessing array
    if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
    {
       printf("FAT_Write: invalid file handle %d\n", file->Handle);
       return 0;
    }
+
+   // get file data
+   FAT_FileData *fd = &g_Data->OpenedFiles[file->Handle];
 
    if (!fd->Opened)
    {
@@ -1995,11 +2022,25 @@ bool FAT_Delete(Partition *disk, const char *name)
 
 bool FAT_Truncate(Partition *disk, FAT_File *file)
 {
-   printf("FAT_Truncate: called, file=%p, Handle=%d\n", file,
-          file ? file->Handle : -999);
-   if (!file || file->Handle == ROOT_DIRECTORY_HANDLE) return false;
+   if (!file)
+   {
+      printf("FAT_Truncate: file is NULL\n");
+      return false;
+   }
 
-   if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES) return false;
+   if (file->Handle == ROOT_DIRECTORY_HANDLE)
+   {
+      printf("FAT_Truncate: cannot truncate root directory\n");
+      return false;
+   }
+
+   if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
+   {
+      printf("FAT_Truncate: invalid file handle %d\n", file->Handle);
+      return false;
+   }
+
+   printf("FAT_Truncate: called, file=%p, Handle=%d\n", file, file->Handle);
 
    FAT_FileData *fd = &g_Data->OpenedFiles[file->Handle];
    printf("FAT_Truncate: fd=%p, Opened=%d\n", fd, fd->Opened);
@@ -2159,9 +2200,9 @@ static uint32_t fat_vfs_get_size(void *fs_file)
 /* FAT operations structure - directly points to FAT functions */
 static const VFS_Operations fat_vfs_ops = {
     .open = fat_vfs_open, /* Special wrapper - returns VFS_File */
-    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */

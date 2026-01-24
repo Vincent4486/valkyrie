@@ -353,8 +353,7 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
    return 0;
 }
 
-int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer,
-                 size_t count)
+int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
 {
    if (!disk || !disk->private || !buffer || count == 0) return -1;
    if (disk->type != DISK_TYPE_FLOPPY) return -1;
@@ -457,7 +456,8 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
    if (drive_types[0] == 0 && drive_types[1] == 0)
    {
-      logfmt(LOG_WARNING, "[DISK] CMOS reports no floppy drives; skipping probe\n");
+      logfmt(LOG_WARNING,
+             "[DISK] CMOS reports no floppy drives; skipping probe\n");
       return 0;
    }
 
@@ -499,7 +499,8 @@ int FDC_Scan(DISK *disks, int maxDisks)
       probe_disk.type = DISK_TYPE_FLOPPY;
       if (FDC_ReadLba(&probe_disk, 0, sector_buffer, 1) != 0)
       {
-         logfmt(LOG_WARNING, "[DISK] Floppy drive %u: No media or read error\n", drive);
+         logfmt(LOG_WARNING, "[DISK] Floppy drive %u: No media or read error\n",
+                drive);
          continue;
       }
 
@@ -517,7 +518,8 @@ int FDC_Scan(DISK *disks, int maxDisks)
       disk->size = (uint64_t)disk->cylinders * disk->heads * disk->sectors *
                    FLOPPY_SECTOR_SIZE;
 
-      logfmt(LOG_INFO, "[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
+      logfmt(LOG_INFO,
+             "[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
              disk->id, disk->type, disk->size);
 
       count++;

@@ -15,9 +15,10 @@
 #define ATA_DRIVE_MASTER 0
 #define ATA_DRIVE_SLAVE 1
 
-typedef struct ATA_DISK {
-    int channel;
-    int drive;
+typedef struct ATA_DISK
+{
+   int channel;
+   int drive;
 } ATA_DISK;
 
 /**
@@ -40,8 +41,7 @@ int ATA_Init(int channel, int drive, uint32_t partition_start,
  * @param count - Number of sectors to read
  * @return 0 on success, -1 on failure
  */
-int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer,
-             uint32_t count);
+int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer, uint32_t count);
 
 /**
  * Write sectors to ATA drive
@@ -52,8 +52,7 @@ int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer,
  * @param count - Number of sectors to write
  * @return 0 on success, -1 on failure
  */
-int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer,
-              uint32_t count);
+int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer, uint32_t count);
 
 /**
  * Perform software reset on ATA channel

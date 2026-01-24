@@ -41,10 +41,13 @@ fi
 
 mkdir -p "$TOOLCHAINS_DIR"
 cd "$TOOLCHAINS_DIR"
-TOOLCHAIN_PREFIX="$(pwd)/${TARGET}"
+TOOLCHAIN_PREFIX=$(pwd)
 
-# Convert i686-elf to i686-linux-musl for musl build
-MUSL_TARGET="${TARGET%-elf}-linux-musl"
+SYSROOT="${TOOLCHAIN_PREFIX}/${TARGET}/sysroot"
+
+echo "Using toolchain prefix: ${TOOLCHAIN_PREFIX}"
+
+MUSL_TARGET="${TARGET}"
 
 # ---------------------------
 
@@ -60,7 +63,7 @@ build_binutils() {
     mkdir -p ${BINUTILS_BUILD}
     cd ${BINUTILS_BUILD}
     CFLAGS= ASMFLAGS= CC= CXX= LD= ASM= LINKFLAGS= LIBS= 
-    local BINUTILS_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${TOOLCHAIN_PREFIX} --disable-nls --disable-werror"
+    local BINUTILS_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --disable-werror"
     if [ "$OS" = "Darwin" ]; then
         BINUTILS_OPTS="$BINUTILS_OPTS --with-system-zlib --enable-zstd"
     fi
@@ -82,7 +85,7 @@ build_gcc_stage1() {
     mkdir -p ${GCC_BUILD}
     cd ${GCC_BUILD}
     
-    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --disable-nls --enable-languages=c --without-headers --disable-threads --disable-isl --disable-shared --with-newlib"
+    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --enable-languages=c --without-headers --disable-threads --disable-isl --disable-shared --with-newlib"
     if [ "$OS" = "Darwin" ]; then
         GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc"
     fi
@@ -106,8 +109,8 @@ build_musl() {
     
     # Export toolchain to PATH so musl finds cross-compiler
     export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
-    export CC="${MUSL_TARGET}-gcc"
-    export CXX="${MUSL_TARGET}-g++"
+    export CC="${MUSL_TARGET}-gcc --sysroot=${SYSROOT}"
+    export CXX="${MUSL_TARGET}-g++ --sysroot=${SYSROOT}"
     export AS="${MUSL_TARGET}-as"
     export LD="${MUSL_TARGET}-ld"
     export AR="${MUSL_TARGET}-ar"
@@ -115,7 +118,7 @@ build_musl() {
     export STRIP="${MUSL_TARGET}-strip"
     
     ../musl-${MUSL_VERSION}/configure \
-            --prefix="${TOOLCHAIN_PREFIX}/i686-linux-musl/sysroot/usr" \
+            --prefix="${SYSROOT}/usr" \
             --host=${MUSL_TARGET} \
             --enable-static \
             --enable-shared
@@ -126,18 +129,29 @@ build_musl() {
 }
 
 build_gcc_stage2() {
-    local GCC_BUILD_STAGE2="gcc-build-stage2-${GCC_VERSION}-${TARGET}"
-
-    mkdir -p ${GCC_BUILD_STAGE2}
+    local GCC_BUILD="gcc-build-${GCC_VERSION}-${TARGET}"
+    mkdir -p ${GCC_BUILD}
     
     # Export toolchain to PATH so GCC stage 2 finds binutils
     export PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
     
-    cd ${GCC_BUILD_STAGE2}
-    local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${TOOLCHAIN_PREFIX}/i686-linux-musl/sysroot --disable-nls --enable-languages=c,c++ --disable-isl --disable-libsanitizer"
+    # Use host compiler for build; set target tools explicitly for generated runtime libs
+    unset CC CXX CPPFLAGS CFLAGS CXXFLAGS LDFLAGS
+    export CC_FOR_TARGET="${MUSL_TARGET}-gcc --sysroot=${SYSROOT}"
+    export CXX_FOR_TARGET="${MUSL_TARGET}-g++ --sysroot=${SYSROOT}"
+    export AR_FOR_TARGET="${MUSL_TARGET}-ar"
+    export RANLIB_FOR_TARGET="${MUSL_TARGET}-ranlib"
+    export STRIP_FOR_TARGET="${MUSL_TARGET}-strip"
+    export CFLAGS_FOR_TARGET="-O2"
+    export CXXFLAGS_FOR_TARGET="-O2"
+    
+    cd ${GCC_BUILD}
+    local BUILD_TRIPLE="$(../gcc-${GCC_VERSION}/config.guess)"
+    local GCC_OPTS="--build=${BUILD_TRIPLE} --host=${BUILD_TRIPLE} --prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --enable-languages=c,c++ --disable-isl --disable-libsanitizer"
     if [ "$OS" = "Darwin" ]; then
         GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc --with-isl=/opt/homebrew/opt/isl"
     fi
+    echo $PWD
     ../gcc-${GCC_VERSION}/configure $GCC_OPTS
     make -j8
     make install
@@ -147,7 +161,7 @@ build_gcc_stage2() {
 
 # ---------------------------
 
-build_binutils
-build_gcc_stage1
-build_musl
+# build_binutils
+# build_gcc_stage1
+# build_musl
 build_gcc_stage2

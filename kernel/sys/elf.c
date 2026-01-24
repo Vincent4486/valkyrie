@@ -160,7 +160,8 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    VFS_File *file = VFS_Open(filename);
    if (!file)
    {
-      logfmt(LOG_ERROR, "[ELF] LoadProcess: VFS_Open failed for %s\n", filename);
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: VFS_Open failed for %s\n",
+             filename);
       return NULL;
    }
 
@@ -256,16 +257,19 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t memsz = phdr.p_memsz;
       uint32_t filesz = phdr.p_filesz;
 
-      // Allocate pages in process's virtual address space
-      uint32_t pages_needed = (memsz + 4096 - 1) / 4096;
+      // Calculate page-aligned start and total pages needed
+      uint32_t vaddr_aligned = vaddr & ~0xFFFu; // Align down to page boundary
+      uint32_t vaddr_end = vaddr + memsz;       // End address (exclusive)
+      uint32_t pages_needed = (vaddr_end - vaddr_aligned + 4095) / 4096;
 
       for (uint32_t j = 0; j < pages_needed; ++j)
       {
-         uint32_t page_va = vaddr + (j * 4096);
+         uint32_t page_va = vaddr_aligned + (j * 4096);
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (phys == 0)
          {
-            logfmt(LOG_ERROR, "[ELF] LoadProcess: PMM_AllocatePhysicalPage failed\n");
+            logfmt(LOG_ERROR,
+                   "[ELF] LoadProcess: PMM_AllocatePhysicalPage failed\n");
             Process_Destroy(proc);
             VFS_Close(file);
             return NULL;
@@ -276,7 +280,8 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
                  proc->page_directory, page_va, phys,
                  HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
          {
-            logfmt(LOG_ERROR, "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
+            logfmt(LOG_ERROR,
+                   "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
                    page_va);
             PMM_FreePhysicalPage(phys);
             Process_Destroy(proc);
@@ -355,7 +360,8 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    VFS_Close(file);
-   logfmt(LOG_INFO, "[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
+   logfmt(LOG_INFO,
+          "[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
           filename, proc->pid, ehdr.e_entry);
 

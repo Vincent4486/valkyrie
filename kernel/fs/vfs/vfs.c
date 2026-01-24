@@ -167,7 +167,8 @@ int FS_Mount(Partition *volume, const char *location)
 
    if (!vfs_normalize_mount(location, normalized, VFS_MAX_PATH))
    {
-      logfmt(LOG_ERROR, "Invalid mount location '%s'\n", location ? location : "");
+      logfmt(LOG_ERROR, "Invalid mount location '%s'\n",
+             location ? location : "");
       return -1;
    }
 
@@ -176,7 +177,8 @@ int FS_Mount(Partition *volume, const char *location)
    {
       if (strncmp(g_mounts[i].mount_point, normalized, VFS_MAX_PATH) == 0)
       {
-         logfmt(LOG_ERROR, "[VFS] Mount point '%s' already in use\n", normalized);
+         logfmt(LOG_ERROR, "[VFS] Mount point '%s' already in use\n",
+                normalized);
          return -1;
       }
    }
@@ -207,7 +209,8 @@ int FS_Mount(Partition *volume, const char *location)
    g_mount_count++;
 
    volume->fs->mounted = 1;
-   logfmt(LOG_INFO, "[VFS] Mounted %s at %s\n", volume->disk->brand, normalized);
+   logfmt(LOG_INFO, "[VFS] Mounted %s at %s\n", volume->disk->brand,
+          normalized);
    return 0;
 }
 
@@ -267,7 +270,8 @@ bool VFS_Delete(const char *path)
 
    if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
    {
-      logfmt(LOG_ERROR, "[VFS] No mount found for path '%s'\n", path ? path : "");
+      logfmt(LOG_ERROR, "[VFS] No mount found for path '%s'\n",
+             path ? path : "");
       return NULL;
    }
 
@@ -277,7 +281,7 @@ bool VFS_Delete(const char *path)
       return NULL;
    }
 
-   bool result = part->fs->ops->delete(part, relative);
+   bool result = part->fs->ops->delete (part, relative);
    free(relative);
    return result;
 }
@@ -379,7 +383,8 @@ void VFS_SelfTest(void)
 
    if (bytes_written != len)
    {
-      logfmt(LOG_ERROR, "[VFS] SelfTest=FAILED (wrote %u/%u bytes)\n", bytes_written, len);
+      logfmt(LOG_ERROR, "[VFS] SelfTest=FAILED (wrote %u/%u bytes)\n",
+             bytes_written, len);
    }
    else
    {
