@@ -24,10 +24,7 @@ const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
 };
 
 const HAL_TtyOperations *g_HalTtyOperations = &(HAL_TtyOperations){
-    .putc = HAL_ARCH_Tty_putc,
-    .getc = HAL_ARCH_Tty_getc,
-    .set_cursor = HAL_ARCH_Tty_set_cursor,
-    .clear = HAL_ARCH_Tty_clear,
+    .UpdateVga = HAL_ARCH_TTY_UPDATE_VGA,
 };
 
 const HAL_IrqOperations *g_HalIrqOperations = &(HAL_IrqOperations){

@@ -9,6 +9,14 @@
 
 #include <drivers/tty/tty.h>
 
+/* Simple non-blocking getchar that uses the TTY input stream. Returns -1
+   when no character is available. */
+int getchar(void)
+{
+   extern int TTY_ReadChar(void);
+   return TTY_ReadChar();
+}
+
 void putc(char c)
 {
    g_HalIoOperations->outb(0xe9, c);

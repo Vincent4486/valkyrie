@@ -33,6 +33,8 @@ extern "C"
           ##__VA_ARGS__, "\x1B[0m")
    void print_buffer(const char *msg, const void *buffer, uint32_t count);
    void setcursor(int x, int y);
+   /* Read one byte from TTY input stream. Returns -1 if no data. */
+   int getchar(void);
    int snprintf(char *buffer, size_t buf_size, const char *format, ...);
    int vsnprintf(char *buffer, size_t buf_size, const char *format, va_list ap);
 

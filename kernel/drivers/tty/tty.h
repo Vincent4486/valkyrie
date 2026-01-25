@@ -3,34 +3,40 @@
 #ifndef TTY_H
 #define TTY_H
 
-#include <stdbool.h>
 #include <stdint.h>
 
-/* Simple TTY device interface for VFS/driver use. */
-typedef struct TTY_Device TTY_Device;
+/* Export screen dimensions so other modules (keyboard, etc.) can reference
+   the VGA text-mode dimensions. Keep these in the header to avoid duplicate
+   magic numbers across files. */
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 25
 
-/* Create/init the global tty device backend */
-bool TTY_Initialize(void);
-
-/* Get singleton device handle */
-TTY_Device *TTY_GetDevice(void);
-
-/* Device operations */
-int TTY_Read(TTY_Device *dev, void *buf, uint32_t count);
-int TTY_Write(TTY_Device *dev, const void *buf, uint32_t count);
-
-/* Stream-aware write: stream 0=stdin, 1=stdout, 2=stderr */
-#define TTY_STREAM_STDIN  0
-#define TTY_STREAM_STDOUT 1
-#define TTY_STREAM_STDERR 2
-int TTY_WriteStream(TTY_Device *dev, int stream, const void *buf, uint32_t count);
-
+void TTY_Initialize(void);
+void TTY_Clear(void);
+void TTY_PutChar(char c);
+void TTY_PutString(const char *s);
+void TTY_Repaint(void);
+void TTY_Scroll(int lines);
+void TTY_SetColor(uint8_t color);
+void TTY_SetCursor(int x, int y);
+void TTY_GetCursor(int *x, int *y);
+/* Input stream: push keyboard chars here (kernel-only). */
 int TTY_InputPush(char c);
-void TTY_SetColor(TTY_Device *dev, uint8_t color);
-void TTY_SetCursor(TTY_Device *dev, int x, int y);
-void TTY_GetCursor(TTY_Device *dev, int *x, int *y);
-void TTY_Clear(TTY_Device *dev);
-/* Flush any buffered TTY content to the display */
-void TTY_Flush(TTY_Device *dev);
+/* Read a single character from the input stream. If no data, return -1.
+   Reading moves the character to the output stream (visible) and removes
+   it from the input FIFO. */
+int TTY_ReadChar(void);
+/* Return the length (number of printable chars) of the visible logical line
+   at the given visible row y (0..SCREEN_HEIGHT-1). Returns 0 if no line.
+   This is useful for cursor movement logic in input handling. */
+int TTY_GetVisibleLineLength(int y);
+/* Return maximum number of scroll lines available (older content). */
+int TTY_GetMaxScroll(void);
+/* Return the logical index (relative to head) of the first visible line. */
+uint32_t TTY_GetVisibleStart(void);
+
+/* Debug: draw a small overlay on row 0 with buffer internals (s_lines_used,
+   s_head, s_scroll, max_scroll). This is temporary debugging aid. */
+void TTY_DebugOverlay(void);
 
 #endif

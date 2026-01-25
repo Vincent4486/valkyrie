@@ -16,6 +16,7 @@
 #include <valkyrie/fs.h>
 #include <valkyrie/system.h>
 #include <drivers/tty/tty.h>
+#include <display/keyboard.h>
 
 #include <display/startscreen.h>
 #include <libmath/math.h>
@@ -24,10 +25,10 @@ extern uint8_t __bss_start;
 extern uint8_t __end;
 extern void _init();
 
-void hold(void)
+void hold(int sec)
 {
    uint32_t last_uptime = 0;
-   while (g_SysInfo->uptime_seconds < 1000)
+   while (g_SysInfo->uptime_seconds < sec)
    {
       /* Update uptime from tick counter */
       g_SysInfo->uptime_seconds = system_ticks / 1000;
@@ -43,6 +44,23 @@ void hold(void)
    }
    printf("\n");
 }
+
+/* void ineract(void){
+   char *buf = kmalloc(512);
+   if (!buf) return;
+   TTY_Device *tty_dev = TTY_GetDevice();
+   for (;;)
+   {
+      int n = TTY_ReadBlocking(tty_dev, buf, 511);
+      if (n > 0)
+      {
+         buf[n] = '\0';
+         // Print the entered text on the next line 
+         printf("\n%s\n> ", buf);
+      }
+   }
+   free(buf);
+} */
 
 void perform_mount(void){
    int devfsIndex = DISK_GetDevfsIndex();
@@ -87,7 +105,10 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);
    
-   hold();
+   // hold(10);
+
+   /* Start interactive line reader: on ENTER, print the entered text. */
+   // ineract();
 
 end:
    for (;;);
