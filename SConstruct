@@ -88,15 +88,14 @@ def create_host_environment():
         ENV=os.environ,
         CFLAGS=['-std=c99'],
         CXXFLAGS=['-std=c++17'],
-        CCFLAGS=['-g'],
         STRIP='strip',
     )
     
     # Configuration-specific flags
     if env['config'] == 'debug':
-        env.Append(CCFLAGS=['-O0', '-DDEBUG'])
+        env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
     else:
-        env.Append(CCFLAGS=['-O3', '-DRELEASE'])
+        env.Append(CCFLAGS=['-O3', '-DRELEASE', '-s'])
     
     # Architecture define
     arch_config = get_arch_config(env['arch'])
