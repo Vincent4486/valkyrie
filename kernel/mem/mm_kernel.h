@@ -4,9 +4,9 @@
 #define MEMORY_H
 
 #include <cpu/process.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 extern uintptr_t __stack_chk_guard;
 void __stack_chk_fail_local(void);

@@ -14,6 +14,10 @@ uint8_t s_color = 0x7;
 /* Use fixed memory location for buffer instead of stack/BSS */
 static char (*s_buffer)[SCREEN_WIDTH] = (char (*)[SCREEN_WIDTH])
     BUFFER_BASE_ADDR;
+/* Color buffer placed right after character buffer */
+#define COLOR_BUFFER_ADDR (BUFFER_BASE_ADDR + (BUFFER_LINES * SCREEN_WIDTH))
+static uint8_t (*s_color_buffer)[SCREEN_WIDTH] = (uint8_t (*)[SCREEN_WIDTH])
+    COLOR_BUFFER_ADDR;
 static uint32_t s_head = 0;       /* index of first valid line */
 static uint32_t s_lines_used = 0; /* number of logical lines in buffer */
 int s_cursor_x = 0;
@@ -26,10 +30,11 @@ static int s_dirty_row_end = -1;
 
 /* ANSI escape sequence state machine */
 #define ANSI_MAX_PARAMS 16
-typedef struct {
-    int state;  /* 0=normal, 1=in escape, 2=in CSI */
-    int params[ANSI_MAX_PARAMS];
-    int param_count;
+typedef struct
+{
+   int state; /* 0=normal, 1=in escape, 2=in CSI */
+   int params[ANSI_MAX_PARAMS];
+   int param_count;
 } AnsiState;
 
 static AnsiState s_ansi_state = {0};
@@ -47,7 +52,7 @@ static uint8_t ansi_to_vga_fg[] = {
 };
 
 static uint8_t ansi_to_vga_bg[] = {
-    0x0, /* 40: black */
+    0x0,  /* 40: black */
     0x40, /* 41: red */
     0x20, /* 42: green */
     0x60, /* 43: yellow */
@@ -98,144 +103,172 @@ static int compute_visible_start(void);
 /* Parse ANSI escape sequences and execute them */
 static void handle_ansi_sequence(void)
 {
-    if (s_ansi_state.param_count == 0)
-        return;
-    
-    int param = s_ansi_state.params[0];
-    
-    switch (s_ansi_state.state) {
-        case 'A': /* Cursor up */
-            if (s_cursor_y > 0) s_cursor_y--;
-            break;
-        
-        case 'B': /* Cursor down */
-            if (s_cursor_y < SCREEN_HEIGHT - 1) s_cursor_y++;
-            break;
-        
-        case 'C': /* Cursor right */
-            if (s_cursor_x < SCREEN_WIDTH - 1) s_cursor_x++;
-            break;
-        
-        case 'D': /* Cursor left */
-            if (s_cursor_x > 0) s_cursor_x--;
-            break;
-        
-        case 'H': /* Cursor position (ESC[row;colH) */
-        case 'f':
-            if (s_ansi_state.param_count >= 2) {
-                int row = s_ansi_state.params[0];
-                int col = s_ansi_state.params[1];
-                if (row > 0) row--; /* 1-indexed to 0-indexed */
-                if (col > 0) col--;
-                if (row >= 0 && row < SCREEN_HEIGHT) s_cursor_y = row;
-                if (col >= 0 && col < SCREEN_WIDTH) s_cursor_x = col;
-            }
-            break;
-        
-        case 'J': /* Erase display */
-            if (param == 2 || param == 0) {
-                Buffer_Clear();
-            }
-            break;
-        
-        case 'K': /* Erase line */
-            {
-                int visible_start = compute_visible_start();
-                uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-                if (rel_pos < s_lines_used) {
-                    uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
-                    memset(s_buffer[idx], 0, SCREEN_WIDTH);
-                    mark_row_dirty(s_cursor_y);
-                }
-            }
-            break;
-        
-        case 'm': /* SGR - Select Graphic Rendition (colors/attributes) */
-            for (int i = 0; i < s_ansi_state.param_count; i++) {
-                int code = s_ansi_state.params[i];
-                
-                if (code == 0) {
-                    /* Reset all attributes */
-                    s_color = 0x7;
-                } else if (code == 1) {
-                    /* Bold - increase brightness */
-                    s_color |= 0x08;
-                } else if (code >= 30 && code <= 37) {
-                    /* Foreground color */
-                    uint8_t fg = ansi_to_vga_fg[code - 30];
-                    s_color = (s_color & 0xF0) | (fg & 0x0F);
-                } else if (code >= 40 && code <= 47) {
-                    /* Background color */
-                    uint8_t bg = ansi_to_vga_bg[code - 40];
-                    s_color = (s_color & 0x0F) | (bg & 0xF0);
-                } else if (code >= 90 && code <= 97) {
-                    /* Bright foreground (same as 30-37 but with bold bit) */
-                    uint8_t fg = ansi_to_vga_fg[code - 90];
-                    s_color = (s_color & 0xF0) | (fg | 0x08);
-                } else if (code >= 100 && code <= 107) {
-                    /* Bright background */
-                    uint8_t bg = ansi_to_vga_bg[code - 100];
-                    s_color = (s_color & 0x0F) | ((bg | 0x80) & 0xF0);
-                }
-            }
-            break;
-    }
+   if (s_ansi_state.param_count == 0) return;
+
+   int param = s_ansi_state.params[0];
+
+   switch (s_ansi_state.state)
+   {
+   case 'A': /* Cursor up */
+      if (s_cursor_y > 0) s_cursor_y--;
+      break;
+
+   case 'B': /* Cursor down */
+      if (s_cursor_y < SCREEN_HEIGHT - 1) s_cursor_y++;
+      break;
+
+   case 'C': /* Cursor right */
+      if (s_cursor_x < SCREEN_WIDTH - 1) s_cursor_x++;
+      break;
+
+   case 'D': /* Cursor left */
+      if (s_cursor_x > 0) s_cursor_x--;
+      break;
+
+   case 'H': /* Cursor position (ESC[row;colH) */
+   case 'f':
+      if (s_ansi_state.param_count >= 2)
+      {
+         int row = s_ansi_state.params[0];
+         int col = s_ansi_state.params[1];
+         if (row > 0) row--; /* 1-indexed to 0-indexed */
+         if (col > 0) col--;
+         if (row >= 0 && row < SCREEN_HEIGHT) s_cursor_y = row;
+         if (col >= 0 && col < SCREEN_WIDTH) s_cursor_x = col;
+      }
+      break;
+
+   case 'J': /* Erase display */
+      if (param == 2 || param == 0)
+      {
+         Buffer_Clear();
+      }
+      break;
+
+   case 'K': /* Erase line */
+   {
+      int visible_start = compute_visible_start();
+      uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
+      if (rel_pos < s_lines_used)
+      {
+         uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
+         memset(s_buffer[idx], 0, SCREEN_WIDTH);
+         memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
+         mark_row_dirty(s_cursor_y);
+      }
+   }
+   break;
+
+   case 'm': /* SGR - Select Graphic Rendition (colors/attributes) */
+      for (int i = 0; i < s_ansi_state.param_count; i++)
+      {
+         int code = s_ansi_state.params[i];
+
+         if (code == 0)
+         {
+            /* Reset all attributes */
+            s_color = 0x7;
+         }
+         else if (code == 1)
+         {
+            /* Bold - increase brightness */
+            s_color |= 0x08;
+         }
+         else if (code >= 30 && code <= 37)
+         {
+            /* Foreground color */
+            uint8_t fg = ansi_to_vga_fg[code - 30];
+            s_color = (s_color & 0xF0) | (fg & 0x0F);
+         }
+         else if (code >= 40 && code <= 47)
+         {
+            /* Background color */
+            uint8_t bg = ansi_to_vga_bg[code - 40];
+            s_color = (s_color & 0x0F) | (bg & 0xF0);
+         }
+         else if (code >= 90 && code <= 97)
+         {
+            /* Bright foreground (same as 30-37 but with bold bit) */
+            uint8_t fg = ansi_to_vga_fg[code - 90];
+            s_color = (s_color & 0xF0) | (fg | 0x08);
+         }
+         else if (code >= 100 && code <= 107)
+         {
+            /* Bright background */
+            uint8_t bg = ansi_to_vga_bg[code - 100];
+            s_color = (s_color & 0x0F) | ((bg | 0x80) & 0xF0);
+         }
+      }
+      break;
+   }
 }
 
 /* Process a character in an ANSI escape sequence */
 static int process_ansi_char(char c)
 {
-    if (s_ansi_state.state == 0) {
-        /* Not in escape sequence */
-        if (c == '\x1B') { /* ESC */
-            s_ansi_state.state = 1;
-            return 1; /* consumed */
-        }
-        return 0; /* not consumed */
-    }
-    
-    if (s_ansi_state.state == 1) {
-        /* After ESC, expecting [ for CSI */
-        if (c == '[') {
-            s_ansi_state.state = 2;
-            s_ansi_state.param_count = 0;
-            s_ansi_state.params[0] = 0;
-            return 1;
-        }
-        /* Invalid sequence, reset */
-        s_ansi_state.state = 0;
-        return 1;
-    }
-    
-    if (s_ansi_state.state == 2) {
-        /* In CSI sequence */
-        if (c >= '0' && c <= '9') {
-            /* Accumulate parameter */
-            s_ansi_state.params[s_ansi_state.param_count] =
-                s_ansi_state.params[s_ansi_state.param_count] * 10 + (c - '0');
-            return 1;
-        } else if (c == ';') {
-            /* Parameter separator */
-            s_ansi_state.param_count++;
-            if (s_ansi_state.param_count >= ANSI_MAX_PARAMS)
-                s_ansi_state.param_count = ANSI_MAX_PARAMS - 1;
-            s_ansi_state.params[s_ansi_state.param_count] = 0;
-            return 1;
-        } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-            /* Command character */
-            s_ansi_state.state = c;
-            s_ansi_state.param_count++;
-            handle_ansi_sequence();
-            s_ansi_state.state = 0;
-            return 1;
-        } else if (c == '?') {
-            /* DEC private mode - just skip for now */
-            return 1;
-        }
-        return 1; /* consume unknown chars */
-    }
-    
-    return 0;
+   if (s_ansi_state.state == 0)
+   {
+      /* Not in escape sequence */
+      if (c == '\x1B')
+      { /* ESC */
+         s_ansi_state.state = 1;
+         return 1; /* consumed */
+      }
+      return 0; /* not consumed */
+   }
+
+   if (s_ansi_state.state == 1)
+   {
+      /* After ESC, expecting [ for CSI */
+      if (c == '[')
+      {
+         s_ansi_state.state = 2;
+         s_ansi_state.param_count = 0;
+         s_ansi_state.params[0] = 0;
+         return 1;
+      }
+      /* Invalid sequence, reset */
+      s_ansi_state.state = 0;
+      return 1;
+   }
+
+   if (s_ansi_state.state == 2)
+   {
+      /* In CSI sequence */
+      if (c >= '0' && c <= '9')
+      {
+         /* Accumulate parameter */
+         s_ansi_state.params[s_ansi_state.param_count] =
+             s_ansi_state.params[s_ansi_state.param_count] * 10 + (c - '0');
+         return 1;
+      }
+      else if (c == ';')
+      {
+         /* Parameter separator */
+         s_ansi_state.param_count++;
+         if (s_ansi_state.param_count >= ANSI_MAX_PARAMS)
+            s_ansi_state.param_count = ANSI_MAX_PARAMS - 1;
+         s_ansi_state.params[s_ansi_state.param_count] = 0;
+         return 1;
+      }
+      else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+      {
+         /* Command character */
+         s_ansi_state.state = c;
+         s_ansi_state.param_count++;
+         handle_ansi_sequence();
+         s_ansi_state.state = 0;
+         return 1;
+      }
+      else if (c == '?')
+      {
+         /* DEC private mode - just skip for now */
+         return 1;
+      }
+      return 1; /* consume unknown chars */
+   }
+
+   return 0;
 }
 
 void Buffer_Initialize(void) { Buffer_Clear(); }
@@ -243,6 +276,7 @@ void Buffer_Initialize(void) { Buffer_Clear(); }
 void Buffer_Clear(void)
 {
    memset((char *)s_buffer, 0, BUFFER_LINES * SCREEN_WIDTH);
+   memset((uint8_t *)s_color_buffer, 0x7, BUFFER_LINES * SCREEN_WIDTH);
    s_head = 0;
    s_lines_used = 0;
    s_cursor_x = 0;
@@ -284,9 +318,11 @@ static void buffer_remove_line_at_rel(uint32_t rel_pos)
       uint32_t dst = (s_head + i) % BUFFER_LINES;
       uint32_t src = (s_head + i + 1) % BUFFER_LINES;
       memcpy(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+      memcpy(s_color_buffer[dst], s_color_buffer[src], SCREEN_WIDTH);
    }
    uint32_t last = (s_head + s_lines_used - 1) % BUFFER_LINES;
    memset(s_buffer[last], 0, SCREEN_WIDTH);
+   memset(s_color_buffer[last], 0x7, SCREEN_WIDTH);
    s_lines_used--;
    if (s_lines_used == 0) s_head = 0;
 }
@@ -298,6 +334,7 @@ static void push_newline_at_tail(void)
    {
       uint32_t idx = (s_head + s_lines_used) % BUFFER_LINES;
       memset(s_buffer[idx], 0, SCREEN_WIDTH);
+      memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
       s_lines_used++;
    }
    else
@@ -306,6 +343,7 @@ static void push_newline_at_tail(void)
       s_head = (s_head + 1) % BUFFER_LINES;
       uint32_t idx = (s_head + s_lines_used - 1) % BUFFER_LINES;
       memset(s_buffer[idx], 0, SCREEN_WIDTH);
+      memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
    }
    /* When a new logical line is appended programmatically, we prefer to
       preserve the user's scroll position unless they were already at the
@@ -345,9 +383,11 @@ static void buffer_insert_empty_line_at_rel(uint32_t rel_pos)
          uint32_t dst = (s_head + i) % BUFFER_LINES;
          uint32_t src = (s_head + i - 1) % BUFFER_LINES;
          memmove(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+         memmove(s_color_buffer[dst], s_color_buffer[src], SCREEN_WIDTH);
       }
       uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
       memset(s_buffer[idx], 0, SCREEN_WIDTH);
+      memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
       s_lines_used++;
    }
    else
@@ -360,9 +400,11 @@ static void buffer_insert_empty_line_at_rel(uint32_t rel_pos)
          uint32_t dst = (s_head + i) % BUFFER_LINES;
          uint32_t src = (s_head + i - 1) % BUFFER_LINES;
          memmove(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+         memmove(s_color_buffer[dst], s_color_buffer[src], SCREEN_WIDTH);
       }
       uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
       memset(s_buffer[idx], 0, SCREEN_WIDTH);
+      memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
       /* s_lines_used remains BUFFER_LINES */
    }
 }
@@ -370,9 +412,8 @@ static void buffer_insert_empty_line_at_rel(uint32_t rel_pos)
 void Buffer_PutChar(char c)
 {
    /* Handle ANSI escape sequences first */
-   if (process_ansi_char(c))
-       return;
-   
+   if (process_ansi_char(c)) return;
+
    ensure_line_exists();
    int prev_visible_start = compute_visible_start();
    int prev_cursor_row = s_cursor_y;
@@ -401,8 +442,13 @@ void Buffer_PutChar(char c)
          uint32_t idx_new = (s_head + rel + 1) % BUFFER_LINES;
          int move = len - s_cursor_x;
          memcpy(s_buffer[idx_new], &s_buffer[idx_cur][s_cursor_x], move);
+         memcpy(s_color_buffer[idx_new], &s_color_buffer[idx_cur][s_cursor_x],
+                move);
          memset(s_buffer[idx_new] + move, 0, SCREEN_WIDTH - move);
+         memset(s_color_buffer[idx_new] + move, 0x7, SCREEN_WIDTH - move);
          memset(s_buffer[idx_cur] + s_cursor_x, 0, SCREEN_WIDTH - s_cursor_x);
+         memset(s_color_buffer[idx_cur] + s_cursor_x, 0x7,
+                SCREEN_WIDTH - s_cursor_x);
       }
       else
       {
@@ -439,6 +485,7 @@ void Buffer_PutChar(char c)
       {
          uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
          memset(s_buffer[idx], 0, SCREEN_WIDTH);
+         memset(s_color_buffer[idx], 0x7, SCREEN_WIDTH);
       }
       s_cursor_x = 0;
       mark_row_dirty(s_cursor_y);
@@ -537,21 +584,31 @@ void Buffer_PutChar(char c)
       {
          memmove(&s_buffer[idx][s_cursor_x + 1], &s_buffer[idx][s_cursor_x],
                  (size_t)(len - s_cursor_x));
+         memmove(&s_color_buffer[idx][s_cursor_x + 1],
+                 &s_color_buffer[idx][s_cursor_x], (size_t)(len - s_cursor_x));
          s_buffer[idx][s_cursor_x] = c;
+         s_color_buffer[idx][s_cursor_x] = s_color;
       }
       else
       {
          char last = s_buffer[idx][SCREEN_WIDTH - 1];
+         uint8_t last_color = s_color_buffer[idx][SCREEN_WIDTH - 1];
          if (rel_pos + 1 >= s_lines_used)
          {
             push_newline_at_tail();
          }
          uint32_t next_idx = (s_head + rel_pos + 1) % BUFFER_LINES;
          memmove(&s_buffer[next_idx][1], s_buffer[next_idx], SCREEN_WIDTH - 1);
+         memmove(&s_color_buffer[next_idx][1], s_color_buffer[next_idx],
+                 SCREEN_WIDTH - 1);
          s_buffer[next_idx][0] = last;
+         s_color_buffer[next_idx][0] = last_color;
          memmove(&s_buffer[idx][s_cursor_x + 1], &s_buffer[idx][s_cursor_x],
                  SCREEN_WIDTH - 1 - s_cursor_x);
+         memmove(&s_color_buffer[idx][s_cursor_x + 1],
+                 &s_color_buffer[idx][s_cursor_x], SCREEN_WIDTH - 1 - s_cursor_x);
          s_buffer[idx][s_cursor_x] = c;
+         s_color_buffer[idx][s_cursor_x] = s_color;
       }
 
       s_cursor_x++;
@@ -660,7 +717,6 @@ void Buffer_Repaint(void)
 
    uint16_t *vga = (uint16_t *)0xB8000;
    const uint8_t def_color = 0x7;
-   uint16_t attr = ((uint16_t)(s_color ? s_color : def_color)) << 8;
 
    for (int row = s_dirty_row_start; row <= s_dirty_row_end; row++)
    {
@@ -668,7 +724,7 @@ void Buffer_Repaint(void)
       uint16_t *dest = &vga[row * SCREEN_WIDTH];
       if (logical_line >= s_lines_used)
       {
-         uint16_t fill = attr | ' ';
+         uint16_t fill = (((uint16_t)def_color) << 8) | ' ';
          for (uint32_t col = 0; col < SCREEN_WIDTH; col++) dest[col] = fill;
       }
       else
@@ -677,8 +733,9 @@ void Buffer_Repaint(void)
          for (uint32_t col = 0; col < SCREEN_WIDTH; col++)
          {
             char ch = s_buffer[src][col];
+            uint8_t color = s_color_buffer[src][col];
             if (!ch) ch = ' ';
-            dest[col] = attr | (uint8_t)ch;
+            dest[col] = (((uint16_t)color) << 8) | (uint8_t)ch;
          }
       }
    }

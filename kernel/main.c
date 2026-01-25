@@ -22,7 +22,8 @@ extern uint8_t __bss_start;
 extern uint8_t __end;
 extern void _init();
 
-void hold(void){
+void hold(void)
+{
    uint32_t last_uptime = 0;
    while (g_SysInfo->uptime_seconds < 1000)
    {
@@ -39,6 +40,13 @@ void hold(void){
       __asm__ volatile("sti; hlt; cli");
    }
    printf("\n");
+}
+
+void perform_mount(void){
+   int devfsIndex = DISK_GetDevfsIndex();
+   FS_Mount(&g_SysInfo->volume[0], "/");
+   FS_Mount(&g_SysInfo->volume[devfsIndex], "/dev");
+   VFS_SelfTest();
 }
 
 void __attribute__((section(".entry"))) start(uint16_t bootDrive,
@@ -61,8 +69,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       printf("FS initialization failed\n");
       goto end;
    }
-   FS_Mount(&g_SysInfo->volume[0], "/");
-   VFS_SelfTest();
+   perform_mount();
 
    if (!Dylib_Initialize())
    {

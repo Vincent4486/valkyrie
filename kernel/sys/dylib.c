@@ -132,7 +132,8 @@ int Dylib_MemoryInitialize(void)
    dylib_mem_next_free = DYLIB_MEMORY_ADDR;
    dylib_mem_initialized = 1;
 
-   logfmt(LOG_INFO, "[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
+   logfmt(LOG_INFO,
+          "[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
           DYLIB_MEMORY_ADDR, DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE,
           DYLIB_MEMORY_SIZE / 0x100000);
 
@@ -219,7 +220,8 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
       /* Basic sanity checks before touching memory */
       if (r_offset == 0)
       {
-         logfmt(LOG_ERROR, "[ERROR] Relocation[%d] has r_offset == 0 (skipping)\n", i);
+         logfmt(LOG_ERROR,
+                "[ERROR] Relocation[%d] has r_offset == 0 (skipping)\n", i);
          continue;
       }
 
@@ -687,7 +689,8 @@ int Dylib_ParseSymbols(LibRecord *lib)
    ExtendedLibData *ext = &extended_data[idx];
 
    // Parse ELF symbols from the pre-loaded library at its base address
-   logfmt(LOG_INFO, "[DYLIB] Parsing symbols for pre-loaded library: %s at 0x%x\n",
+   logfmt(LOG_INFO,
+          "[DYLIB] Parsing symbols for pre-loaded library: %s at 0x%x\n",
           lib->name, (unsigned int)lib->base);
 
    parse_elf_symbols(ext, (uint32_t)lib->base, lib->size);
@@ -760,7 +763,8 @@ int Dylib_Load(const char *name, const void *image, uint32_t size)
    lib->size = size;
    ext->loaded = 1;
 
-   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) at 0x%x\n", name, size, load_addr);
+   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) at 0x%x\n", name, size,
+          load_addr);
 
    // Parse ELF symbols from the loaded library
    parse_elf_symbols(ext, load_addr, size);
@@ -1114,8 +1118,8 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    lib->size = file_size;
    ext->loaded = 1;
 
-   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) from disk at 0x%x\n", name, file_size,
-          load_addr);
+   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) from disk at 0x%x\n", name,
+          file_size, load_addr);
 
    // Parse ELF symbols from the loaded library
    parse_elf_symbols(ext, load_addr, file_size);

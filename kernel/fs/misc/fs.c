@@ -24,7 +24,5 @@ bool FS_Initialize()
       logfmt(LOG_ERROR, "[FS] Disk initialization failed\n");
       return false;
    }
-   logfmt(LOG_INFO, "[FS] Filesystem initialization complete, disks detected: %d\n",
-          disksDetected);
    return true;
 }

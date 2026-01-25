@@ -99,8 +99,7 @@ void *memmove(void *dest, const void *src, size_t n)
 int strncmp(const char *s1, const char *s2, size_t n)
 {
    if (n == 0) return (0);
-   do
-   {
+   do {
       if (*s1 != *s2++)
          /*
           * We could return *s1 - *--s2, but that's not

@@ -15,3 +15,13 @@ void __stack_chk_fail_local(void)
    printf("╚════════════════════════════════════╝\n");
    g_HalIoOperations->Panic(); // or infinite loop
 }
+
+void __stack_chk_fail(void)
+{
+   printf("\n");
+   printf("╔════════════════════════════════════╗\n");
+   printf("║  STACK SMASHING DETECTED!          ║\n");
+   printf("║  Buffer overflow in stack frame    ║\n");
+   printf("╚════════════════════════════════════╝\n");
+   g_HalIoOperations->Panic(); // or infinite loop
+}

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "i8253.h"
 #include <arch/i686/io/io.h>
 #include <sys/sys.h>

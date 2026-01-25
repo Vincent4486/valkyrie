@@ -15,7 +15,8 @@ this file, so for external modules, include fs/fs.h instead.
 #define DISK_TYPE_FLOPPY 0
 #define DISK_TYPE_ATA 1
 
-typedef struct DISK_Operations{
+typedef struct DISK_Operations
+{
 
 } DISK_Operations;
 
@@ -34,6 +35,7 @@ typedef struct
 
 int DISK_Initialize();
 int DISK_Scan();
+int DISK_GetDevfsIndex(); // Get volume index for devfs (-1 if not found)
 bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors,
                       void *lowerDataOut);
 bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,

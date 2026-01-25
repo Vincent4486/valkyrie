@@ -3,6 +3,7 @@
 #include "disk.h"
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
+#include <fs/devfs/devfs.h>
 #include <fs/fat/fat.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
@@ -72,7 +73,8 @@ int DISK_Scan()
 
          // Copy partition data into system volume table
          g_SysInfo->volume[volumeIndex] = *(parts[p]);
-         logfmt(LOG_INFO,
+         logfmt(
+             LOG_INFO,
              "[DISK] Populated volume[%d]: Offset=%u, Size=%u, Type=0x%02x\n",
              volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset,
              g_SysInfo->volume[volumeIndex].partitionSize,
@@ -117,14 +119,16 @@ int DISK_Scan()
             }
             else
             {
-               logfmt(LOG_ERROR, "[DISK] Failed to initialize FAT on volume[%d]\n",
+               logfmt(LOG_ERROR,
+                      "[DISK] Failed to initialize FAT on volume[%d]\n",
                       volumeIndex);
                volume->fs = NULL; // Explicitly clear to avoid later deref
             }
          }
          else
          {
-            logfmt(LOG_INFO,
+            logfmt(
+                LOG_INFO,
                 "[DISK] Skipping filesystem init for partition type 0x%02x\n",
                 partType);
          }
@@ -144,7 +148,72 @@ int DISK_Scan()
    }
    g_SysInfo->disk_count = totalDisks;
 
+   // Register devfs as an in-memory filesystem in a free volume slot
+   int devfs_idx = -1;
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
+      if (g_SysInfo->volume[i].disk == NULL)
+      {
+         devfs_idx = i;
+         break;
+      }
+   }
+
+   if (devfs_idx >= 0)
+   {
+      Partition *devfs_part = &g_SysInfo->volume[devfs_idx];
+      memset(devfs_part, 0, sizeof(Partition));
+
+      // Allocate and initialize devfs Filesystem structure
+      Filesystem *devfs_fs = (Filesystem *)kmalloc(sizeof(Filesystem));
+      if (devfs_fs)
+      {
+         memset(devfs_fs, 0, sizeof(Filesystem));
+         devfs_fs->type = DEVFS;
+         devfs_fs->mounted = 0;
+         devfs_fs->read_only = 0;
+         devfs_fs->block_size = 0; // in-memory, no blocks
+         devfs_fs->ops = DEVFS_GetVFSOperations();
+         devfs_part->fs = devfs_fs;
+
+         // Initialize devfs
+         if (DEVFS_Initialize(devfs_part))
+         {
+            logfmt(LOG_INFO, "[DISK] Registered devfs at volume[%d]\n",
+                   devfs_idx);
+         }
+         else
+         {
+            logfmt(LOG_ERROR, "[DISK] Failed to initialize devfs\n");
+            free(devfs_fs);
+            devfs_part->fs = NULL;
+         }
+      }
+      else
+      {
+         logfmt(LOG_ERROR, "[DISK] Failed to allocate devfs filesystem\n");
+      }
+   }
+   else
+   {
+      logfmt(LOG_WARNING, "[DISK] No free volume slot for devfs\n");
+   }
+
    return 0;
+}
+
+int DISK_GetDevfsIndex()
+{
+   // Find the devfs volume (disk == NULL && fs != NULL && fs->ops == devfs_ops)
+   for (int i = 0; i < MAX_DISKS; i++)
+   {
+      if (g_SysInfo->volume[i].disk == NULL && g_SysInfo->volume[i].fs != NULL &&
+          g_SysInfo->volume[i].fs->ops == DEVFS_GetVFSOperations())
+      {
+         return i;
+      }
+   }
+   return -1;
 }
 
 void DISK_LBA2CHS(DISK *disk, uint32_t lba, uint16_t *cylinderOut,
@@ -179,8 +248,7 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Read(disk, lba,
-                        (uint8_t *)dataOut, sectors);
+      int rc = ATA_Read(disk, lba, (uint8_t *)dataOut, sectors);
       if (rc != 0) return false;
       return true;
    }
@@ -207,8 +275,7 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
       /* Hard disk (ATA): use the kernel ATA driver with primary master
        * channel/drive.
        */
-      int rc = ATA_Write(disk, lba,
-                         (const uint8_t *)dataIn, sectors);
+      int rc = ATA_Write(disk, lba, (const uint8_t *)dataIn, sectors);
       if (rc != 0) return false;
       return true;
    }

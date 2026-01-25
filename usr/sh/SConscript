@@ -1,47 +1,27 @@
 # SPDX-License-Identifier: BSD-3-Clause
+"""
+sh - Shell application build configuration.
+"""
 
-import os
+from SCons.Script import Dir, Export
 
-from SCons.Script import Dir
-from scripts.scons.utility import GlobRecursive
+from scripts.scons.utility import GlobSources
 
 Import('usermode_env')
-Import('musl_include')
-Import('musl_lib')
 
 env = usermode_env.Clone()
 
-# Get source directory
 src_dir = Dir('#usr/sh').abspath
 
 env.Append(
-    # Use static linking, explicit linker script
-    LINKFLAGS=[
-        '-Wl,-Map=' + env.File('sh.map').path,
-        '-Wl,-T', os.path.join(src_dir, 'linker.ld'),
-        '-Wl,--as-needed',
-    ],
     CPATH=[src_dir],
     CPPPATH=[src_dir],
-    ASFLAGS=['-I', src_dir + '/'],
 )
 
-
-# Glob files directly from the source directory using os.walk
-sources = []
-for root, dirs, files in os.walk(src_dir):
-    for file in files:
-        full_path = os.path.join(root, file)
-        if file.endswith(('.c', '.cpp', '.S')):
-            # Make path relative to src_dir so SCons puts objects in build dir
-            rel_path = os.path.relpath(full_path, src_dir)
-            sources.append(rel_path)
-
+sources = GlobSources(src_dir)
 objects = env.Object(sources)
 
-# Build executable
 sh_executable = env.Program('sh', objects)
 
-# Export as sh_module for image build system detection
 sh_module = sh_executable
 Export('sh_module')

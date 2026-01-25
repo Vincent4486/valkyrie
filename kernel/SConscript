@@ -1,69 +1,86 @@
 # SPDX-License-Identifier: BSD-3-Clause
+"""
+Kernel build configuration.
+"""
 
 import os
 
 from SCons.Environment import Environment
 from SCons.Script import Dir, Export
-from scripts.scons.utility import GlobRecursive, FindIndex, IsFileName
+
+from scripts.scons.utility import GlobSources, FindIndex, IsFileName
 
 
 Import('TARGET_ENVIRONMENT')
 TARGET_ENVIRONMENT: Environment
 
-env = TARGET_ENVIRONMENT.Clone()
-# With variant_dir and duplicate=0, we need to explicitly reference the source files
-# The build root is at '#' (where SConstruct is), so src/core is at src/core
-src_dir = Dir('#kernel').abspath
-# Node (relative) to pass into GlobRecursive so it searches the actual source
-src_node = '#kernel'
+# =============================================================================
+# Environment Setup
+# =============================================================================
 
+env = TARGET_ENVIRONMENT.Clone()
+
+src_dir = Dir('#kernel').abspath
+arch = TARGET_ENVIRONMENT['arch']
+arch_dir = os.path.join(src_dir, 'arch', arch)
+linker_script = os.path.join(arch_dir, 'boot', 'linker.ld')
+
+# Kernel-specific compiler flags
 env.Append(
-    # Enable position-independent code for dynamic linking support
-    # Use PIC so object files generate GOT/PLT entries for dynamic linking.
-    CCFLAGS = ['-fPIC'],
-    LINKFLAGS = [
-        '-Wl,-T', os.path.join(src_dir, 'arch', TARGET_ENVIRONMENT['arch'], 'boot', 'linker.ld'),
+    CCFLAGS=[
+        '-ffreestanding',       # No hosted environment
+        '-nostdlib',            # No standard library
+        '-fno-stack-protector', # No stack protection (requires libc)
+    ],
+    LINKFLAGS=[
+        '-nostdlib',
+        '-Wl,-T', linker_script,
         '-Wl,-Map=' + env.File('core.map').path,
-        # Create relocation records for undefined symbols (GOT/PLT)
-        # The linker will generate R_386_GLOB_DAT and R_386_JMP_SLOT relocations
-        '-Wl,-z,notext',  # Allow relocations in text segment
-        # '-Wl,--unresolved-symbols=ignore-all',  # Allow undefined symbols - will be resolved at runtime
+        '-Wl,-z,relro,-z,now',   # Security: read-only relocations
+        '-Wl,-z,noexecstack',    # No executable stack
         '-Wl,--as-needed',
         '-Wl,--export-dynamic',
-        '-pie',
     ],
-    CPATH = [ src_dir, '#include' ],
-    CPPPATH = [ src_dir, '#include' ],
-    # Include source directory for assembly files (GNU AS -I flag for include paths)
-    # Use list format so each item becomes a separate argument
-    # Note: -m32 from CCFLAGS already handles 32-bit mode, so we don't need --32
-    ASFLAGS = [ '-I', os.path.join(src_dir, 'arch', TARGET_ENVIRONMENT['arch']), '-g' ]
+    CPATH=[src_dir, '#include'],
+    CPPPATH=[src_dir, '#include'],
+    ASFLAGS=[
+        '-I', arch_dir,
+        '-g',
+        '-Wa,--noexecstack',
+    ],
 )
 
-# Glob files directly from the source directory using os.walk
-# This is necessary because we're in a variant_dir and GlobRecursive looks in the build dir
-sources = []
-for root, dirs, files in os.walk(src_dir):
-    for file in files:
-        full_path = os.path.join(root, file)
-        # Support both .S (preprocessed GNU AS) and .asm (legacy NASM) during transition
-        if file.endswith(('.c', '.cpp', '.S')):
-            # Make path relative to src_dir so SCons puts objects in build dir
-            rel_path = os.path.relpath(full_path, src_dir)
-            # Use File() with the relative path - SCons will resolve it relative to variant_dir
-            sources.append(rel_path)
 
+# =============================================================================
+# Source Files
+# =============================================================================
+
+sources = GlobSources(src_dir)
 objects = env.Object(sources)
-obj_crti = objects.pop(FindIndex(objects, lambda item: IsFileName(item, 'crti.o')))
-obj_crtn = objects.pop(FindIndex(objects, lambda item: IsFileName(item, 'crtn.o')))
 
+
+# =============================================================================
+# C Runtime Objects
+# =============================================================================
+
+# Extract crti.o and crtn.o for proper linking order
+obj_crti = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crti.o')))
+obj_crtn = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crtn.o')))
+
+# Build with proper CRT ordering: crti, crtbegin, ..., crtend, crtn
+toolchain_libgcc = env['TOOLCHAIN_LIBGCC']
 objects = [
     obj_crti,
-    os.path.join(env["TOOLCHAIN_LIBGCC"], 'crtbegin.o'),
+    os.path.join(toolchain_libgcc, 'crtbegin.o'),
     *objects,
-    os.path.join(env["TOOLCHAIN_LIBGCC"], 'crtend.o'),
-    obj_crtn
+    os.path.join(toolchain_libgcc, 'crtend.o'),
+    obj_crtn,
 ]
+
+
+# =============================================================================
+# Build Target
+# =============================================================================
 
 core = env.Program(env['kernelName'], objects)
 
