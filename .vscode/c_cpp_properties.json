@@ -14,6 +14,7 @@
                 "-m32",
                 "-ffreestanding",
                 "-nostdlib",
+                "-DI686",
                 "-DI686"
             ]
         }
