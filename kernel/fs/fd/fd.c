@@ -8,6 +8,8 @@
 #include <std/string.h>
 #include <valkyrie/fs.h>
 
+#include <drivers/tty/tty.h>
+
 // Helper: Get file descriptor from process
 FileDescriptor *FD_Get(void *proc_ptr, int fd)
 {
@@ -141,11 +143,13 @@ int FD_Write(void *proc_ptr, int fd, const void *buf, uint32_t count)
    FileDescriptor *file = FD_Get(proc, fd);
    if (!file) return -1; // EBADF
 
-   // Handle stdout/stderr
+   // Handle stdout/stderr: write to TTY streams
    if (fd == 1 || fd == 2)
    {
-      printf("%.*s", count, (const char *)buf);
-      return count;
+      TTY_Device *dev = TTY_GetDevice();
+      int stream = (fd == 2) ? TTY_STREAM_STDERR : TTY_STREAM_STDOUT;
+      if (dev) TTY_WriteStream(dev, stream, buf, count);
+      return (int)count;
    }
 
    if (!file->writable) return -1; // EACCES

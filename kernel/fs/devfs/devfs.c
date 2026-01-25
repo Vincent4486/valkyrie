@@ -7,14 +7,36 @@
 #include <std/string.h>
 #include <stddef.h>
 
+#define DEVFS_MAXFILES 256
+#define DEVFS_PATHMAX 64
+
+typedef struct DEVFS_FileOperations{
+	// to be implemented
+} DEVFS_FileOperations;
+
 typedef struct DEVFS_File
 {
-   char name[64];
+   // needs modification
+   uint16_t type;
+   char path[DEVFS_PATHMAX];
    bool is_device;
    uint32_t position;
    uint32_t size;
+   const DEVFS_FileOperations ops;
    void *private; /* device-specific pointer */
 } DEVFS_File;
+
+static DEVFS_File *g_DevFiles[DEVFS_MAXFILES];
+
+bool DEVFS_Register(DEVFS_File *file){
+	// to be implemented
+	return false;
+}
+
+bool DEVFS_Unregister(DEVFS_File *file){
+	// to be implemented
+	return false;
+}
 
 /* Basic no-op implementations: real devices should register handlers. */
 /* Driver-facing: open a DEVFS_File directly */
@@ -27,8 +49,28 @@ DEVFS_File *DEVFS_Open(Partition *partition, const char *path)
 	df->is_device = true;
 	df->position = 0;
 	df->size = 0;
-	strncpy(df->name, path, sizeof(df->name) - 1);
+	strncpy(df->path, path, sizeof(df->path) - 1);
 	return df;
+}
+
+uint32_t DEVFS_Write(Partition *disk, DEVFS_File *file, uint32_t byteCount, void *dataIn){
+	// to be implemented
+	return 0;
+}
+
+uint32_t DEVFS_Read(Partition *disk, DEVFS_File *file, uint32_t byteCount, void *dataOut){
+	// to be implemented
+	return 0;
+}
+
+bool DEVFS_Seek(Partition *disk, DEVFS_File *file, uint32_t pos){
+	// to be implemented
+	return false;
+}
+
+void DEVFS_Close(DEVFS_File *fs_file){
+	// to be implemented
+	(void)fs_file;
 }
 
 /* VFS-facing wrapper that returns a VFS_File containing a DEVFS_File */
@@ -83,13 +125,6 @@ static bool devfs_vfs_seek(Partition *partition, void *fs_file, uint32_t pos)
 	return true;
 }
 
-void DEVFS_Close(DEVFS_File *df)
-{
-	if (!df) return;
-	df->private = NULL;
-	free(df);
-}
-
 static void devfs_vfs_close(void *fs_file)
 {
 	DEVFS_Close((DEVFS_File *)fs_file);
@@ -125,6 +160,7 @@ bool DEVFS_Initialize(Partition *partition)
 	if (!partition->fs) return false;
 	partition->fs->ops = &devfs_ops;
 	partition->fs->mounted = 1;
+	memset(g_DevFiles, 0, sizeof(g_DevFiles));
 	return true;
 }
 

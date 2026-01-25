@@ -8,6 +8,14 @@
 #include <sys/sys.h>
 #include <valkyrie/fs.h>
 
+static void RegisterDevfs(){
+   // to be implemented
+   /*
+      Todo:
+      Create a partition and initialize the devfs
+   */
+}
+
 /**
  * Initialize storage system: scan and initialize all disks
  *
@@ -16,6 +24,7 @@
 bool FS_Initialize()
 {
    VFS_Init();
+   RegisterDevfs();
 
    // Call DISK_Initialize to scan and populate all volumes
    int disksDetected = DISK_Initialize();

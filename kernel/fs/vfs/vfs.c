@@ -18,7 +18,9 @@ static const VFS_Operations *get_fs_operations(FilesystemType type)
    switch (type)
    {
    case FAT12:
+      return FAT_GetVFSOperations();
    case FAT16:
+      return FAT_GetVFSOperations();
    case FAT32:
       return FAT_GetVFSOperations();
    case DEVFS:

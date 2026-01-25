@@ -32,7 +32,7 @@ void Stack_InitializeKernel(void)
    // Get kernel stack size from system info (default 8KB if not set)
    uint32_t stack_size = (g_SysInfo && g_SysInfo->memory.kernel_stack_size)
                              ? g_SysInfo->memory.kernel_stack_size
-                             : 8192;
+                             : 65536;
 
    // Create kernel stack
    kernel_stack = Stack_Create(stack_size);

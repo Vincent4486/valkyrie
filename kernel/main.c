@@ -4,6 +4,7 @@
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
 #include <hal/hal.h>
+#include <hal/tty.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
@@ -14,6 +15,8 @@
 #include <sys/sys.h>
 #include <valkyrie/fs.h>
 #include <valkyrie/system.h>
+#include <drivers/tty/tty.h>
+#include <display/keyboard.h>
 
 #include <display/startscreen.h>
 #include <libmath/math.h>
@@ -22,16 +25,16 @@ extern uint8_t __bss_start;
 extern uint8_t __end;
 extern void _init();
 
-void hold(void)
+void hold(int sec)
 {
    uint32_t last_uptime = 0;
-   while (g_SysInfo->uptime_seconds < 1000)
+   while (g_SysInfo->uptime_seconds < sec)
    {
       /* Update uptime from tick counter */
       g_SysInfo->uptime_seconds = system_ticks / 1000;
       if (g_SysInfo->uptime_seconds != last_uptime)
       {
-         printf("\rSystem up for %u seconds", g_SysInfo->uptime_seconds);
+         printf("\r\x1B[1;37;46mSystem up for %u seconds\x1B[0m", g_SysInfo->uptime_seconds);
          last_uptime = g_SysInfo->uptime_seconds;
       }
 
@@ -41,6 +44,23 @@ void hold(void)
    }
    printf("\n");
 }
+
+/* void ineract(void){
+   char *buf = kmalloc(512);
+   if (!buf) return;
+   TTY_Device *tty_dev = TTY_GetDevice();
+   for (;;)
+   {
+      int n = TTY_ReadBlocking(tty_dev, buf, 511);
+      if (n > 0)
+      {
+         buf[n] = '\0';
+         // Print the entered text on the next line 
+         printf("\n%s\n> ", buf);
+      }
+   }
+   free(buf);
+} */
 
 void perform_mount(void){
    int devfsIndex = DISK_GetDevfsIndex();
@@ -60,9 +80,13 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    g_SysInfo->boot_device = bootDrive;
 
    MEM_Initialize(multiboot_info_ptr);
+   TTY_Initialize();
    SYS_Initialize();
    CPU_Initialize();
    HAL_Initialize();
+
+   TTY_Device *tty_dev = TTY_GetDevice();
+   TTY_Flush(tty_dev);
 
    if (!FS_Initialize())
    {
@@ -80,8 +104,11 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    /* Mark system as fully initialized */
    SYS_Finalize();
    ELF_LoadProcess("/usr/bin/sh", false);
+   
+   // hold(10);
 
-   hold();
+   /* Start interactive line reader: on ENTER, print the entered text. */
+   // ineract();
 
 end:
    for (;;);

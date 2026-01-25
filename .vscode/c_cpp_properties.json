@@ -13,7 +13,9 @@
             "compilerArgs": [
                 "-m32",
                 "-ffreestanding",
-                "-nostdlib"
+                "-nostdlib",
+                "-DI686",
+                "-DI686"
             ]
         }
     ],

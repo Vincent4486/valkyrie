@@ -215,9 +215,6 @@ void heap_check_integrity(void)
    printf("[heap] integrity check passed: %u blocks verified\n", block_count);
 }
 
-/* libc-like wrappers ---------------------------------------------------- */
-void *malloc(size_t size) { return kmalloc(size); }
-
 void free(void *ptr)
 {
    /* No-op: bump allocator does not reclaim memory. */
