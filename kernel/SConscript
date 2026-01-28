@@ -8,6 +8,7 @@ import os
 from SCons.Environment import Environment
 from SCons.Script import Dir, Export
 
+from scripts.scons.arch import get_arch_config
 from scripts.scons.utility import GlobSources, FindIndex, IsFileName
 
 
@@ -25,12 +26,23 @@ arch = TARGET_ENVIRONMENT['arch']
 arch_dir = os.path.join(src_dir, 'arch', arch)
 linker_script = os.path.join(arch_dir, 'boot', 'linker.ld')
 
+# Architecture-specific flags (kernel-only)
+arch_config = get_arch_config(arch)
+env.Append(
+    ASFLAGS=arch_config.get('asflags', []),
+    CCFLAGS=arch_config.get('ccflags', []),
+    LINKFLAGS=arch_config.get('linkflags', []),
+)
+
 # Kernel-specific compiler flags
 env.Append(
     CCFLAGS=[
         '-ffreestanding',       # No hosted environment
-        '-nostdlib',            # No standard library
+        '-nostdlib',            # No standard library (kernel-only)
         '-fno-stack-protector', # No stack protection (requires libc)
+        '-fno-builtin',         # Don't use compiler builtin replacements for libc functions
+        '-Wall',
+        '-Wextra',
     ],
     LINKFLAGS=[
         '-nostdlib',
@@ -48,6 +60,7 @@ env.Append(
         '-g',
         '-Wa,--noexecstack',
     ],
+    LIBS=['gcc']
 )
 
 

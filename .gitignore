@@ -1,21 +1,68 @@
+# Build artifacts
 build/
-.DS_Store
-node_modules/
+out/
+dist/
+*.img
+*.iso
+*.elf
+*.bin
+
+# Toolchain and external binaries
 toolchain/
+.sconsign.dblite
+
+# Compiled object and archives
+*.o
+*.a
+*.so
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+pip-wheel-metadata/
+/.cache
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+
+# Logs
 *.log
 *.out
+
+# LaTeX intermediate files
+*.aux
 *.bbl
 *.blg
-*.aux
-# Emacs temporary files
+*.toc
+*.synctex.gz
+
+# Editors and IDEs
+.DS_Store
+.idea/
+.vscode/
+*.iml
 *~
 .#*
 *.*#
-tmp/
-.sconsign.dblite
-scripts/scons/__pycache__
-.venv/
+*.swp
 
-*.so
-.idea/
+# Node
+node_modules/
+
+# Coverage and test
+.coverage
+coverage.*
+.tox/
+
+# Misc
+tags
+cscope.*
+core
+*.core
 .config

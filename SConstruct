@@ -7,6 +7,7 @@ Main build configuration file using SCons.
 
 import os
 from pathlib import Path
+import platform
 
 from SCons.Variables import Variables, EnumVariable
 from SCons.Environment import Environment
@@ -15,6 +16,30 @@ from scripts.scons.arch import get_arch_config, get_supported_archs
 from scripts.scons.disk import get_supported_filesystems
 from scripts.scons.phony_targets import PhonyTargets
 from scripts.scons.utility import ParseSize
+
+
+# Determine whether the host toolchain matches the requested target.
+def host_arch_matches_target(target_triple: str) -> bool:
+    host = platform.machine().lower()
+    # Normalize common names but preserve specific x86 variants like i686
+    host_map = {
+        'x86_64': 'x86_64', 'amd64': 'x86_64',
+        'i386': 'i386', 'i486': 'i486', 'i586': 'i586', 'i686': 'i686',
+        'aarch64': 'aarch64', 'arm64': 'aarch64', 'armv7l': 'arm',
+    }
+    host_norm = host_map.get(host, host)
+    target_arch = target_triple.split('-')[0].lower()
+
+    # Exact match is fine
+    if host_norm == target_arch:
+        return True
+
+    # Treat x86/i686/i386 family as compatible
+    if host_norm.startswith('i') and host_norm.endswith('86') \
+       and target_arch.startswith('i') and target_arch.endswith('86'):
+        return True
+
+    return False
 
 
 # =============================================================================
@@ -107,15 +132,14 @@ def create_host_environment():
         ENV=os.environ,
         CFLAGS=['-std=c99'],
         CXXFLAGS=['-std=c++17'],
-        CCFLAGS=['-g'],
         STRIP='strip',
     )
     
     # Configuration-specific flags
     if env['config'] == 'debug':
-        env.Append(CCFLAGS=['-O0', '-DDEBUG'])
+        env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
     else:
-        env.Append(CCFLAGS=['-O3', '-DRELEASE'])
+        env.Append(CCFLAGS=['-O3', '-DRELEASE' '-s'])
     
     # Architecture define
     arch_config = get_arch_config(env['arch'])
@@ -139,38 +163,42 @@ def create_target_environment(host_env):
                           arch_config['target_triple'] / DEPS['gcc'])
     
     prefix = arch_config['toolchain_prefix']
-    
+
+    use_native = host_arch_matches_target(arch_config['target_triple'])
+
+    # Choose tool names: prefixed cross-tools or native host tools
+    if use_native:
+        tools = dict(
+            AS='as', AR='ar', CC='gcc', CXX='g++', LD='g++', RANLIB='ranlib', STRIP='strip'
+        )
+    else:
+        tools = dict(
+            AS=f'{prefix}as', AR=f'{prefix}ar', CC=f'{prefix}gcc', CXX=f'{prefix}g++',
+            LD=f'{prefix}g++', RANLIB=f'{prefix}ranlib', STRIP=f'{prefix}strip'
+        )
+
     env = host_env.Clone(
-        # Cross-compiler tools
-        AS=f'{prefix}as',
-        AR=f'{prefix}ar',
-        CC=f'{prefix}gcc',
-        CXX=f'{prefix}g++',
-        LD=f'{prefix}g++',
-        RANLIB=f'{prefix}ranlib',
-        STRIP=f'{prefix}strip',
-        
+        # Cross-compiler or native tools
+        **tools,
+
         # Toolchain paths
         TOOLCHAIN_PREFIX=str(toolchain_dir),
         TOOLCHAIN_LIBGCC=str(toolchain_gcc_libs),
-        
+
         # Architecture info
         ARCH_CONFIG=arch_config,
         TARGET_TRIPLE=arch_config['target_triple'],
-        
+
         # Download URLs
         BINUTILS_URL=f'https://ftp.gnu.org/gnu/binutils/binutils-{DEPS["binutils"]}.tar.xz',
         GCC_URL=f'https://ftp.gnu.org/gnu/gcc/gcc-{DEPS["gcc"]}/gcc-{DEPS["gcc"]}.tar.xz',
     )
     
-    # Architecture-specific flags
+    # Keep only generic C++ flags here; architecture-specific and
+    # target-specific flags are applied in each SConscript so kernel
+    # and userland can have distinct settings.
     env.Append(
-        ASFLAGS=arch_config['asflags'],
-        CCFLAGS=arch_config['ccflags'],
         CXXFLAGS=['-fno-exceptions', '-fno-rtti'],
-        LINKFLAGS=arch_config['linkflags'],
-        LIBS=['gcc'],
-        LIBPATH=[str(toolchain_gcc_libs)],
     )
     
     # Custom build output strings
