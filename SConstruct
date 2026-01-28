@@ -21,7 +21,26 @@ from scripts.scons.utility import ParseSize
 # Build Variables
 # =============================================================================
 
-VARS = Variables('scripts/scons/config.py', ARGUMENTS)
+# Autogenerate a simple Python-style config file at project root named
+# `.config` (if it doesn't exist) and then load it with SCons Variables.
+config_path = Path('.config')
+if not config_path.exists():
+    default_config = {
+        'config': 'debug',
+        'arch': 'i686',
+        'imageFS': 'fat32',
+        'buildType': 'full',
+        'imageSize': '250m',
+        'toolchain': 'toolchain/',
+        'outputFile': 'valkyrieos',
+        'outputFormat': 'img',
+        'kernelName': 'valkyrix',
+    }
+    with open(config_path, 'w') as cf:
+        for k, v in default_config.items():
+            cf.write(f"{k} = {repr(v)}\n")
+
+VARS = Variables(str(config_path), ARGUMENTS)
 
 VARS.AddVariables(
     EnumVariable('config',

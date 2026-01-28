@@ -18,3 +18,4 @@ scripts/scons/__pycache__
 
 *.so
 .idea/
+.config
