@@ -47,7 +47,7 @@ void hold(int sec)
 }
 
 void interact(void){
-   printf("\nInteractive Mode. Type 'exit' to stop.\n> ");
+   printf("\nInteractive Mode. Type 'exit' to stop.\n$ ");
    
    char *buf = kmalloc(512);
    if (!buf) return;
@@ -66,6 +66,18 @@ void interact(void){
          if (strcmp(buf, "exit") == 0) {
              break;
          }
+         else if (strcmp(buf, "shutdown") == 0) {
+             printf("Shutting down...\n");
+             __asm__ volatile("hlt");
+             break;
+         }
+         else if (strcmp(buf, "reboot") == 0) {
+             printf("Rebooting...\n");
+             /* Load invalid IDT and trigger interrupt to cause triple fault */
+             uint32_t invalid_idt[2] = {0, 0};
+             __asm__ volatile("lidt %0" : : "m"(invalid_idt));
+             __asm__ volatile("int $0");
+         }
          else if (strncmp(buf, "read ", 5) == 0) {
              char *path = buf + 5;
              while (*path == ' ') path++;
@@ -75,9 +87,12 @@ void interact(void){
                  char *read_buf = kmalloc(512);
                  if (read_buf) {
                      uint32_t bytes;
-                     while ((bytes = VFS_Read(f, 511, read_buf)) > 0) {
+                     uint32_t total_read = 0;
+                     uint32_t max_read = 4096; /* Limit to 4KB to prevent infinite reads */
+                     while ((bytes = VFS_Read(f, 511, read_buf)) > 0 && total_read < max_read) {
                          read_buf[bytes] = '\0';
                          printf("%s", read_buf);
+                         total_read += bytes;
                      }
                      free(read_buf);
                  } else {
