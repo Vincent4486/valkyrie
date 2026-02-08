@@ -162,11 +162,11 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
    SYS_Finalize();
 
    ELF_LoadProcess("/usr/bin/sh", false);
-   
-   // hold(10);
 
    /* Start interactive line reader: on ENTER, print the entered text. */
    interact();
+
+   hold(-1);
 
 end:
    for (;;);
