@@ -90,6 +90,7 @@ int DISK_Scan()
             volumeIndex++;
             continue;
          }
+
          uint8_t partType = volume->partitionType & 0xFF;
          if (partType == 0x04 || partType == 0x06 || partType == 0x0B ||
              partType == 0x0C)
@@ -153,14 +154,11 @@ int DISK_Scan()
 
 int DISK_GetDevfsIndex()
 {
-   // Find the devfs volume (disk == NULL && fs != NULL && fs->ops == devfs_ops)
-   for (int i = 0; i < MAX_DISKS; i++)
+   /* Devfs is now always at the reserved volume slot */
+   if (g_SysInfo->volume[DEVFS_VOLUME].fs != NULL &&
+       g_SysInfo->volume[DEVFS_VOLUME].fs->ops == DEVFS_GetVFSOperations())
    {
-      if (g_SysInfo->volume[i].disk == NULL && g_SysInfo->volume[i].fs != NULL &&
-          g_SysInfo->volume[i].fs->ops == DEVFS_GetVFSOperations())
-      {
-         return i;
-      }
+      return DEVFS_VOLUME;
    }
    return -1;
 }
@@ -230,4 +228,81 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
    }
 
    return false;
+}
+
+/*
+ * Devfs operations for raw disk devices
+ */
+
+uint32_t DISK_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset,
+                        uint32_t size, void *buffer)
+{
+   if (!node || !node->private_data || !buffer) return 0;
+   
+   DISK *disk = (DISK *)node->private_data;
+   
+   /* Calculate sector-based read */
+   uint32_t sector_size = 512;
+   uint32_t start_sector = offset / sector_size;
+   uint32_t sectors_needed = (size + sector_size - 1) / sector_size;
+   
+   /* Allocate temporary buffer for full sectors */
+   uint8_t *temp = kmalloc(sectors_needed * sector_size);
+   if (!temp) return 0;
+   
+   /* Read sectors */
+   if (!DISK_ReadSectors(disk, start_sector, sectors_needed, temp)) {
+      free(temp);
+      return 0;
+   }
+   
+   /* Copy requested portion to output buffer */
+   uint32_t offset_in_sector = offset % sector_size;
+   uint32_t bytes_to_copy = size;
+   if (offset_in_sector + bytes_to_copy > sectors_needed * sector_size) {
+      bytes_to_copy = sectors_needed * sector_size - offset_in_sector;
+   }
+   
+   memcpy(buffer, temp + offset_in_sector, bytes_to_copy);
+   free(temp);
+   
+   return bytes_to_copy;
+}
+
+uint32_t DISK_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset,
+                         uint32_t size, const void *buffer)
+{
+   if (!node || !node->private_data || !buffer) return 0;
+   
+   DISK *disk = (DISK *)node->private_data;
+   
+   /* Calculate sector-based write */
+   uint32_t sector_size = 512;
+   uint32_t start_sector = offset / sector_size;
+   uint32_t sectors_needed = (size + sector_size - 1) / sector_size;
+   uint32_t offset_in_sector = offset % sector_size;
+   
+   /* For partial sector writes, we need to read-modify-write */
+   uint8_t *temp = kmalloc(sectors_needed * sector_size);
+   if (!temp) return 0;
+   
+   /* Read existing data if partial sector write */
+   if (offset_in_sector != 0 || (size % sector_size) != 0) {
+      if (!DISK_ReadSectors(disk, start_sector, sectors_needed, temp)) {
+         free(temp);
+         return 0;
+      }
+   }
+   
+   /* Copy new data into buffer */
+   memcpy(temp + offset_in_sector, buffer, size);
+   
+   /* Write sectors back */
+   if (!DISK_WriteSectors(disk, start_sector, sectors_needed, temp)) {
+      free(temp);
+      return 0;
+   }
+   
+   free(temp);
+   return size;
 }

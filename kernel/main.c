@@ -16,9 +16,10 @@
 #include <valkyrie/fs.h>
 #include <valkyrie/system.h>
 #include <drivers/tty/tty.h>
-#include <display/keyboard.h>
+#include <drivers/keyboard/keyboard.h>
+#include <fs/devfs/devfs.h>
+#include <fs/fd/fd.h>
 
-#include <display/startscreen.h>
 #include <libmath/math.h>
 
 extern uint8_t __bss_start;
@@ -45,29 +46,69 @@ void hold(int sec)
    printf("\n");
 }
 
-/* void ineract(void){
+void interact(void){
+   printf("\nInteractive Mode. Type 'exit' to stop.\n> ");
+   
    char *buf = kmalloc(512);
    if (!buf) return;
+   
    TTY_Device *tty_dev = TTY_GetDevice();
+   
    for (;;)
    {
-      int n = TTY_ReadBlocking(tty_dev, buf, 511);
+      int n = TTY_Read(tty_dev, buf, 511);
       if (n > 0)
       {
          buf[n] = '\0';
-         // Print the entered text on the next line 
-         printf("\n%s\n> ", buf);
+         /* Trim trailing newline */
+         if (n > 0 && buf[n-1] == '\n') buf[n-1] = '\0';
+
+         if (strcmp(buf, "exit") == 0) {
+             break;
+         }
+         else if (strncmp(buf, "read ", 5) == 0) {
+             char *path = buf + 5;
+             while (*path == ' ') path++;
+             
+             VFS_File *f = VFS_Open(path);
+             if (f) {
+                 char *read_buf = kmalloc(512);
+                 if (read_buf) {
+                     uint32_t bytes;
+                     while ((bytes = VFS_Read(f, 511, read_buf)) > 0) {
+                         read_buf[bytes] = '\0';
+                         printf("%s", read_buf);
+                     }
+                     free(read_buf);
+                 } else {
+                     printf("Error: Out of memory\n");
+                 }
+                 VFS_Close(f);
+             } else {
+                 printf("Error: Could not open file '%s'\n", path);
+             }
+             printf("\n");
+         }
+         else {
+             printf("You typed: %s\n", buf);
+         }
+         if (buf[n-1] != '\n') printf("\n");
+         printf("$ ");
+      }
+      else
+      {
+          /* Wait for interrupt/input */
+          __asm__ volatile("sti; hlt; cli");
       }
    }
    free(buf);
-} */
+}
 
 void perform_mount(void){
-   int devfsIndex = DISK_GetDevfsIndex();
    FS_Mount(&g_SysInfo->volume[0], "/");
-   FS_Mount(&g_SysInfo->volume[devfsIndex], "/dev");
    VFS_SelfTest();
 }
+
 
 void __attribute__((section(".entry"))) start(uint16_t bootDrive,
                                               void *multiboot_info_ptr)
@@ -81,6 +122,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
 
    MEM_Initialize(multiboot_info_ptr);
    TTY_Initialize();
+   Keyboard_Initialize();
    SYS_Initialize();
    CPU_Initialize();
    HAL_Initialize();
@@ -103,12 +145,13 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
 
    /* Mark system as fully initialized */
    SYS_Finalize();
+
    ELF_LoadProcess("/usr/bin/sh", false);
    
    // hold(10);
 
    /* Start interactive line reader: on ENTER, print the entered text. */
-   // ineract();
+   interact();
 
 end:
    for (;;);

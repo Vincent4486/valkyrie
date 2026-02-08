@@ -4,7 +4,7 @@
 #include "i8259.h"
 #include "pic.h"
 #include <arch/i686/io/io.h>
-#include <display/keyboard.h>
+#include <drivers/keyboard/keyboard.h>
 #include <std/arrays.h>
 #include <std/stdio.h>
 #include <stddef.h>

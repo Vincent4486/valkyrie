@@ -134,9 +134,10 @@ void Heap_Initialize(void)
 
    heap_ptr = heap_start;
 
-   printf("[heap] initialized: start=0x%08x end=0x%08x size=%u MB\n",
-          (uint32_t)heap_start, (uint32_t)heap_end,
-          (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
+      /* Concise banner to avoid noisy repeats */
+      printf("[heap] start=0x%08x end=0x%08x size=%u MB\n",
+         (uint32_t)heap_start, (uint32_t)heap_end,
+         (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
 }
 
 void *kmalloc(size_t size)

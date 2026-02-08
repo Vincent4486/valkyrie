@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "ata.h"
+#include <fs/devfs/devfs.h>
 #include <hal/io.h>
 #include <std/stdio.h>
 #include <stdint.h>
 #include <sys/sys.h>
 #include <valkyrie/system.h>
+
+static DEVFS_DeviceOps disk_ops = {
+   .read = DISK_DevfsRead,
+   .write = DISK_DevfsWrite
+};
 
 // ATA register offsets from base port
 #define ATA_REG_DATA 0x00
@@ -494,6 +500,21 @@ int ATA_Scan(DISK *disks, int maxDisks)
                    "Size=%llu bytes (Ch%d/Dr%d)\n",
                    disks[count].id, disks[count].type, disks[count].brand,
                    disks[count].size, ch, dr);
+
+            /* Register the disk device in devfs
+             * Device naming: hda, hdb, hdc, hdd for primary/secondary master/slave
+             */
+            char devname[8];
+            devname[0] = 'h';
+            devname[1] = 'd';
+            devname[2] = 'a' + (ch * 2) + dr; /* hda=0, hdb=1, hdc=2, hdd=3 */
+            devname[3] = '\0';
+            
+            /* Major 3 for IDE disks, minor = disk index */
+            uint32_t disk_size = (uint32_t)(disks[count].size & 0xFFFFFFFF);
+            DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 3, count,
+                                 disk_size, &disk_ops, &disks[count]);
+
             count++;
          }
       }

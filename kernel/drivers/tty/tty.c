@@ -1,724 +1,964 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "tty.h"
+#include <fs/devfs/devfs.h>
+#include <hal/tty.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <hal/tty.h>
 
-/* declare setcursor (defined in stdio.c) to avoid implicit declaration */
+/*
+ * Linux-like TTY subsystem implementation
+ * 
+ * Features:
+ * - Multiple TTY device instances
+ * - Canonical (line-buffered) and raw input modes
+ * - Echo control
+ * - Line editing with backspace, kill line, etc.
+ * - ANSI escape sequence support
+ * - Scrollback buffer
+ */
+
+/* Memory locations for display buffers */
+#define BUFFER_BASE_ADDR   0x00110000
+#define BUFFER_DISP_ADDR   0xB8000
+
+/* External cursor function from stdio */
 extern void setcursor(int x, int y);
 
-uint8_t s_color = 0x7;
-/* Use fixed memory location for buffer instead of stack/BSS */
-static char (*s_buffer)[SCREEN_WIDTH] = (char (*)[SCREEN_WIDTH])
-    BUFFER_BASE_ADDR;
-static uint16_t *s_display_buffer = (uint16_t *)BUFFER_DISP_ADDR;
-static uint32_t s_head = 0;       /* index of first valid line */
-static uint32_t s_lines_used = 0; /* number of logical lines in buffer */
-int s_cursor_x = 0;
-int s_cursor_y = 0; /* cursor within visible area (0..SCREEN_HEIGHT-1) */
-static uint32_t s_scroll =
-    0; /* number of lines scrolled away from bottom (0 = at bottom) */
+/* TTY device array */
+static TTY_Device *g_TTYDevices[TTY_MAX_DEVICES];
+static TTY_Device *g_ActiveTTY = NULL;
+static bool g_TTYInitialized = false;
 
-/* Input stream (kernel-only): simple FIFO of chars pushed by keyboard.
-   Reading one char moves it to the output stream via TTY_PutChar. */
-#define INPUT_FIFO_SIZE 1024
-static char s_input_fifo[INPUT_FIFO_SIZE];
-static int s_input_head = 0; /* index of first valid char */
-static int s_input_tail = 0; /* index to write next char */
-static int s_input_len = 0;  /* number of chars in fifo */
+/* Static buffers for TTY0 (console) - avoid early kmalloc */
+static char g_TTY0ScreenBuf[TTY_SCROLLBACK][SCREEN_WIDTH];
+static char g_TTY0InputBuf[TTY_INPUT_SIZE];
+static uint16_t *g_TTY0DisplayBuf = (uint16_t *)BUFFER_DISP_ADDR;
 
-static int s_dirty_row_start = SCREEN_HEIGHT;
-static int s_dirty_row_end = -1;
-
-/* ANSI escape sequence state machine */
-#define ANSI_MAX_PARAMS 16
-typedef struct {
-    int state;  /* 0=normal, 1=in escape, 2=in CSI */
-    int params[ANSI_MAX_PARAMS];
-    int param_count;
-} AnsiState;
-
-static AnsiState s_ansi_state = {0};
-
-/* ANSI color mapping: VGA color (0-15) from ANSI color code (30-37, 40-47) */
-static uint8_t ansi_to_vga_fg[] = {
-    0x0, /* 30: black */
-    0x4, /* 31: red */
-    0x2, /* 32: green */
-    0x6, /* 33: yellow */
-    0x1, /* 34: blue */
-    0x5, /* 35: magenta */
-    0x3, /* 36: cyan */
-    0x7  /* 37: white */
+/* ANSI color mapping */
+static const uint8_t ansi_to_vga_fg[] = {
+   0x0, 0x4, 0x2, 0x6, 0x1, 0x5, 0x3, 0x7
+};
+static const uint8_t ansi_to_vga_bg[] = {
+   0x00, 0x40, 0x20, 0x60, 0x10, 0x50, 0x30, 0x70
 };
 
-static uint8_t ansi_to_vga_bg[] = {
-    0x0, /* 40: black */
-    0x40, /* 41: red */
-    0x20, /* 42: green */
-    0x60, /* 43: yellow */
-    0x10, /* 44: blue */
-    0x50, /* 45: magenta */
-    0x30, /* 46: cyan */
-    0x70  /* 47: white */
-};
+/*
+ * Buffer operations
+ */
 
-static inline void mark_row_dirty(int row)
+static void buffer_init(TTY_Buffer *buf, char *data, uint32_t size)
+{
+   buf->data = data;
+   buf->size = size;
+   buf->head = 0;
+   buf->tail = 0;
+   buf->count = 0;
+}
+
+static bool buffer_push(TTY_Buffer *buf, char c)
+{
+   if (buf->count >= buf->size) return false;
+   buf->data[buf->tail] = c;
+   buf->tail = (buf->tail + 1) % buf->size;
+   buf->count++;
+   return true;
+}
+
+static int buffer_pop(TTY_Buffer *buf)
+{
+   if (buf->count == 0) return -1;
+   char c = buf->data[buf->head];
+   buf->head = (buf->head + 1) % buf->size;
+   buf->count--;
+   return (int)(unsigned char)c;
+}
+
+static void buffer_clear(TTY_Buffer *buf)
+{
+   buf->head = 0;
+   buf->tail = 0;
+   buf->count = 0;
+}
+
+/*
+ * Display helper functions
+ */
+
+static inline void mark_dirty(TTY_Device *tty, int row)
 {
    if (row < 0 || row >= SCREEN_HEIGHT) return;
-   if (row < s_dirty_row_start) s_dirty_row_start = row;
-   if (row > s_dirty_row_end) s_dirty_row_end = row;
+   if (row < tty->dirty_start) tty->dirty_start = row;
+   if (row > tty->dirty_end) tty->dirty_end = row;
 }
 
-static inline void mark_dirty_range(int start, int end)
+static inline void mark_all_dirty(TTY_Device *tty)
 {
-   if (start < 0) start = 0;
-   if (end >= SCREEN_HEIGHT) end = SCREEN_HEIGHT - 1;
-   if (start > end) return;
-   if (start < s_dirty_row_start) s_dirty_row_start = start;
-   if (end > s_dirty_row_end) s_dirty_row_end = end;
+   tty->dirty_start = 0;
+   tty->dirty_end = SCREEN_HEIGHT - 1;
 }
 
-static inline void mark_visible_range_from_row(int row)
+static inline void reset_dirty(TTY_Device *tty)
 {
-   if (row < 0) row = 0;
-   if (row >= SCREEN_HEIGHT) return;
-   mark_dirty_range(row, SCREEN_HEIGHT - 1);
+   tty->dirty_start = SCREEN_HEIGHT;
+   tty->dirty_end = -1;
 }
 
-static inline void mark_all_rows_dirty(void)
+/* Compute visible start line index */
+static int compute_visible_start(TTY_Device *tty)
 {
-   s_dirty_row_start = 0;
-   s_dirty_row_end = SCREEN_HEIGHT - 1;
-}
-
-static inline void reset_dirty_rows(void)
-{
-   s_dirty_row_start = SCREEN_HEIGHT;
-   s_dirty_row_end = -1;
-}
-
-static void finalize_putc_repaint(int prev_visible_start);
-static int compute_visible_start(void);
-
-/* Parse ANSI escape sequences and execute them */
-static void handle_ansi_sequence(void)
-{
-    if (s_ansi_state.param_count == 0)
-        return;
-    
-    int param = s_ansi_state.params[0];
-    
-    switch (s_ansi_state.state) {
-        case 'A': /* Cursor up */
-            if (s_cursor_y > 0) s_cursor_y--;
-            break;
-        
-        case 'B': /* Cursor down */
-            if (s_cursor_y < SCREEN_HEIGHT - 1) s_cursor_y++;
-            break;
-        
-        case 'C': /* Cursor right */
-            if (s_cursor_x < SCREEN_WIDTH - 1) s_cursor_x++;
-            break;
-        
-        case 'D': /* Cursor left */
-            if (s_cursor_x > 0) s_cursor_x--;
-            break;
-        
-        case 'H': /* Cursor position (ESC[row;colH) */
-        case 'f':
-            if (s_ansi_state.param_count >= 2) {
-                int row = s_ansi_state.params[0];
-                int col = s_ansi_state.params[1];
-                if (row > 0) row--; /* 1-indexed to 0-indexed */
-                if (col > 0) col--;
-                if (row >= 0 && row < SCREEN_HEIGHT) s_cursor_y = row;
-                if (col >= 0 && col < SCREEN_WIDTH) s_cursor_x = col;
-            }
-            break;
-        
-        case 'J': /* Erase display */
-            if (param == 2 || param == 0) {
-                TTY_Clear();
-            }
-            break;
-        
-        case 'K': /* Erase line */
-            {
-                int visible_start = compute_visible_start();
-                uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-                if (rel_pos < s_lines_used) {
-                    uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
-                    memset(s_buffer[idx], 0, SCREEN_WIDTH);
-                    mark_row_dirty(s_cursor_y);
-                }
-            }
-            break;
-        
-        case 'm': /* SGR - Select Graphic Rendition (colors/attributes) */
-            for (int i = 0; i < s_ansi_state.param_count; i++) {
-                int code = s_ansi_state.params[i];
-                
-                if (code == 0) {
-                    /* Reset all attributes */
-                    s_color = 0x7;
-                } else if (code == 1) {
-                    /* Bold - increase brightness */
-                    s_color |= 0x08;
-                } else if (code >= 30 && code <= 37) {
-                    /* Foreground color */
-                    uint8_t fg = ansi_to_vga_fg[code - 30];
-                    s_color = (s_color & 0xF0) | (fg & 0x0F);
-                } else if (code >= 40 && code <= 47) {
-                    /* Background color */
-                    uint8_t bg = ansi_to_vga_bg[code - 40];
-                    s_color = (s_color & 0x0F) | (bg & 0xF0);
-                } else if (code >= 90 && code <= 97) {
-                    /* Bright foreground (same as 30-37 but with bold bit) */
-                    uint8_t fg = ansi_to_vga_fg[code - 90];
-                    s_color = (s_color & 0xF0) | (fg | 0x08);
-                } else if (code >= 100 && code <= 107) {
-                    /* Bright background */
-                    uint8_t bg = ansi_to_vga_bg[code - 100];
-                    s_color = (s_color & 0x0F) | ((bg | 0x80) & 0xF0);
-                }
-            }
-            break;
-    }
-}
-
-/* Process a character in an ANSI escape sequence */
-static int process_ansi_char(char c)
-{
-    if (s_ansi_state.state == 0) {
-        /* Not in escape sequence */
-        if (c == '\x1B') { /* ESC */
-            s_ansi_state.state = 1;
-            return 1; /* consumed */
-        }
-        return 0; /* not consumed */
-    }
-    
-    if (s_ansi_state.state == 1) {
-        /* After ESC, expecting [ for CSI */
-        if (c == '[') {
-            s_ansi_state.state = 2;
-            s_ansi_state.param_count = 0;
-            s_ansi_state.params[0] = 0;
-            return 1;
-        }
-        /* Invalid sequence, reset */
-        s_ansi_state.state = 0;
-        return 1;
-    }
-    
-    if (s_ansi_state.state == 2) {
-        /* In CSI sequence */
-        if (c >= '0' && c <= '9') {
-            /* Accumulate parameter */
-            s_ansi_state.params[s_ansi_state.param_count] =
-                s_ansi_state.params[s_ansi_state.param_count] * 10 + (c - '0');
-            return 1;
-        } else if (c == ';') {
-            /* Parameter separator */
-            s_ansi_state.param_count++;
-            if (s_ansi_state.param_count >= ANSI_MAX_PARAMS)
-                s_ansi_state.param_count = ANSI_MAX_PARAMS - 1;
-            s_ansi_state.params[s_ansi_state.param_count] = 0;
-            return 1;
-        } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-            /* Command character */
-            s_ansi_state.state = c;
-            s_ansi_state.param_count++;
-            handle_ansi_sequence();
-            s_ansi_state.state = 0;
-            return 1;
-        } else if (c == '?') {
-            /* DEC private mode - just skip for now */
-            return 1;
-        }
-        return 1; /* consume unknown chars */
-    }
-    
-    return 0;
-}
-
-void TTY_Initialize(void) { TTY_Clear(); }
-
-void TTY_Clear(void)
-{
-   memset((char *)s_buffer, 0, BUFFER_LINES * SCREEN_WIDTH);
-   s_head = 0;
-   s_lines_used = 0;
-   s_cursor_x = 0;
-   s_cursor_y = 0;
-   s_scroll = 0;
-   mark_all_rows_dirty();
-   TTY_Repaint();
-}
-
-static void ensure_line_exists(void)
-{
-   if (s_lines_used == 0)
-   {
-      s_lines_used = 1;
-      s_head = 0;
-      for (int i = 0; i < SCREEN_WIDTH; i++) s_buffer[0][i] = '\0';
-   }
-}
-
-/* Compute the relative index of the first visible logical line within the
-   buffer (0..). This takes into account s_lines_used, SCREEN_HEIGHT and
-   s_scroll and clamps to >= 0. */
-static int compute_visible_start(void)
-{
-   int base =
-       (s_lines_used > SCREEN_HEIGHT) ? (int)(s_lines_used - SCREEN_HEIGHT) : 0;
-   int start = base - (int)s_scroll;
+   int base = (tty->buf_lines > SCREEN_HEIGHT) 
+              ? (int)(tty->buf_lines - SCREEN_HEIGHT) : 0;
+   int start = base - (int)tty->scroll_offset;
    if (start < 0) start = 0;
    return start;
 }
 
-/* Remove logical line at relative position rel_pos (0..s_lines_used-1).
-   Shifts following lines left. */
-static void buffer_remove_line_at_rel(uint32_t rel_pos)
+/* Ensure at least one line exists in buffer */
+static void ensure_line_exists(TTY_Device *tty)
 {
-   if (s_lines_used == 0 || rel_pos >= s_lines_used) return;
-   for (uint32_t i = rel_pos; i + 1 < s_lines_used; i++)
-   {
-      uint32_t dst = (s_head + i) % BUFFER_LINES;
-      uint32_t src = (s_head + i + 1) % BUFFER_LINES;
-      memcpy(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+   if (tty->buf_lines == 0) {
+      tty->buf_lines = 1;
+      tty->buf_head = 0;
+      memset(tty->screen_buf[0], 0, SCREEN_WIDTH);
    }
-   uint32_t last = (s_head + s_lines_used - 1) % BUFFER_LINES;
-   memset(s_buffer[last], 0, SCREEN_WIDTH);
-   s_lines_used--;
-   if (s_lines_used == 0) s_head = 0;
 }
 
-/* Append an empty line at the tail. If buffer full, drop the head. */
-static void push_newline_at_tail(void)
+/* Add a new line at the bottom of the buffer */
+static void push_newline(TTY_Device *tty)
 {
-   if (s_lines_used < BUFFER_LINES)
-   {
-      uint32_t idx = (s_head + s_lines_used) % BUFFER_LINES;
-      memset(s_buffer[idx], 0, SCREEN_WIDTH);
-      s_lines_used++;
+   if (tty->buf_lines < TTY_SCROLLBACK) {
+      uint32_t idx = (tty->buf_head + tty->buf_lines) % TTY_SCROLLBACK;
+      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
+      tty->buf_lines++;
+   } else {
+      /* Buffer full, drop oldest line */
+      tty->buf_head = (tty->buf_head + 1) % TTY_SCROLLBACK;
+      uint32_t idx = (tty->buf_head + tty->buf_lines - 1) % TTY_SCROLLBACK;
+      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
    }
-   else
-   {
-      /* drop oldest line */
-      s_head = (s_head + 1) % BUFFER_LINES;
-      uint32_t idx = (s_head + s_lines_used - 1) % BUFFER_LINES;
-      memset(s_buffer[idx], 0, SCREEN_WIDTH);
-   }
-   /* When a new logical line is appended programmatically, we prefer to
-      preserve the user's scroll position unless they were already at the
-      bottom (auto-follow mode). If s_scroll == 0 (following tail) then
-      reset scroll to show the bottom and place the cursor on the last
-      visible row. Otherwise increment s_scroll to keep the same visible
-      window contents (because base increases by 1). */
-   if (s_scroll == 0)
-   {
-      /* keep following the tail */
-      if (s_lines_used >= SCREEN_HEIGHT)
-         s_cursor_y = SCREEN_HEIGHT - 1;
+   
+   /* Update cursor for new line */
+   if (tty->scroll_offset == 0) {
+      if (tty->buf_lines >= SCREEN_HEIGHT)
+         tty->cursor_y = SCREEN_HEIGHT - 1;
       else
-         s_cursor_y = (int)s_lines_used - 1;
-   }
-   else
-   {
-      /* user scrolled up: advance scroll so visible start remains stable */
-      int max_scroll = (int)(s_lines_used - SCREEN_HEIGHT);
-      int new_scroll = (int)s_scroll + 1;
-      if (new_scroll > max_scroll) new_scroll = max_scroll;
-      s_scroll = (uint32_t)new_scroll;
+         tty->cursor_y = (int)tty->buf_lines - 1;
    }
 }
 
-/* Insert an empty logical line at relative position rel_pos (0..s_lines_used).
-   If buffer is full, the oldest line is dropped (s_head advanced). */
-static void buffer_insert_empty_line_at_rel(uint32_t rel_pos)
-{
-   if (rel_pos > s_lines_used) rel_pos = s_lines_used;
+/*
+ * ANSI escape sequence handling
+ */
 
-   if (s_lines_used < BUFFER_LINES)
-   {
-      /* shift lines right from tail to rel_pos */
-      for (int i = (int)s_lines_used; i > (int)rel_pos; i--)
-      {
-         uint32_t dst = (s_head + i) % BUFFER_LINES;
-         uint32_t src = (s_head + i - 1) % BUFFER_LINES;
-         memmove(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+static void handle_ansi_sgr(TTY_Device *tty)
+{
+   for (int i = 0; i < tty->ansi_param_count; i++) {
+      int code = tty->ansi_params[i];
+      
+      if (code == 0) {
+         tty->color = tty->default_color;
+      } else if (code == 1) {
+         tty->color |= 0x08;  /* Bold */
+      } else if (code >= 30 && code <= 37) {
+         tty->color = (tty->color & 0xF0) | ansi_to_vga_fg[code - 30];
+      } else if (code >= 40 && code <= 47) {
+         tty->color = (tty->color & 0x0F) | ansi_to_vga_bg[code - 40];
+      } else if (code >= 90 && code <= 97) {
+         tty->color = (tty->color & 0xF0) | (ansi_to_vga_fg[code - 90] | 0x08);
       }
-      uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
-      memset(s_buffer[idx], 0, SCREEN_WIDTH);
-      s_lines_used++;
    }
-   else
-   {
-      /* buffer full: drop head, then shift (head already moved logically) */
-      s_head = (s_head + 1) % BUFFER_LINES;
-      /* now move lines right from tail-1 down to rel_pos */
-      for (int i = (int)s_lines_used - 1; i > (int)rel_pos; i--)
-      {
-         uint32_t dst = (s_head + i) % BUFFER_LINES;
-         uint32_t src = (s_head + i - 1) % BUFFER_LINES;
-         memmove(s_buffer[dst], s_buffer[src], SCREEN_WIDTH);
+}
+
+static void handle_ansi_command(TTY_Device *tty, char cmd)
+{
+   int n = (tty->ansi_param_count > 0) ? tty->ansi_params[0] : 1;
+   if (n < 1) n = 1;
+   
+   switch (cmd) {
+      case 'A': /* Cursor up */
+         tty->cursor_y -= n;
+         if (tty->cursor_y < 0) tty->cursor_y = 0;
+         break;
+      case 'B': /* Cursor down */
+         tty->cursor_y += n;
+         if (tty->cursor_y >= SCREEN_HEIGHT) tty->cursor_y = SCREEN_HEIGHT - 1;
+         break;
+      case 'C': /* Cursor right */
+         tty->cursor_x += n;
+         if (tty->cursor_x >= SCREEN_WIDTH) tty->cursor_x = SCREEN_WIDTH - 1;
+         break;
+      case 'D': /* Cursor left */
+         tty->cursor_x -= n;
+         if (tty->cursor_x < 0) tty->cursor_x = 0;
+         break;
+      case 'H': case 'f': /* Cursor position */
+         {
+            int row = (tty->ansi_param_count > 0) ? tty->ansi_params[0] : 1;
+            int col = (tty->ansi_param_count > 1) ? tty->ansi_params[1] : 1;
+            if (row < 1) row = 1;
+            if (col < 1) col = 1;
+            tty->cursor_y = row - 1;
+            tty->cursor_x = col - 1;
+            if (tty->cursor_y >= SCREEN_HEIGHT) tty->cursor_y = SCREEN_HEIGHT - 1;
+            if (tty->cursor_x >= SCREEN_WIDTH) tty->cursor_x = SCREEN_WIDTH - 1;
+         }
+         break;
+      case 'J': /* Erase display */
+         if (n == 2) TTY_ClearDevice(tty);
+         break;
+      case 'K': /* Erase line */
+         {
+            int start = compute_visible_start(tty);
+            uint32_t rel = (uint32_t)start + (uint32_t)tty->cursor_y;
+            if (rel < tty->buf_lines) {
+               uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
+               if (n == 0) {
+                  memset(&tty->screen_buf[idx][tty->cursor_x], 0, 
+                         SCREEN_WIDTH - tty->cursor_x);
+               } else if (n == 1) {
+                  memset(tty->screen_buf[idx], 0, tty->cursor_x + 1);
+               } else {
+                  memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
+               }
+               mark_dirty(tty, tty->cursor_y);
+            }
+         }
+         break;
+      case 'm': /* SGR - colors */
+         handle_ansi_sgr(tty);
+         break;
+   }
+}
+
+static bool process_ansi(TTY_Device *tty, char c)
+{
+   if (tty->ansi_state == 0) {
+      if (c == '\x1B') {
+         tty->ansi_state = 1;
+         return true;
       }
-      uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
-      memset(s_buffer[idx], 0, SCREEN_WIDTH);
-      /* s_lines_used remains BUFFER_LINES */
+      return false;
+   }
+   
+   if (tty->ansi_state == 1) {
+      if (c == '[') {
+         tty->ansi_state = 2;
+         tty->ansi_param_count = 0;
+         tty->ansi_params[0] = 0;
+         return true;
+      }
+      tty->ansi_state = 0;
+      return true;
+   }
+   
+   if (tty->ansi_state == 2) {
+      if (c >= '0' && c <= '9') {
+         tty->ansi_params[tty->ansi_param_count] = 
+            tty->ansi_params[tty->ansi_param_count] * 10 + (c - '0');
+         return true;
+      } else if (c == ';') {
+         tty->ansi_param_count++;
+         if (tty->ansi_param_count >= 16) tty->ansi_param_count = 15;
+         tty->ansi_params[tty->ansi_param_count] = 0;
+         return true;
+      } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+         tty->ansi_param_count++;
+         handle_ansi_command(tty, c);
+         tty->ansi_state = 0;
+         return true;
+      } else if (c == '?') {
+         return true;  /* Skip DEC private mode prefix */
+      }
+      tty->ansi_state = 0;
+      return true;
+   }
+   
+   return false;
+}
+
+/*
+ * Output character to screen buffer
+ */
+
+static void tty_output_char(TTY_Device *tty, char c)
+{
+   /* Handle ANSI sequences */
+   if (process_ansi(tty, c)) return;
+   
+   ensure_line_exists(tty);
+   
+   int visible_start = compute_visible_start(tty);
+   uint32_t rel = (uint32_t)visible_start + (uint32_t)tty->cursor_y;
+   
+   /* Handle control characters */
+   if (c == '\n') {
+      tty->scroll_offset = 0;
+      push_newline(tty);
+      tty->cursor_x = 0;
+      mark_all_dirty(tty);
+      TTY_Repaint(tty);
+      return;
+   }
+   
+   if (c == '\r') {
+      tty->cursor_x = 0;
+      return;
+   }
+   
+   if (c == '\t') {
+      int n = 4 - (tty->cursor_x % 4);
+      for (int i = 0; i < n && tty->cursor_x < SCREEN_WIDTH; i++) {
+         tty_output_char(tty, ' ');
+      }
+      return;
+   }
+   
+   if (c == '\b') {
+      if (tty->cursor_x > 0) {
+         tty->cursor_x--;
+         /* Erase character at cursor */
+         if (rel < tty->buf_lines) {
+            uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
+            memmove(&tty->screen_buf[idx][tty->cursor_x],
+                    &tty->screen_buf[idx][tty->cursor_x + 1],
+                    SCREEN_WIDTH - tty->cursor_x - 1);
+            tty->screen_buf[idx][SCREEN_WIDTH - 1] = '\0';
+            mark_dirty(tty, tty->cursor_y);
+         }
+      }
+      TTY_Repaint(tty);
+      return;
+   }
+   
+   /* Printable character */
+   while (rel >= tty->buf_lines) {
+      push_newline(tty);
+      visible_start = compute_visible_start(tty);
+      rel = (uint32_t)visible_start + (uint32_t)tty->cursor_y;
+   }
+   
+   uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
+   tty->screen_buf[idx][tty->cursor_x] = c;
+   tty->cursor_x++;
+   
+   if (tty->cursor_x >= SCREEN_WIDTH) {
+      tty->cursor_x = 0;
+      push_newline(tty);
+   }
+   
+   tty->scroll_offset = 0;
+   mark_dirty(tty, tty->cursor_y);
+   TTY_Repaint(tty);
+}
+
+/*
+ * Line discipline - canonical mode input handling
+ */
+
+static void line_flush(TTY_Device *tty)
+{
+   /* Push line buffer contents to input buffer */
+   for (uint32_t i = 0; i < tty->line_len; i++) {
+      buffer_push(&tty->input, tty->line_buf[i]);
+   }
+   buffer_push(&tty->input, '\n');
+   tty->line_len = 0;
+   tty->line_pos = 0;
+   tty->line_ready = true;
+}
+
+static void line_erase_char(TTY_Device *tty)
+{
+   if (tty->line_len > 0) {
+      tty->line_len--;
+      if (tty->line_pos > tty->line_len) {
+         tty->line_pos = tty->line_len;
+      }
+      /* Echo backspace */
+      if (TTY_IsEcho(tty)) {
+         tty_output_char(tty, '\b');
+         tty_output_char(tty, ' ');
+         tty_output_char(tty, '\b');
+      }
+   }
+}
+
+static void line_kill(TTY_Device *tty)
+{
+   /* Erase entire line */
+   while (tty->line_len > 0) {
+      line_erase_char(tty);
+   }
+}
+
+static void line_add_char(TTY_Device *tty, char c)
+{
+   if (tty->line_len < TTY_LINE_SIZE - 1) {
+      tty->line_buf[tty->line_len++] = c;
+      tty->line_pos = tty->line_len;
+      /* Echo if enabled */
+      if (TTY_IsEcho(tty)) {
+         tty_output_char(tty, c);
+      }
+   }
+}
+
+/*
+ * Public API Implementation
+ */
+
+void TTY_Initialize(void)
+{
+   if (g_TTYInitialized) return;
+   
+   /* Clear device array */
+   for (int i = 0; i < TTY_MAX_DEVICES; i++) {
+      g_TTYDevices[i] = NULL;
+   }
+   
+   /* Create TTY0 (console) with static buffers */
+   TTY_Device *tty0 = TTY_Create(0);
+   if (tty0) {
+      g_ActiveTTY = tty0;
+   }
+   
+   g_TTYInitialized = true;
+   TTY_Clear();
+}
+
+TTY_Device *TTY_Create(uint32_t id)
+{
+   if (id >= TTY_MAX_DEVICES) return NULL;
+   if (g_TTYDevices[id] != NULL) return g_TTYDevices[id];
+   
+   TTY_Device *tty;
+   
+   /* TTY0 uses static buffers */
+   if (id == 0) {
+      tty = (TTY_Device *)kzalloc(sizeof(TTY_Device));
+      if (!tty) return NULL;
+      
+      tty->screen_buf = (char (*)[SCREEN_WIDTH])g_TTY0ScreenBuf;
+      tty->display_buf = g_TTY0DisplayBuf;
+      buffer_init(&tty->input, g_TTY0InputBuf, TTY_INPUT_SIZE);
+   } else {
+      tty = (TTY_Device *)kzalloc(sizeof(TTY_Device));
+      if (!tty) return NULL;
+      
+      tty->screen_buf = (char (*)[SCREEN_WIDTH])kmalloc(TTY_SCROLLBACK * SCREEN_WIDTH);
+      if (!tty->screen_buf) {
+         free(tty);
+         return NULL;
+      }
+      
+      tty->display_buf = (uint16_t *)kmalloc(SCREEN_WIDTH * SCREEN_HEIGHT * 2);
+      if (!tty->display_buf) {
+         free(tty->screen_buf);
+         free(tty);
+         return NULL;
+      }
+      
+      char *input_buf = (char *)kmalloc(TTY_INPUT_SIZE);
+      if (!input_buf) {
+         free(tty->display_buf);
+         free(tty->screen_buf);
+         free(tty);
+         return NULL;
+      }
+      buffer_init(&tty->input, input_buf, TTY_INPUT_SIZE);
+   }
+   
+   /* Initialize TTY state */
+   tty->id = id;
+   tty->active = true;
+   tty->line_len = 0;
+   tty->line_pos = 0;
+   tty->line_ready = false;
+   tty->eof_pending = false;
+   tty->buf_head = 0;
+   tty->buf_lines = 0;
+   tty->scroll_offset = 0;
+   tty->cursor_x = 0;
+   tty->cursor_y = 0;
+   tty->color = 0x07;
+   tty->default_color = 0x07;
+   tty->flags = TTY_DEFAULT_FLAGS;
+   tty->ansi_state = 0;
+   tty->ansi_param_count = 0;
+   tty->dirty_start = SCREEN_HEIGHT;
+   tty->dirty_end = -1;
+   tty->bytes_read = 0;
+   tty->bytes_written = 0;
+   
+   /* Clear screen buffer */
+   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH);
+   
+   g_TTYDevices[id] = tty;
+   return tty;
+}
+
+void TTY_Destroy(TTY_Device *tty)
+{
+   if (!tty) return;
+   if (tty->id >= TTY_MAX_DEVICES) return;
+   
+   g_TTYDevices[tty->id] = NULL;
+   
+   if (g_ActiveTTY == tty) {
+      g_ActiveTTY = g_TTYDevices[0];
+   }
+   
+   /* Don't free static buffers for TTY0 */
+   if (tty->id != 0) {
+      free(tty->input.data);
+      free(tty->display_buf);
+      free(tty->screen_buf);
+   }
+   
+   free(tty);
+}
+
+TTY_Device *TTY_GetDevice(void)
+{
+   return g_ActiveTTY;
+}
+
+TTY_Device *TTY_GetDeviceById(uint32_t id)
+{
+   if (id >= TTY_MAX_DEVICES) return NULL;
+   return g_TTYDevices[id];
+}
+
+void TTY_SetActive(TTY_Device *tty)
+{
+   if (!tty) return;
+   g_ActiveTTY = tty;
+   mark_all_dirty(tty);
+   TTY_Repaint(tty);
+}
+
+/*
+ * Input handling
+ */
+
+void TTY_InputChar(TTY_Device *tty, char c)
+{
+   if (!tty) return;
+   
+   /* Handle CR->NL mapping */
+   if ((tty->flags & TTY_FLAG_ICRNL) && c == '\r') {
+      c = '\n';
+   }
+   
+   /* Handle signals */
+   if (tty->flags & TTY_FLAG_ISIG) {
+      if (c == TTY_CHAR_INTR) {
+         /* TODO: Send SIGINT to foreground process */
+         if (TTY_IsEcho(tty)) {
+            tty_output_char(tty, '^');
+            tty_output_char(tty, 'C');
+            tty_output_char(tty, '\n');
+         }
+         tty->line_len = 0;
+         tty->line_pos = 0;
+         return;
+      }
+      if (c == TTY_CHAR_EOF) {
+         if (tty->line_len == 0) {
+            tty->eof_pending = true;
+            tty->line_ready = true;
+         } else {
+            line_flush(tty);
+         }
+         return;
+      }
+      if (c == TTY_CHAR_SUSP) {
+         /* TODO: Send SIGTSTP to foreground process */
+         if (TTY_IsEcho(tty)) {
+            tty_output_char(tty, '^');
+            tty_output_char(tty, 'Z');
+            tty_output_char(tty, '\n');
+         }
+         return;
+      }
+   }
+   
+   /* Canonical mode - line editing */
+   if (TTY_IsCanonical(tty)) {
+      if (c == '\b' || c == TTY_CHAR_ERASE) {
+         line_erase_char(tty);
+         return;
+      }
+      if (c == TTY_CHAR_KILL) {
+         line_kill(tty);
+         return;
+      }
+      if (c == '\n') {
+         if (TTY_IsEcho(tty)) {
+            tty_output_char(tty, '\n');
+         }
+         line_flush(tty);
+         return;
+      }
+      
+      /* Regular character */
+      line_add_char(tty, c);
+   } else {
+      /* Raw mode - pass through directly */
+      buffer_push(&tty->input, c);
+      if (TTY_IsEcho(tty)) {
+         tty_output_char(tty, c);
+      }
+   }
+}
+
+void TTY_InputPush(char c)
+{
+   if (g_ActiveTTY) {
+      TTY_InputChar(g_ActiveTTY, c);
+   }
+}
+
+/*
+ * Output handling
+ */
+
+void TTY_WriteChar(TTY_Device *tty, char c)
+{
+   if (!tty) return;
+   
+   /* Output processing */
+   if (tty->flags & TTY_FLAG_OPOST) {
+      if ((tty->flags & TTY_FLAG_ONLCR) && c == '\n') {
+         tty_output_char(tty, '\r');
+      }
+   }
+   
+   tty_output_char(tty, c);
+   tty->bytes_written++;
+}
+
+void TTY_Write(TTY_Device *tty, const char *data, size_t len)
+{
+   if (!tty || !data) return;
+   
+   for (size_t i = 0; i < len; i++) {
+      TTY_WriteChar(tty, data[i]);
    }
 }
 
 void TTY_PutChar(char c)
 {
-   /* Handle ANSI escape sequences first */
-   if (process_ansi_char(c))
-       return;
-   
-   ensure_line_exists();
-   int prev_visible_start = compute_visible_start();
-   int prev_cursor_row = s_cursor_y;
-
-   int visible_start = prev_visible_start;
-   uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-   uint32_t idx = (s_head + (rel_pos < s_lines_used
-                                 ? rel_pos
-                                 : (s_lines_used ? s_lines_used - 1 : 0))) %
-                  BUFFER_LINES;
-
-   if (c == '\n')
-   {
-      s_scroll = 0;
-
-      uint32_t rel = rel_pos;
-      if (rel >= s_lines_used) rel = s_lines_used - 1;
-      uint32_t idx_cur = (s_head + rel) % BUFFER_LINES;
-
-      int len = 0;
-      while (len < SCREEN_WIDTH && s_buffer[idx_cur][len]) len++;
-
-      if (s_cursor_x < len)
-      {
-         buffer_insert_empty_line_at_rel(rel + 1);
-         uint32_t idx_new = (s_head + rel + 1) % BUFFER_LINES;
-         int move = len - s_cursor_x;
-         memcpy(s_buffer[idx_new], &s_buffer[idx_cur][s_cursor_x], move);
-         memset(s_buffer[idx_new] + move, 0, SCREEN_WIDTH - move);
-         memset(s_buffer[idx_cur] + s_cursor_x, 0, SCREEN_WIDTH - s_cursor_x);
-      }
-      else
-      {
-         buffer_insert_empty_line_at_rel(rel + 1);
-      }
-
-      {
-         uint32_t new_logical = rel + 1;
-         int new_start = compute_visible_start();
-         int new_y = (int)new_logical - new_start;
-         if (new_y < 0) new_y = 0;
-         if (new_y >= SCREEN_HEIGHT)
-         {
-            if (s_lines_used > SCREEN_HEIGHT)
-               s_head = (s_head + 1) % BUFFER_LINES;
-            new_y = SCREEN_HEIGHT - 1;
-         }
-         s_cursor_y = new_y;
-      }
-
-      s_cursor_x = 0;
-      mark_row_dirty(prev_cursor_row);
-      mark_row_dirty(prev_cursor_row + 1);
-      mark_row_dirty(s_cursor_y);
-      goto repaint;
+   if (g_ActiveTTY) {
+      TTY_WriteChar(g_ActiveTTY, c);
    }
-
-   if (c == '\r')
-   {
-      // Clear the current line and move cursor to start
-      int visible_start = compute_visible_start();
-      uint32_t rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-      if (rel_pos < s_lines_used)
-      {
-         uint32_t idx = (s_head + rel_pos) % BUFFER_LINES;
-         memset(s_buffer[idx], 0, SCREEN_WIDTH);
-      }
-      s_cursor_x = 0;
-      mark_row_dirty(s_cursor_y);
-      setcursor(s_cursor_x, s_cursor_y);
-      return;
-   }
-
-   if (c == '\t')
-   {
-      int n = 4 - (s_cursor_x % 4);
-      for (int i = 0; i < n; i++) TTY_PutChar(' ');
-      return;
-   }
-
-   if (c == '\b')
-   {
-      if (s_cursor_x > 0)
-      {
-         memmove(&s_buffer[idx][s_cursor_x - 1], &s_buffer[idx][s_cursor_x],
-                 SCREEN_WIDTH - s_cursor_x);
-         s_buffer[idx][SCREEN_WIDTH - 1] = '\0';
-         s_cursor_x--;
-         mark_row_dirty(prev_cursor_row);
-         goto repaint;
-      }
-
-      if (rel_pos > 0)
-      {
-         uint32_t prev_rel = rel_pos - 1;
-         uint32_t prev_idx = (s_head + prev_rel) % BUFFER_LINES;
-         int len_prev = 0, len_curr = 0;
-         while (len_prev < SCREEN_WIDTH && s_buffer[prev_idx][len_prev])
-            len_prev++;
-         while (len_curr < SCREEN_WIDTH && s_buffer[idx][len_curr]) len_curr++;
-         int orig_prev_len = len_prev;
-         int can_move = SCREEN_WIDTH - len_prev;
-         int move = (len_curr < can_move) ? len_curr : can_move;
-         memcpy(&s_buffer[prev_idx][len_prev], s_buffer[idx], move);
-
-         if (move < len_curr)
-         {
-            int leftover = len_curr - move;
-            memmove(s_buffer[idx], s_buffer[idx] + move, leftover);
-            memset(s_buffer[idx] + leftover, 0, SCREEN_WIDTH - leftover);
-         }
-         else
-         {
-            memset(s_buffer[idx], 0, SCREEN_WIDTH);
-         }
-
-         int empty = 1;
-         for (int i = 0; i < SCREEN_WIDTH; i++)
-            if (s_buffer[idx][i])
-            {
-               empty = 0;
-               break;
-            }
-         if (empty)
-         {
-            buffer_remove_line_at_rel(rel_pos);
-            int visible_off = (int)((s_lines_used > SCREEN_HEIGHT)
-                                        ? (s_lines_used - SCREEN_HEIGHT)
-                                        : 0);
-            s_cursor_y = (int)prev_rel - visible_off;
-            if (s_cursor_y < 0) s_cursor_y = 0;
-            int new_len = orig_prev_len;
-            if (new_len > SCREEN_WIDTH - 1) new_len = SCREEN_WIDTH - 1;
-            s_cursor_x = new_len;
-         }
-         else
-         {
-            s_cursor_x = 0;
-         }
-         mark_visible_range_from_row(prev_cursor_row > 0 ? prev_cursor_row - 1
-                                                         : 0);
-         mark_row_dirty(s_cursor_y);
-         goto repaint;
-      }
-
-      s_scroll = 0;
-      mark_all_rows_dirty();
-      goto repaint;
-   }
-
-   {
-      visible_start = compute_visible_start();
-      rel_pos = (uint32_t)visible_start + (uint32_t)s_cursor_y;
-      while (rel_pos >= s_lines_used) push_newline_at_tail();
-      idx = (s_head + rel_pos) % BUFFER_LINES;
-
-      int len = 0;
-      while (len < SCREEN_WIDTH && s_buffer[idx][len]) len++;
-      if (s_cursor_x > len) s_cursor_x = len;
-
-      if (len < SCREEN_WIDTH)
-      {
-         memmove(&s_buffer[idx][s_cursor_x + 1], &s_buffer[idx][s_cursor_x],
-                 (size_t)(len - s_cursor_x));
-         s_buffer[idx][s_cursor_x] = c;
-      }
-      else
-      {
-         char last = s_buffer[idx][SCREEN_WIDTH - 1];
-         if (rel_pos + 1 >= s_lines_used)
-         {
-            push_newline_at_tail();
-         }
-         uint32_t next_idx = (s_head + rel_pos + 1) % BUFFER_LINES;
-         memmove(&s_buffer[next_idx][1], s_buffer[next_idx], SCREEN_WIDTH - 1);
-         s_buffer[next_idx][0] = last;
-         memmove(&s_buffer[idx][s_cursor_x + 1], &s_buffer[idx][s_cursor_x],
-                 SCREEN_WIDTH - 1 - s_cursor_x);
-         s_buffer[idx][s_cursor_x] = c;
-      }
-
-      s_cursor_x++;
-      s_scroll = 0;
-      if (s_cursor_x >= SCREEN_WIDTH)
-      {
-         s_cursor_x = 0;
-         if (s_cursor_y < SCREEN_HEIGHT - 1)
-            s_cursor_y++;
-         else if (s_lines_used > SCREEN_HEIGHT)
-            s_head = (s_head + 1) % BUFFER_LINES;
-      }
-      mark_row_dirty(prev_cursor_row);
-      mark_row_dirty(s_cursor_y);
-      goto repaint;
-   }
-
-repaint:
-   finalize_putc_repaint(prev_visible_start);
-}
-
-/* Push a character into the kernel input FIFO (called by keyboard driver).
-   Returns 0 on success, -1 on overflow. */
-int TTY_InputPush(char c)
-{
-   if (s_input_len >= INPUT_FIFO_SIZE) return -1;
-   s_input_fifo[s_input_tail] = c;
-   s_input_tail = (s_input_tail + 1) % INPUT_FIFO_SIZE;
-   s_input_len++;
-   return 0;
-}
-
-/* Read (pop) one character from input FIFO. If available, the character is
-   appended to the output stream by calling `TTY_PutChar()` so it becomes
-   visible, and the char value is returned (0..255). If no data, returns -1. */
-int TTY_ReadChar(void)
-{
-   if (s_input_len == 0) return -1;
-   char c = s_input_fifo[s_input_head];
-   s_input_head = (s_input_head + 1) % INPUT_FIFO_SIZE;
-   s_input_len--;
-
-   /* Move the character to the output stream (visible) */
-   TTY_PutChar(c);
-
-   return (int)(unsigned char)c;
-}
-
-static void finalize_putc_repaint(int prev_visible_start)
-{
-   if (compute_visible_start() != prev_visible_start) mark_all_rows_dirty();
-   TTY_Repaint();
 }
 
 void TTY_PutString(const char *s)
 {
-   while (*s) TTY_PutChar(*s++);
+   if (!s) return;
+   while (*s) {
+      TTY_PutChar(*s++);
+   }
+}
+
+/*
+ * Reading
+ */
+
+int TTY_Read(TTY_Device *tty, char *buf, size_t count)
+{
+   if (!tty || !buf || count == 0) return 0;
+   
+   /* In canonical mode, wait for a complete line */
+   if (TTY_IsCanonical(tty)) {
+      /* Wait for line_ready - in real system this would block */
+      if (!tty->line_ready && tty->input.count == 0) {
+         return 0;  /* Would block */
+      }
+   }
+   
+   /* Check for EOF */
+   if (tty->eof_pending && tty->input.count == 0) {
+      tty->eof_pending = false;
+      tty->line_ready = false;
+      return 0;  /* EOF */
+   }
+   
+   size_t bytes_read = 0;
+   while (bytes_read < count) {
+      int c = buffer_pop(&tty->input);
+      if (c < 0) break;
+      buf[bytes_read++] = (char)c;
+      
+      /* In canonical mode, stop at newline */
+      if (TTY_IsCanonical(tty) && c == '\n') {
+         break;
+      }
+   }
+   
+   if (tty->input.count == 0) {
+      tty->line_ready = false;
+   }
+   
+   tty->bytes_read += bytes_read;
+   return (int)bytes_read;
+}
+
+int TTY_ReadNonBlock(TTY_Device *tty, char *buf, size_t count)
+{
+   return TTY_Read(tty, buf, count);
+}
+
+int TTY_ReadChar(void)
+{
+   if (!g_ActiveTTY) return -1;
+   
+   char c;
+   int n = TTY_Read(g_ActiveTTY, &c, 1);
+   if (n <= 0) return -1;
+   return (int)(unsigned char)c;
+}
+
+/*
+ * Display control
+ */
+
+void TTY_ClearDevice(TTY_Device *tty)
+{
+   if (!tty) return;
+   
+   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH);
+   tty->buf_head = 0;
+   tty->buf_lines = 0;
+   tty->scroll_offset = 0;
+   tty->cursor_x = 0;
+   tty->cursor_y = 0;
+   mark_all_dirty(tty);
+   TTY_Repaint(tty);
+}
+
+void TTY_Clear(void)
+{
+   if (g_ActiveTTY) {
+      TTY_ClearDevice(g_ActiveTTY);
+   }
 }
 
 void TTY_Scroll(int lines)
 {
-   /* Positive lines -> scroll up (view older content); negative -> scroll down.
-      We maintain s_scroll which is clamped between 0 and max_scroll. */
-   if (s_lines_used <= SCREEN_HEIGHT)
-   {
-      /* nothing to scroll */
-      return;
-   }
-
-   int max_scroll = (int)(s_lines_used - SCREEN_HEIGHT);
-   int new_scroll = (int)s_scroll + lines;
+   TTY_Device *tty = g_ActiveTTY;
+   if (!tty) return;
+   
+   if (tty->buf_lines <= SCREEN_HEIGHT) return;
+   
+   int max_scroll = (int)(tty->buf_lines - SCREEN_HEIGHT);
+   int new_scroll = (int)tty->scroll_offset + lines;
+   
    if (new_scroll < 0) new_scroll = 0;
    if (new_scroll > max_scroll) new_scroll = max_scroll;
-   s_scroll = (uint32_t)new_scroll;
-   mark_all_rows_dirty();
-   TTY_Repaint();
+   
+   tty->scroll_offset = (uint32_t)new_scroll;
+   mark_all_dirty(tty);
+   TTY_Repaint(tty);
 }
 
-void TTY_SetColor(uint8_t color) { s_color = color; }
-
-void TTY_SetCursor(int x, int y)
+void TTY_Repaint(TTY_Device *tty)
 {
-   if (x < 0) x = 0;
-   if (x >= SCREEN_WIDTH) x = SCREEN_WIDTH - 1;
-   if (y < 0) y = 0;
-   if (y >= SCREEN_HEIGHT) y = SCREEN_HEIGHT - 1;
-   /* Clamp x to the actual printable length of the visible logical line so
-      the cursor cannot be positioned in trailing empty space. */
-   int max_x = TTY_GetVisibleLineLength(y);
-   if (x > max_x) x = max_x;
-   s_cursor_x = x;
-   s_cursor_y = y;
-   setcursor(s_cursor_x, s_cursor_y);
-}
-
-void TTY_GetCursor(int *x, int *y)
-{
-   if (x) *x = s_cursor_x;
-   if (y) *y = s_cursor_y;
-}
-
-int TTY_GetVisibleLineLength(int y)
-{
-   if (y < 0 || y >= SCREEN_HEIGHT) return 0;
-   int start = compute_visible_start();
-   uint32_t logical = (uint32_t)start + (uint32_t)y;
-   if (logical >= s_lines_used) return 0;
-   uint32_t idx = (s_head + logical) % BUFFER_LINES;
-   int len = 0;
-   while (len < SCREEN_WIDTH && s_buffer[idx][len]) len++;
-   return len;
-}
-
-int TTY_GetMaxScroll(void)
-{
-   if (s_lines_used <= SCREEN_HEIGHT) return 0;
-   return (int)(s_lines_used - SCREEN_HEIGHT);
-}
-
-uint32_t TTY_GetVisibleStart(void)
-{
-   return (uint32_t)compute_visible_start();
-}
-
-void TTY_Repaint(void)
-{
-   int start = compute_visible_start();
-   if (s_dirty_row_start > s_dirty_row_end)
-   {
-      setcursor(s_cursor_x, s_cursor_y);
+   if (!tty) return;
+   if (tty != g_ActiveTTY) return;  /* Only repaint active TTY */
+   
+   int start = compute_visible_start(tty);
+   
+   if (tty->dirty_start > tty->dirty_end) {
+      setcursor(tty->cursor_x, tty->cursor_y);
       return;
    }
-
-   const uint8_t def_color = 0x7;
-   uint16_t attr = ((uint16_t)(s_color ? s_color : def_color)) << 8;
-
-   for (int row = s_dirty_row_start; row <= s_dirty_row_end; row++)
-   {
-      uint32_t logical_line = (uint32_t)start + (uint32_t)row;
-      uint16_t *dest = &s_display_buffer[row * SCREEN_WIDTH];
-      if (logical_line >= s_lines_used)
-      {
+   
+   uint16_t attr = ((uint16_t)tty->color) << 8;
+   
+   for (int row = tty->dirty_start; row <= tty->dirty_end; row++) {
+      uint32_t logical = (uint32_t)start + (uint32_t)row;
+      uint16_t *dest = &tty->display_buf[row * SCREEN_WIDTH];
+      
+      if (logical >= tty->buf_lines) {
          uint16_t fill = attr | ' ';
-         for (uint32_t col = 0; col < SCREEN_WIDTH; col++) dest[col] = fill;
-      }
-      else
-      {
-         uint32_t src = (s_head + logical_line) % BUFFER_LINES;
-         for (uint32_t col = 0; col < SCREEN_WIDTH; col++)
-         {
-            char ch = s_buffer[src][col];
+         for (int col = 0; col < SCREEN_WIDTH; col++) {
+            dest[col] = fill;
+         }
+      } else {
+         uint32_t idx = (tty->buf_head + logical) % TTY_SCROLLBACK;
+         for (int col = 0; col < SCREEN_WIDTH; col++) {
+            char ch = tty->screen_buf[idx][col];
             if (!ch) ch = ' ';
             dest[col] = attr | (uint8_t)ch;
          }
       }
    }
-   g_HalTtyOperations->UpdateVga(s_display_buffer);
-   reset_dirty_rows();
-   setcursor(s_cursor_x, s_cursor_y);
+   
+   if (g_HalTtyOperations && g_HalTtyOperations->UpdateVga) {
+      g_HalTtyOperations->UpdateVga(tty->display_buf);
+   }
+   
+   reset_dirty(tty);
+   setcursor(tty->cursor_x, tty->cursor_y);
+}
+
+void TTY_Flush(TTY_Device *tty)
+{
+   if (!tty) return;
+   mark_all_dirty(tty);
+   TTY_Repaint(tty);
+}
+
+/*
+ * Cursor control
+ */
+
+void TTY_SetCursor(TTY_Device *tty, int x, int y)
+{
+   if (!tty) return;
+   
+   if (x < 0) x = 0;
+   if (x >= SCREEN_WIDTH) x = SCREEN_WIDTH - 1;
+   if (y < 0) y = 0;
+   if (y >= SCREEN_HEIGHT) y = SCREEN_HEIGHT - 1;
+   
+   tty->cursor_x = x;
+   tty->cursor_y = y;
+   
+   if (tty == g_ActiveTTY) {
+      setcursor(x, y);
+   }
+}
+
+void TTY_GetCursor(TTY_Device *tty, int *x, int *y)
+{
+   if (!tty) return;
+   if (x) *x = tty->cursor_x;
+   if (y) *y = tty->cursor_y;
+}
+
+/*
+ * Attributes
+ */
+
+void TTY_SetColor(uint8_t color)
+{
+   if (g_ActiveTTY) {
+      g_ActiveTTY->color = color;
+   }
+}
+
+void TTY_SetFlags(TTY_Device *tty, uint32_t flags)
+{
+   if (!tty) return;
+   tty->flags = flags;
+}
+
+uint32_t TTY_GetFlags(TTY_Device *tty)
+{
+   if (!tty) return 0;
+   return tty->flags;
+}
+
+/*
+ * Query functions
+ */
+
+int TTY_GetVisibleLineLength(int y)
+{
+   TTY_Device *tty = g_ActiveTTY;
+   if (!tty) return 0;
+   if (y < 0 || y >= SCREEN_HEIGHT) return 0;
+   
+   int start = compute_visible_start(tty);
+   uint32_t logical = (uint32_t)start + (uint32_t)y;
+   if (logical >= tty->buf_lines) return 0;
+   
+   uint32_t idx = (tty->buf_head + logical) % TTY_SCROLLBACK;
+   int len = 0;
+   while (len < SCREEN_WIDTH && tty->screen_buf[idx][len]) len++;
+   return len;
+}
+
+int TTY_GetMaxScroll(void)
+{
+   TTY_Device *tty = g_ActiveTTY;
+   if (!tty) return 0;
+   if (tty->buf_lines <= SCREEN_HEIGHT) return 0;
+   return (int)(tty->buf_lines - SCREEN_HEIGHT);
+}
+
+uint32_t TTY_GetVisibleStart(void)
+{
+   TTY_Device *tty = g_ActiveTTY;
+   if (!tty) return 0;
+   return (uint32_t)compute_visible_start(tty);
+}
+
+/*
+ * Devfs operations
+ */
+
+uint32_t TTY_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset,
+                       uint32_t size, void *buffer)
+{
+   (void)offset;
+   if (!buffer || size == 0) return 0;
+   
+   /* Get TTY from node's private_data, or use active TTY */
+   TTY_Device *tty = node ? (TTY_Device *)node->private_data : g_ActiveTTY;
+   if (!tty) tty = g_ActiveTTY;
+   if (!tty) return 0;
+   
+   return (uint32_t)TTY_Read(tty, (char *)buffer, size);
+}
+
+uint32_t TTY_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset,
+                        uint32_t size, const void *buffer)
+{
+   (void)offset;
+   if (!buffer || size == 0) return 0;
+   
+   /* Get TTY from node's private_data, or use active TTY */
+   TTY_Device *tty = node ? (TTY_Device *)node->private_data : g_ActiveTTY;
+   if (!tty) tty = g_ActiveTTY;
+   if (!tty) return 0;
+   
+   TTY_Write(tty, (const char *)buffer, size);
+   return size;
+}
+
+int TTY_DevfsIoctl(DEVFS_DeviceNode *node, uint32_t cmd, void *arg)
+{
+   TTY_Device *tty = node ? (TTY_Device *)node->private_data : g_ActiveTTY;
+   if (!tty) return -1;
+   
+   switch (cmd) {
+      case TTY_IOCTL_GETFLAGS:
+         if (arg) *(uint32_t *)arg = tty->flags;
+         return 0;
+      case TTY_IOCTL_SETFLAGS:
+         if (arg) tty->flags = *(uint32_t *)arg;
+         return 0;
+      case TTY_IOCTL_FLUSH:
+         buffer_clear(&tty->input);
+         tty->line_len = 0;
+         tty->line_pos = 0;
+         tty->line_ready = false;
+         return 0;
+      case TTY_IOCTL_GETSIZE:
+         if (arg) {
+            uint16_t *size = (uint16_t *)arg;
+            size[0] = SCREEN_WIDTH;
+            size[1] = SCREEN_HEIGHT;
+         }
+         return 0;
+      default:
+         return -1;
+   }
 }

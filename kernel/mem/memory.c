@@ -39,11 +39,6 @@ void mem_fault_handler(void *addr, size_t len, int code)
 extern void *memcpy_asm(void *dst, const void *src, size_t num);
 void *memcpy(void *dst, const void *src, size_t num)
 {
-   if (num > 1024)
-   {
-      printf("[MEMCPY] Large copy:  %u bytes from 0x%x to 0x%x\n", num,
-             (uint32_t)src, (uint32_t)dst);
-   }
    return memcpy_asm(dst, src, num);
 }
 

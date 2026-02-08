@@ -11,6 +11,17 @@
 
 /* Simple non-blocking getchar that uses the TTY input stream. Returns -1
    when no character is available. */
+void setcursor(int x, int y)
+{
+   if (x < 0) x = 0;
+   if (y < 0) y = 0;
+   uint16_t pos = (uint16_t)(y * 80 + x);
+   g_HalIoOperations->outb(0x3D4, 0x0F);
+   g_HalIoOperations->outb(0x3D5, (uint8_t)(pos & 0xFF));
+   g_HalIoOperations->outb(0x3D4, 0x0E);
+   g_HalIoOperations->outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
 int getchar(void)
 {
    extern int TTY_ReadChar(void);
@@ -20,7 +31,7 @@ int getchar(void)
 void putc(char c)
 {
    g_HalIoOperations->outb(0xe9, c);
-   TTY_WriteStream(TTY_GetDevice(), TTY_STREAM_STDOUT, &c, 1);
+   TTY_PutChar(c);
 }
 
 void puts(const char *str)

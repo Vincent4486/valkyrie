@@ -143,12 +143,11 @@ int FD_Write(void *proc_ptr, int fd, const void *buf, uint32_t count)
    FileDescriptor *file = FD_Get(proc, fd);
    if (!file) return -1; // EBADF
 
-   // Handle stdout/stderr: write to TTY streams
+   // Handle stdout/stderr: write to TTY
    if (fd == 1 || fd == 2)
    {
       TTY_Device *dev = TTY_GetDevice();
-      int stream = (fd == 2) ? TTY_STREAM_STDERR : TTY_STREAM_STDOUT;
-      if (dev) TTY_WriteStream(dev, stream, buf, count);
+      if (dev) TTY_Write(dev, buf, count);
       return (int)count;
    }
 
