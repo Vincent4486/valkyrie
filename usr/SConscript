@@ -35,10 +35,14 @@ musl_lib = os.path.join(sysroot, 'lib')
 # Create usermode environment with musl support
 usermode_env = TARGET_ENVIRONMENT.Clone()
 usermode_env.Append(
-    CPATH=[musl_include],
     CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
-    CPPPATH=[musl_include],
-    LIBPATH=[musl_lib],
+)
+
+# Architecture-specific flags for userland
+usermode_env.Append(
+    ASFLAGS=arch_config.get('asflags', []),
+    CCFLAGS=arch_config.get('ccflags', []),
+    LINKFLAGS=arch_config.get('linkflags', []),
 )
 
 # Configure shared library naming
