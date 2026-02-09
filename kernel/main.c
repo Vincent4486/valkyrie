@@ -38,7 +38,7 @@ void hold(int sec)
          printf("\r\x1B[1;37;46mSystem up for %u seconds\x1B[0m", g_SysInfo->uptime_seconds);
          last_uptime = g_SysInfo->uptime_seconds;
       }
-
+      
       /* Idle efficiently until next interrupt: enable interrupts, HLT,
          then disable again. Matches i686 PS/2 idle usage. */
       __asm__ volatile("sti; hlt; cli");
@@ -84,15 +84,15 @@ void interact(void){
              
              VFS_File *f = VFS_Open(path);
              if (f) {
-                 char *read_buf = kmalloc(512);
+                 char *read_buf = kmalloc(4096);
                  if (read_buf) {
                      uint32_t bytes;
                      uint32_t total_read = 0;
-                     uint32_t max_read = 4096; /* Limit to 4KB to prevent infinite reads */
-                     while ((bytes = VFS_Read(f, 511, read_buf)) > 0 && total_read < max_read) {
-                         read_buf[bytes] = '\0';
-                         printf("%s", read_buf);
-                         total_read += bytes;
+                     uint32_t max_read = 65536; /* Limit to 4KB to prevent infinite reads */
+                     while ((bytes = VFS_Read(f, 4096, read_buf)) > 0 && total_read < max_read) {
+                          for (uint32_t i = 0; i < bytes; i++) {
+                              printf("%c", read_buf[i]);
+                          }
                      }
                      free(read_buf);
                  } else {
