@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "fdc.h"
+#include <fs/devfs/devfs.h>
 #include <hal/io.h>
 #include <hal/irq.h>
 #include <std/stdio.h>
@@ -9,6 +10,11 @@
 #include <stdint.h>
 #include <sys/sys.h>
 #include <valkyrie/system.h>
+
+static DEVFS_DeviceOps disk_ops = {
+   .read = DISK_DevfsRead,
+   .write = DISK_DevfsWrite
+};
 
 #define FDC_BASE 0x3F0
 #define FDC_DOR (FDC_BASE + 2)
@@ -521,6 +527,20 @@ int FDC_Scan(DISK *disks, int maxDisks)
       logfmt(LOG_INFO,
              "[DISK] Found floppy disk: ID=%u, Type=%u, Size=%llu bytes\n",
              disk->id, disk->type, disk->size);
+
+      /* Register the floppy device in devfs
+       * Device naming: fd0, fd1 for floppy drives 0 and 1
+       */
+      char devname[8];
+      devname[0] = 'f';
+      devname[1] = 'd';
+      devname[2] = '0' + drive;
+      devname[3] = '\0';
+      
+      /* Major 2 for floppy disks, minor = drive number */
+      uint32_t disk_size = (uint32_t)(disk->size & 0xFFFFFFFF);
+      DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 2, drive,
+                           disk_size, &disk_ops, disk);
 
       count++;
    }

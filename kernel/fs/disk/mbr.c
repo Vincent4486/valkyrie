@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#include <fs/devfs/devfs.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/sys.h>
 #include <valkyrie/fs.h>
+
+static DEVFS_DeviceOps partition_ops = {
+   .read = Partition_DevfsRead,
+   .write = Partition_DevfsWrite
+};
 
 typedef struct
 {
@@ -48,6 +54,18 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
       part->partitionSize = (uint32_t)(disk->cylinders) *
                             (uint32_t)(disk->heads) * (uint32_t)(disk->sectors);
 
+      /* Register floppy partition in devfs: fd0p1, fd1p1, etc. */
+      char devname[8];
+      devname[0] = 'f';
+      devname[1] = 'd';
+      devname[2] = '0' + (disk->id & 0x0F);
+      devname[3] = 'p';
+      devname[4] = '1';
+      devname[5] = '\0';
+      uint32_t part_size = part->partitionSize * 512;
+      DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 2, 
+                           (disk->id & 0x0F) * 16 + 1, part_size, &partition_ops, part);
+
       list[0] = part;
       *outCount = 1;
       return list;
@@ -85,6 +103,19 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
             part->partitionOffset = *(uint32_t *)(entry + 8);
             part->partitionSize = *(uint32_t *)(entry + 12);
             part->partitionType = type;
+
+            /* Register ATA partition in devfs: hda1, hda2, hdb1, etc. */
+            char devname[8];
+            /* disk->id is BIOS drive number (0x80, 0x81, ...) */
+            int disk_idx = (disk->id >= 0x80) ? (disk->id - 0x80) : 0;
+            devname[0] = 'h';
+            devname[1] = 'd';
+            devname[2] = 'a' + disk_idx;
+            devname[3] = '1' + count; /* partition number */
+            devname[4] = '\0';
+            uint32_t part_size = part->partitionSize * 512;
+            DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 3,
+                                 disk_idx * 16 + count + 1, part_size, &partition_ops, part);
 
             list[count++] = part;
          }

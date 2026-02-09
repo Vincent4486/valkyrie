@@ -41,6 +41,13 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors,
 bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
                        const void *dataIn);
 
+/* Devfs device operations for raw disk access */
+struct DEVFS_DeviceNode;
+uint32_t DISK_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
+                        uint32_t size, void *buffer);
+uint32_t DISK_DevfsWrite(struct DEVFS_DeviceNode *node, uint32_t offset,
+                         uint32_t size, const void *buffer);
+
 /* Forward declaration to avoid circular include with fs.h */
 struct Filesystem;
 typedef struct Filesystem Filesystem;
@@ -66,5 +73,11 @@ bool Partition_ReadSectors(Partition *disk, uint32_t lba, uint8_t sectors,
 
 bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
                             const void *lowerDataIn);
+
+/* Devfs device operations for partition access */
+uint32_t Partition_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
+                             uint32_t size, void *buffer);
+uint32_t Partition_DevfsWrite(struct DEVFS_DeviceNode *node, uint32_t offset,
+                              uint32_t size, const void *buffer);
 
 #endif

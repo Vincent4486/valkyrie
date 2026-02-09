@@ -228,10 +228,11 @@ typedef struct
 #define LIB_REGISTRY_ADDR ((LibRecord *)0x00028000)
 #define LIB_REGISTRY_MAX 16
 
-#define BUFFER_LINES 2048
+#define BUFFER_LINES 1024
 #define BUFFER_BASE_ADDR 0x00900000 // Must match linker script BUFFER_START
+#define BUFFER_DISP_ADDR 0x00929000
 
 // Place SYS_INFO after kernel in high memory (kernel ends ~11 MiB)
-#define SYS_INFO_ADDR 0x00B00000 // 11 MiB - safe from user processes and DYLIB
+#define SYS_INFO_ADDR 0x00930000 // 11 MiB - safe from user processes and DYLIB
 
 #endif

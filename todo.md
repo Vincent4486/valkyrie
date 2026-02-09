@@ -2,6 +2,7 @@
 
 ## Current todo
 
+3) implement full devfs + let all drivers register devices + refactor keyboard driver to `drivers/keyboard/` + rewrite tty device
 4) fat data to private data struct for each fs
 5) Get root partition via cmdline uuid and label + find root partition
 6) vga to `arch/`

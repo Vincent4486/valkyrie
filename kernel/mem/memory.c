@@ -39,11 +39,6 @@ void mem_fault_handler(void *addr, size_t len, int code)
 extern void *memcpy_asm(void *dst, const void *src, size_t num);
 void *memcpy(void *dst, const void *src, size_t num)
 {
-   if (num > 1024)
-   {
-      printf("[MEMCPY] Large copy:  %u bytes from 0x%x to 0x%x\n", num,
-             (uint32_t)src, (uint32_t)dst);
-   }
    return memcpy_asm(dst, src, num);
 }
 
@@ -208,5 +203,5 @@ void MEM_Initialize(void *multiboot_info_ptr)
        g_SysInfo->memory.kernel_start + 0x100000; /* Approximate */
    g_SysInfo->memory.user_start = (uint32_t)0x08000000;
    g_SysInfo->memory.user_end = (uint32_t)0xC0000000;
-   g_SysInfo->memory.kernel_stack_size = 8192; /* 8KB kernel stack */
+   g_SysInfo->memory.kernel_stack_size = 65536; /* 64KB kernel stack */
 }

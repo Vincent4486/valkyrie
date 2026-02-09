@@ -7,67 +7,31 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-const unsigned SCREEN_WIDTH = 80;
-const unsigned SCREEN_HEIGHT = 25;
-const uint8_t DEFAULT_COLOR = 0x7;
+#include <drivers/tty/tty.h>
 
-uint8_t *g_ScreenBuffer = (uint8_t *)0xB8000;
-int g_ScreenX = 0, g_ScreenY = 0;
-
-#include <display/buffer_text.h>
-
-void putchr(int x, int y, char c)
-{
-   g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)] = c;
-}
-
-void putcolor(int x, int y, uint8_t color)
-{
-   g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1] = color;
-}
-
-char getchr(int x, int y) { return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)]; }
-
-uint8_t getcolor(int x, int y)
-{
-   return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1];
-}
-
+/* Simple non-blocking getchar that uses the TTY input stream. Returns -1
+   when no character is available. */
 void setcursor(int x, int y)
 {
-   int pos = y * SCREEN_WIDTH + x;
-
+   if (x < 0) x = 0;
+   if (y < 0) y = 0;
+   uint16_t pos = (uint16_t)(y * 80 + x);
    g_HalIoOperations->outb(0x3D4, 0x0F);
    g_HalIoOperations->outb(0x3D5, (uint8_t)(pos & 0xFF));
    g_HalIoOperations->outb(0x3D4, 0x0E);
    g_HalIoOperations->outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
-void clrscr() { Buffer_Clear(); }
-
-void scrollback(int lines)
+int getchar(void)
 {
-   for (int y = lines; y < SCREEN_HEIGHT; y++)
-      for (int x = 0; x < SCREEN_WIDTH; x++)
-      {
-         putchr(x, y - lines, getchr(x, y));
-         putcolor(x, y - lines, getcolor(x, y));
-      }
-
-   for (int y = SCREEN_HEIGHT - lines; y < SCREEN_HEIGHT; y++)
-      for (int x = 0; x < SCREEN_WIDTH; x++)
-      {
-         putchr(x, y, '\0');
-         putcolor(x, y, DEFAULT_COLOR);
-      }
-
-   g_ScreenY -= lines;
+   extern int TTY_ReadChar(void);
+   return TTY_ReadChar();
 }
 
 void putc(char c)
 {
    g_HalIoOperations->outb(0xe9, c);
-   Buffer_PutChar(c);
+   TTY_PutChar(c);
 }
 
 void puts(const char *str)

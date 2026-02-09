@@ -3,7 +3,7 @@
 #include "ps2.h"
 #include <arch/i686/cpu/irq.h>
 #include <arch/i686/io/io.h>
-#include <display/keyboard.h>
+#include <drivers/keyboard/keyboard.h>
 #include <stdint.h>
 
 /* PS/2 keyboard port */

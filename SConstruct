@@ -139,7 +139,7 @@ def create_host_environment():
     if env['config'] == 'debug':
         env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
     else:
-        env.Append(CCFLAGS=['-O3', '-DRELEASE' '-s'])
+        env.Append(CCFLAGS=['-O3', '-DRELEASE', '-s'])
     
     # Architecture define
     arch_config = get_arch_config(env['arch'])
