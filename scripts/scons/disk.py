@@ -169,6 +169,8 @@ class DiskImage:
 
         # Setup loop device (Linux)
         self._device = sh.sudo.losetup('-fP', '--show', self.image_path).strip()
+
+        sh.sudo.partprobe(self._device)
         partition = f'{self._device}p1'
         
         # Wait for partition to appear
