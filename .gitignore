@@ -1,5 +1,5 @@
 # Build artifacts
-build/
+/build/
 out/
 dist/
 *.img
@@ -29,7 +29,6 @@ pip-wheel-metadata/
 .pytest_cache/
 .mypy_cache/
 dist/
-build/
 
 # Logs
 *.log
