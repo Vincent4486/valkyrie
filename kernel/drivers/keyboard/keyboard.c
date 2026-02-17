@@ -3,10 +3,10 @@
 #include "keyboard.h"
 #include <drivers/tty/tty.h>
 #include <fs/devfs/devfs.h>
+#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
-#include <mem/mm_kernel.h>
 
 /* Keyboard input buffer for devfs reads */
 #define KEYBOARD_BUFFER_SIZE 256
@@ -39,7 +39,8 @@ static const char scancode_map[128] = {
 static void keyboard_buffer_push(char c)
 {
    uint32_t next = (g_KeyboardHead + 1) % KEYBOARD_BUFFER_SIZE;
-   if (next != g_KeyboardTail) {
+   if (next != g_KeyboardTail)
+   {
       g_KeyboardBuffer[g_KeyboardHead] = c;
       g_KeyboardHead = next;
    }
@@ -48,7 +49,8 @@ static void keyboard_buffer_push(char c)
 /* Pop a character from the keyboard buffer */
 static int keyboard_buffer_pop(void)
 {
-   if (g_KeyboardTail == g_KeyboardHead) {
+   if (g_KeyboardTail == g_KeyboardHead)
+   {
       return -1; /* Buffer empty */
    }
    char c = g_KeyboardBuffer[g_KeyboardTail];
@@ -59,7 +61,8 @@ static int keyboard_buffer_pop(void)
 /* Get number of characters in buffer */
 static uint32_t keyboard_buffer_count(void)
 {
-   if (g_KeyboardHead >= g_KeyboardTail) {
+   if (g_KeyboardHead >= g_KeyboardTail)
+   {
       return g_KeyboardHead - g_KeyboardTail;
    }
    return KEYBOARD_BUFFER_SIZE - g_KeyboardTail + g_KeyboardHead;
@@ -118,20 +121,20 @@ void Keyboard_HandleScancode(uint8_t scancode)
       if (dev) TTY_GetCursor(dev, &cx, &cy);
       switch (scancode)
       {
-         case 0x4B: /* left */
-            if (dev && cx > 0) TTY_SetCursor(dev, cx - 1, cy);
-            break;
-         case 0x4D: /* right */
-            if (dev) TTY_SetCursor(dev, cx + 1, cy);
-            break;
-         case 0x48: /* up */
-            if (dev && cy > 0) TTY_SetCursor(dev, cx, cy - 1);
-            break;
-         case 0x50: /* down */
-            if (dev) TTY_SetCursor(dev, cx, cy + 1);
-            break;
-         default:
-            break;
+      case 0x4B: /* left */
+         if (dev && cx > 0) TTY_SetCursor(dev, cx - 1, cy);
+         break;
+      case 0x4D: /* right */
+         if (dev) TTY_SetCursor(dev, cx + 1, cy);
+         break;
+      case 0x48: /* up */
+         if (dev && cy > 0) TTY_SetCursor(dev, cx, cy - 1);
+         break;
+      case 0x50: /* down */
+         if (dev) TTY_SetCursor(dev, cx, cy + 1);
+         break;
+      default:
+         break;
       }
       extended = 0;
       return;
@@ -293,18 +296,19 @@ uint32_t Keyboard_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
 {
    (void)node;
    (void)offset;
-   
+
    if (!buffer || size == 0) return 0;
-   
+
    char *buf = (char *)buffer;
    uint32_t count = 0;
-   
-   while (count < size) {
+
+   while (count < size)
+   {
       int c = keyboard_buffer_pop();
       if (c < 0) break;
       buf[count++] = (char)c;
    }
-   
+
    return count;
 }
 
@@ -318,12 +322,10 @@ uint32_t Keyboard_DevfsWrite(struct DEVFS_DeviceNode *node, uint32_t offset,
    return 0;
 }
 
-static DEVFS_DeviceOps keyboard_ops = {
-   .read = Keyboard_DevfsRead,
-   .write = Keyboard_DevfsWrite,
-   .ioctl = NULL,
-   .close = NULL
-};
+static DEVFS_DeviceOps keyboard_ops = {.read = Keyboard_DevfsRead,
+                                       .write = Keyboard_DevfsWrite,
+                                       .ioctl = NULL,
+                                       .close = NULL};
 
 /**
  * Initialize keyboard driver and register in devfs
@@ -334,18 +336,18 @@ void Keyboard_Initialize(void)
    g_KeyboardHead = 0;
    g_KeyboardTail = 0;
    memset(g_KeyboardBuffer, 0, sizeof(g_KeyboardBuffer));
-   
+
    /* Reset modifier state */
    shift = 0;
    caps = 0;
    extended = 0;
-   
+
    /* Register keyboard as an input device in devfs
     * Major 13 is used for input devices in Linux
     * Minor 0 for keyboard
     */
-   DEVFS_RegisterDevice("input/keyboard", DEVFS_TYPE_CHAR, 13, 0, 0, 
+   DEVFS_RegisterDevice("input/keyboard", DEVFS_TYPE_CHAR, 13, 0, 0,
                         &keyboard_ops, NULL);
-   
+
    logfmt(LOG_INFO, "[KEYBOARD] Initialized and registered in devfs\n");
 }

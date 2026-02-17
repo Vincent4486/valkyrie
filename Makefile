@@ -3,22 +3,21 @@
 CC ?= cc
 CFLAGS ?= -std=c99 -Wall -Wextra -O2
 
-BUILDER_BIN := tools/builder/build
-CONFIG_BIN := tools/builder/config
+BUILDER_BIN := build/builder
+BUILDER_SRCS := tools/builder/build.c tools/builder/config.c tools/builder/image.c
 
-.PHONY: all builder config build clean run debug bochs toolchain deps fformat
+.PHONY: all builder menuconfig build clean run debug bochs toolchain deps fformat
 
 all: build
 
 builder: $(BUILDER_BIN)
 
-config: $(CONFIG_BIN)
+$(BUILDER_BIN): $(BUILDER_SRCS)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $(BUILDER_SRCS) -lncurses -o $@
 
-$(BUILDER_BIN): tools/builder/build.c
-	$(CC) $(CFLAGS) $< -o $@
-
-$(CONFIG_BIN): tools/builder/config.c
-	$(CC) $(CFLAGS) $< -lncurses -o $@
+menuconfig: builder
+	./$(BUILDER_BIN) --menu
 
 build: builder
 	./$(BUILDER_BIN) --build

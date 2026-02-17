@@ -15,14 +15,16 @@
  */
 static void InitializeDevfs(void)
 {
-   if (!DEVFS_Initialize()) {
+   if (!DEVFS_Initialize())
+   {
       logfmt(LOG_ERROR, "[FS] Failed to initialize devfs\n");
       return;
    }
-   
+
    /* Mount devfs at /dev */
    Partition *devfs_part = DEVFS_GetPartition();
-   if (devfs_part) {
+   if (devfs_part)
+   {
       FS_Mount(devfs_part, "/dev");
    }
 }
@@ -35,7 +37,7 @@ static void InitializeDevfs(void)
 bool FS_Initialize()
 {
    VFS_Init();
-   
+
    /* Initialize devfs first - this sets up the device filesystem
     * on the reserved volume slot (DEVFS_VOLUME = 30) and mounts
     * it at /dev. Drivers will register their devices during

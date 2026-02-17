@@ -2,7 +2,7 @@
 
 The Valkyrie Operating System is a small Unix-like OS for x86. It implements many Linux-like syscalls and GNU-compatible utilities. The tree also contains a custom JVM which is integrated into the kernel.
 
-This repository targets low-level, cross-compiled builds for x86 (i686 and x64 variants). The build system now uses a C build driver (`tools/builder/build.c`) and a small cross-toolchain produced by the included `scripts/base/toolchain.py` helper.
+This repository targets low-level, cross-compiled builds for x86 (currently i686). The build system now uses a C build driver (`tools/builder/build.c`) and a small cross-toolchain produced by the included `scripts/base/toolchain.py` helper.
 
 **Supported host environments**
 - Primary: Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine). The repository includes `scripts/base/dependencies.sh` which detects the distro and installs the required packages.
@@ -59,7 +59,7 @@ make build
 
 Common build options are read from `.config` and can be changed via `tools/builder/config`:
 - `config=debug|release` - build configuration (default: `debug`)
-- `arch=i686|x64` - target architecture (default: `i686`)
+- `arch=i686` - target architecture (default: `i686`)
 - `imageFS=fat12|fat16|fat32|ext2` - filesystem for generated image (default: `fat32`)
 - `imageSize=250m` - image size (supports `k/m/g` suffixes)
 - `outputFile=<name>` - base name for output image (default: `image`)

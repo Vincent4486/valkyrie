@@ -2200,9 +2200,9 @@ static uint32_t fat_vfs_get_size(void *fs_file)
 /* FAT operations structure - directly points to FAT functions */
 static const VFS_Operations fat_vfs_ops = {
     .open = fat_vfs_open, /* Special wrapper - returns VFS_File */
-    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */

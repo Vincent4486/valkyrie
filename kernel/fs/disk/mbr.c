@@ -7,10 +7,8 @@
 #include <sys/sys.h>
 #include <valkyrie/fs.h>
 
-static DEVFS_DeviceOps partition_ops = {
-   .read = Partition_DevfsRead,
-   .write = Partition_DevfsWrite
-};
+static DEVFS_DeviceOps partition_ops = {.read = Partition_DevfsRead,
+                                        .write = Partition_DevfsWrite};
 
 typedef struct
 {
@@ -63,8 +61,9 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
       devname[4] = '1';
       devname[5] = '\0';
       uint32_t part_size = part->partitionSize * 512;
-      DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 2, 
-                           (disk->id & 0x0F) * 16 + 1, part_size, &partition_ops, part);
+      DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 2,
+                           (disk->id & 0x0F) * 16 + 1, part_size,
+                           &partition_ops, part);
 
       list[0] = part;
       *outCount = 1;
@@ -115,7 +114,8 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
             devname[4] = '\0';
             uint32_t part_size = part->partitionSize * 512;
             DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 3,
-                                 disk_idx * 16 + count + 1, part_size, &partition_ops, part);
+                                 disk_idx * 16 + count + 1, part_size,
+                                 &partition_ops, part);
 
             list[count++] = part;
          }

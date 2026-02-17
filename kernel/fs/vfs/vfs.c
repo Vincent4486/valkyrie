@@ -2,8 +2,8 @@
 
 #include "vfs.h"
 
-#include <fs/fat/fat.h>
 #include <fs/devfs/devfs.h>
+#include <fs/fat/fat.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -293,7 +293,7 @@ bool VFS_Delete(const char *path)
       return NULL;
    }
 
-   bool result = part->fs->ops->delete (part, relative);
+   bool result = part->fs->ops->delete(part, relative);
    free(relative);
    return result;
 }
