@@ -379,7 +379,7 @@ class ToolchainBuilder:
             f"--target={self.target}",
             f"--with-sysroot={self.sysroot}",
             '--disable-nls',
-            '--enable-languages=c,c++',
+            '--enable-languages=c',
             '--disable-isl',
             '--disable-libsanitizer',
         ] + self._get_configure_opts('gcc')

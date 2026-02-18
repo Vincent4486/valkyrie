@@ -3,7 +3,7 @@
 """
 QEMU emulator launcher for Valkyrie OS.
 
-Supports running disk and floppy images with configurable options.
+Supports running disk, cdrom, and floppy images with configurable options.
 """
 
 import argparse
@@ -41,13 +41,15 @@ def get_qemu_base_args(arch: str, memory: str = DEFAULT_MEMORY,
 
 
 def add_disk_args(args: list, image_type: str, image_path: str) -> list:
-    """Add disk/floppy arguments to QEMU command."""
+    """Add disk/floppy/cdrom arguments to QEMU command."""
     if image_type == 'floppy':
         args.extend(['-fda', image_path])
     elif image_type == 'disk':
         args.extend([
             '-drive', f'file={image_path},format=raw,if=ide,index=0,media=disk'
         ])
+    elif image_type == 'cdrom':
+        args.extend(['-cdrom', image_path])
     else:
         raise ValueError(f"Unknown image type: {image_type}")
     
@@ -61,7 +63,7 @@ def run_qemu(arch: str, image_type: str, image_path: str,
     
     Args:
         arch: Target architecture (i686, x64, aarch64)
-        image_type: Type of image ('disk' or 'floppy')
+        image_type: Type of image ('disk', 'cdrom' or 'floppy')
         image_path: Path to the disk image
         memory: Memory size (e.g., '4G', '512M')
         smp: Number of CPU cores
@@ -87,7 +89,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     
-    parser.add_argument('image_type', choices=['disk', 'floppy'],
+    parser.add_argument('image_type', choices=['disk', 'cdrom', 'floppy'],
                         help='Type of disk image')
     parser.add_argument('image', help='Path to disk image file')
     parser.add_argument('-a', '--arch', default='i686',

@@ -58,7 +58,7 @@ if not config_path.exists():
         'imageSize': '250m',
         'toolchain': 'toolchain/',
         'outputFile': 'valkyrieos',
-        'outputFormat': 'img',
+        'outputFormat': 'hd',
         'kernelName': 'valkyrix',
     }
     with open(config_path, 'w') as cf:
@@ -86,7 +86,12 @@ VARS.AddVariables(
     EnumVariable('buildType',
                  help='What to build',
                  default='full',
-                 allowed_values=('full', 'kernel', 'usr')),
+                 allowed_values=('full', 'kernel', 'usr', 'image')),
+
+    EnumVariable('outputFormat',
+                 help='Output image format',
+                 default='hd',
+                 allowed_values=('hd', 'iso')),
 )
 
 VARS.Add('imageSize',
@@ -101,10 +106,6 @@ VARS.Add('toolchain',
 VARS.Add('outputFile',
          help='Output image filename (without extension)',
          default='valkyrieos')
-
-VARS.Add('outputFormat',
-         help='Disk image file extension',
-         default='img')
 
 VARS.Add('kernelName',
          help='Kernel executable name',
@@ -258,12 +259,13 @@ if build_type == 'full':
     arch = TARGET_ENVIRONMENT['arch']
     target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
     toolchain_dir = HOST_ENVIRONMENT['toolchain']
+    media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
     
     PhonyTargets(
         HOST_ENVIRONMENT,
-        run=['python3', './scripts/base/qemu.py', '-a', arch, 'disk', image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, 'disk', image[0].path],
-        bochs=['python3', './scripts/base/bochs.py', 'disk', image[0].path],
+        run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
+        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path],
+        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
         toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
@@ -280,12 +282,13 @@ elif build_type == 'image':
     arch = TARGET_ENVIRONMENT['arch']
     target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
     toolchain_dir = HOST_ENVIRONMENT['toolchain']
+    media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
     
     PhonyTargets(
         HOST_ENVIRONMENT,
-        run=['python3', './scripts/base/qemu.py', '-a', arch, 'disk', image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, 'disk', image[0].path],
-        bochs=['python3', './scripts/base/bochs.py', 'disk', image[0].path],
+        run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
+        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path],
+        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
         toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],

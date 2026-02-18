@@ -5,6 +5,8 @@ Disk image build configuration.
 
 import os
 import re
+import shutil
+import tempfile
 
 from SCons.Action import Action
 from SCons.Environment import Environment
@@ -13,9 +15,9 @@ from SCons.Script import Flatten
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
     DiskImage,
+    create_iso_image,
     copy_c_library,
     install_grub,
-    get_current_user,
 )
 from scripts.scons.arch import get_arch_config
 
@@ -32,108 +34,107 @@ env: Environment = TARGET_ENVIRONMENT
 # Build Functions
 # =============================================================================
 
-def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
-    """Build the complete disk image with all components.
+def _stage_image_tree(core_exe, libraries, applications, extra_files, env):
+    """Create and populate a temporary staging tree for image contents.
     
     Args:
-        image_path: Output disk image path
         core_exe: Kernel executable path
         libraries: List of user library paths
         applications: List of user application paths
         extra_files: Additional files to copy
         env: SCons environment
     """
-    import sh
-    import shutil
-    
-    size = env['imageSize']
-    filesystem = env['imageFS']
-    partition_offset = 2048
+    stage_dir = tempfile.mkdtemp(prefix='valkyrie_image_')
+
+    # Copy kernel
+    print(f"   CP {os.path.basename(core_exe)}")
+    bootdir = os.path.join(stage_dir, 'boot')
+    os.makedirs(bootdir, exist_ok=True)
+    shutil.copy2(core_exe, bootdir)
+
     toolchain_prefix = env.get('TOOLCHAIN_PREFIX', '')
     arch = env.get('arch', 'i686')
-    
+
     # Get architecture configuration
     arch_config = get_arch_config(arch)
     target_triple = arch_config['target_triple']
-    
-    current_user = get_current_user()
-    
-    # Create and setup disk image
-    disk = DiskImage(image_path, size, sector_size=512)
-    disk.create()
-    
-    print("   PARTITIONING")
-    disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
-    
-    print("   FORMATTING DISK")
-    disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
-    
-    # Mount and populate the image
-    tempdir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
-    os.makedirs(tempdir, exist_ok=True)
-    
+
+    # Copy C library and runtime
+    copy_c_library(stage_dir, toolchain_prefix, target_triple, arch_config)
+
+    # Copy user libraries
+    if libraries:
+        libdir = os.path.join(stage_dir, 'usr', 'lib')
+        os.makedirs(libdir, exist_ok=True)
+        for lib in libraries:
+            print(f"   CP {os.path.basename(lib)} /usr/lib")
+            shutil.copy2(lib, libdir)
+
+    # Copy user applications
+    if applications:
+        bindir = os.path.join(stage_dir, 'usr', 'bin')
+        os.makedirs(bindir, exist_ok=True)
+        for app in applications:
+            print(f"   CP {os.path.basename(app)} /usr/bin")
+            shutil.copy2(app, bindir)
+
+    # Copy extra files preserving directory structure
+    src_root = env['BASEDIR']
+    for file in extra_files:
+        file_src = file.srcnode().path
+        file_rel = os.path.relpath(file_src, src_root)
+        file_dst = os.path.join(stage_dir, file_rel)
+
+        if os.path.isdir(file_src):
+            print('   MKDIR', file_rel)
+            os.makedirs(file_dst, exist_ok=True)
+        else:
+            print('   CP', file_rel)
+            os.makedirs(os.path.dirname(file_dst), exist_ok=True)
+            shutil.copy2(file_src, file_dst)
+
+    return stage_dir
+
+
+def build_hd(image_path, core_exe, libraries, applications, extra_files, env):
+    """Build an HD image using guestfish (no root/losetup)."""
+    size = env['imageSize']
+    filesystem = env['imageFS']
+    partition_offset = 2048
+
+    stage_dir = _stage_image_tree(core_exe, libraries, applications, extra_files, env)
+
     try:
-        disk.mount(tempdir)
-        
-        # Copy kernel
-        print(f"   CP {os.path.basename(core_exe)}")
-        bootdir = os.path.join(tempdir, 'boot')
-        sh.sudo.mkdir('-p', bootdir)
-        sh.sudo.cp(core_exe, bootdir)
-        
-        # Copy C library and runtime
-        copy_c_library(tempdir, toolchain_prefix, target_triple, arch_config)
-        
-        # Copy user libraries
-        if libraries:
-            libdir = os.path.join(tempdir, 'usr', 'lib')
-            sh.sudo.mkdir('-p', libdir)
-            for lib in libraries:
-                print(f"   CP {os.path.basename(lib)} /usr/lib")
-                sh.sudo.cp(lib, libdir)
-        
-        # Copy user applications
-        if applications:
-            bindir = os.path.join(tempdir, 'usr', 'bin')
-            sh.sudo.mkdir('-p', bindir)
-            for app in applications:
-                print(f"   CP {os.path.basename(app)} /usr/bin")
-                sh.sudo.cp(app, bindir)
-        
-        # Copy extra files preserving directory structure
-        src_root = env['BASEDIR']
-        for file in extra_files:
-            file_src = file.srcnode().path
-            file_rel = os.path.relpath(file_src, src_root)
-            file_dst = os.path.join(tempdir, file_rel)
-            
-            if os.path.isdir(file_src):
-                print('   MKDIR', file_rel)
-                sh.sudo.mkdir('-p', file_dst)
-            else:
-                print('   CP', file_rel)
-                sh.sudo.cp(file_src, file_dst)
-        
-        # Install GRUB bootloader
-        install_grub(tempdir)
-        
+        disk = DiskImage(image_path, size, sector_size=512)
+        disk.create()
+
+        print("   PARTITIONING")
+        disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
+
+        print("   FORMATTING DISK")
+        disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
+
+        install_grub(image_path, stage_dir)
+
+        print("   POPULATING DISK")
+        disk.populate_from_directory(stage_dir)
     finally:
-        try:
-            print(f"   UMOUNT {tempdir}")
-            disk.unmount(tempdir)
-            shutil.rmtree(tempdir, ignore_errors=True)
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
-            raise
-    
-    # Fix ownership of generated files
-    print(f"   CHOWN {current_user} {image_path}")
-    sh.sudo.chown(f'{current_user}:{current_user}', image_path)
-    sh.sudo.chown('-R', f'{current_user}:{current_user}', 'build/')
+        shutil.rmtree(stage_dir, ignore_errors=True)
+
+
+def build_iso(image_path, core_exe, libraries, applications, extra_files, env):
+    """Build an ISO image with xorriso."""
+    stage_dir = _stage_image_tree(core_exe, libraries, applications, extra_files, env)
+
+    try:
+        print("   CREATING ISO")
+        create_iso_image(image_path, stage_dir, volume_label='VALKYRIE')
+    finally:
+        shutil.rmtree(stage_dir, ignore_errors=True)
 
 
 def build_image_action(target, source, env):
-    """SCons action to build the disk image."""
+    """SCons action to build HD/ISO images."""
     # Find kernel executable in sources
     kernel_name = env["kernelName"]
     core_exe = None
@@ -175,7 +176,14 @@ def build_image_action(target, source, env):
         if str(src) != core_exe and str(src) not in lib_paths and str(src) not in app_paths
     ]
     
-    build_disk(str(target[0]), core_exe, libs, apps, extra, env)
+    output_format = env['outputFormat']
+    image_path = str(target[0])
+    if output_format == 'hd':
+        build_hd(image_path, core_exe, libs, apps, extra, env)
+    elif output_format == 'iso':
+        build_iso(image_path, core_exe, libs, apps, extra, env)
+    else:
+        raise RuntimeError(f"Unsupported outputFormat: {output_format}")
 
 
 # =============================================================================
@@ -193,7 +201,7 @@ output = f'{env["outputFile"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
 image = env.Command(
     output,
     inputs,
-    action=Action(build_image_action, '   CREATING DISK'),
+    action=Action(build_image_action, '   CREATING IMAGE'),
     BASEDIR=root.srcnode().path,
 )
 

@@ -3,7 +3,7 @@
 """
 Bochs emulator launcher for Valkyrie OS.
 
-Generates bochs configuration and runs the emulator.
+Generates bochs configuration and runs disk, cdrom, or floppy media.
 """
 
 import argparse
@@ -27,7 +27,7 @@ def generate_bochs_config(image_type: str, image_path: str,
     """Generate Bochs configuration file content.
     
     Args:
-        image_type: Type of image ('disk' or 'floppy')
+        image_type: Type of image ('disk', 'cdrom' or 'floppy')
         image_path: Path to the disk image
         memory_mb: Memory size in megabytes
         bios_path: Path to Bochs BIOS ROM
@@ -43,6 +43,9 @@ def generate_bochs_config(image_type: str, image_path: str,
     elif image_type == 'disk':
         disk_cfg = f'ata0-master: type=disk, path="{image_path}", cylinders=1024, heads=4, spt=32'
         boot_cfg = 'boot: disk'
+    elif image_type == 'cdrom':
+        disk_cfg = f'ata0-master: type=cdrom, path="{image_path}", status=inserted'
+        boot_cfg = 'boot: cdrom'
     else:
         raise ValueError(f"Unknown image type: {image_type}")
     
@@ -99,7 +102,7 @@ def run_bochs(image_type: str, image_path: str,
     """Run Bochs emulator with the specified configuration.
     
     Args:
-        image_type: Type of image ('disk' or 'floppy')
+        image_type: Type of image ('disk', 'cdrom' or 'floppy')
         image_path: Path to the disk image
         memory_mb: Memory size in megabytes
         display: Display library to use
@@ -138,7 +141,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     
-    parser.add_argument('image_type', choices=['disk', 'floppy'],
+    parser.add_argument('image_type', choices=['disk', 'cdrom', 'floppy'],
                         help='Type of disk image')
     parser.add_argument('image', help='Path to disk image file')
     parser.add_argument('-m', '--memory', type=int, default=DEFAULT_MEMORY_MB,

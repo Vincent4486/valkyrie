@@ -5,8 +5,8 @@ The Valkyrie Operating System is a small Unix-like OS for x86. It implements man
 This repository targets low-level, cross-compiled builds for x86 (i686 and x64 variants). The build system uses `scons` and a small cross-toolchain produced by the included `scripts/base/toolchain.sh` helper.
 
 **Supported host environments**
-- Primary: Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine). The repository includes `scripts/base/dependencies.sh` which detects the distro and installs the required packages.
-- macOS: partial support for building the cross-toolchain (toolchain script includes Darwin-specific flags). The overall image build and tooling are intended for Linux hosts.
+- Primary: Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine). The repository includes `scripts/base/dependencies.py` which detects the distro and installs the required packages.
+- macOS: partial support for building the cross-toolchain (toolchain script includes Darwin-specific flags). Disk/ISO image generation uses Linux guestfs/grub/xorriso tooling.
 
 Required build artifacts created by the toolchain script:
 - binutils: 2.45
@@ -14,25 +14,25 @@ Required build artifacts created by the toolchain script:
 - musl (for sysroot): 1.2.5
 
 Prerequisites
- - On Linux, prefer using `scripts/base/dependencies.sh` to install the common packages for your distribution. The script will detect your distro and run the appropriate package manager. Example packages (by name) the script installs:
-   - Debian/Ubuntu: `libmpfr-dev libgmp-dev libmpc-dev gcc python3 scons python3-sh dosfstools`
-   - Fedora: `mpfr-devel gmp-devel libmpc-devel gcc python3 scons python3-sh dosfstools`
-   - Arch: `mpfr gmp mpc gcc python scons python-sh dosfstools`
-   - openSUSE / Alpine: similar package names (see `scripts/base/dependencies.sh`).
+ - On Linux, prefer using `scripts/base/dependencies.py` to install the common packages for your distribution. The script will detect your distro and run the appropriate package manager. Example packages (by name) the script installs:
+   - Debian/Ubuntu: `libmpfr-dev libgmp-dev libmpc-dev gcc python3 scons guestfish libguestfs-tools grub-pc-bin xorriso`
+   - Fedora: `mpfr-devel gmp-devel libmpc-devel gcc python3 scons guestfs-tools grub2-tools xorriso`
+   - Arch: `mpfr gmp libmpc gcc python scons libguestfs-tools grub libisoburn`
+   - openSUSE / Alpine: similar package names (see `scripts/base/dependencies.py`).
 
  - On macOS (if you wish to run the toolchain script), install the GMP/MPFR/MPC libraries with Homebrew so the toolchain script can find them:
    ```bash
    brew install gmp mpfr libmpc wget make automake autoconf pkg-config
    ```
 
-Note: `scripts/base/dependencies.sh` is designed for Linux package managers and will exit on unknown systems. On macOS you must install the prerequisites manually.
+Note: `scripts/base/dependencies.py` is designed for Linux package managers and will exit on unknown systems. On macOS you must install the prerequisites manually.
 
 Build steps
 
 1) (Optional) Install distribution packages on Linux:
 
 ```bash
-sudo ./scripts/base/dependencies.sh
+python3 ./scripts/base/dependencies.py
 ```
 
 The script will show the package manager command and prompt for confirmation.
@@ -60,9 +60,10 @@ scons
 Common build options passed to `scons` (set as ARGUMENTS or environment variables):
 - `config=debug|release` - build configuration (default: `debug`)
 - `arch=i686|x64` - target architecture (default: `i686`)
-- `imageFS=fat12|fat16|fat32|ext2` - filesystem for generated image (default: `fat32`)
+- `imageFS=fat12|fat16|fat32|ext2` - filesystem for generated HD image (default: `fat32`)
 - `imageSize=250m` - image size (supports `k/m/g` suffixes)
-- `outputFile=<name>` - base name for output image (default: `image`)
+- `outputFile=<name>` - base name for output image (default: `valkyrieos`)
+- `outputFormat=hd|iso` - output image format (default: `hd`)
 - `buildType=full|kernel|usr|image` - what to build (default: `full`)
 
 Examples:
@@ -90,7 +91,8 @@ Or call the helper scripts directly, for example:
 ```
 
 Notes and tips
-- The build is designed for Linux hosts; while the toolchain script contains macOS-specific options, full image creation and tools like `mkfs` and `parted` are Linux-focused.
+- Disk image creation uses libguestfs `guestfish` (no `losetup`/root mount required).
+- ISO image creation uses `xorriso`.
 - Building the toolchain can take significant time and requires a number of build dependencies (autoconf/automake, make, wget, and the GMP/MPFR/MPC dev packages).
 - If you prefer not to build a toolchain locally, providing a prebuilt cross-toolchain in `toolchain/<target>` works: SCons will use `--toolchain` path when provided.
 

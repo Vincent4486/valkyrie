@@ -38,6 +38,8 @@ def get_qemu_debug_args(arch: str, image_type: str, image_path: str,
         args.extend(['-fda', image_path])
     elif image_type == 'disk':
         args.extend(['-hda', image_path])
+    elif image_type == 'cdrom':
+        args.extend(['-cdrom', image_path])
     else:
         raise ValueError(f"Unknown image type: {image_type}")
     
@@ -69,7 +71,7 @@ def run_gdb(arch: str, image_type: str, image_path: str,
     
     Args:
         arch: Target architecture
-        image_type: Type of image ('disk' or 'floppy')
+        image_type: Type of image ('disk', 'cdrom' or 'floppy')
         image_path: Path to the disk image
         memory: Memory size for QEMU
         kernel_symbols: Path to kernel ELF with debug symbols
@@ -101,7 +103,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     
-    parser.add_argument('image_type', choices=['disk', 'floppy'],
+    parser.add_argument('image_type', choices=['disk', 'cdrom', 'floppy'],
                         help='Type of disk image')
     parser.add_argument('image', help='Path to disk image file')
     parser.add_argument('-a', '--arch', default='i686',
