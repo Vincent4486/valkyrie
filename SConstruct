@@ -56,7 +56,7 @@ if not config_path.exists():
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
-        'toolchain': 'toolchain/',
+        'toolchain': '/opt/cross/',
         'outputFile': 'valkyrieos',
         'outputFormat': 'hd',
         'kernelName': 'valkyrix',
