@@ -5,8 +5,6 @@ Disk image build configuration.
 
 import os
 import re
-import shutil
-import tempfile
 
 from SCons.Action import Action
 from SCons.Environment import Environment
@@ -15,9 +13,10 @@ from SCons.Script import Flatten
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
     DiskImage,
-    create_iso_image,
-    copy_c_library,
+    create_bootable_iso,
     install_grub,
+    get_current_user,
+    generate_grub_config,
 )
 from scripts.scons.arch import get_arch_config
 
@@ -34,107 +33,165 @@ env: Environment = TARGET_ENVIRONMENT
 # Build Functions
 # =============================================================================
 
-def _stage_image_tree(core_exe, libraries, applications, extra_files, env):
-    """Create and populate a temporary staging tree for image contents.
-    
+def _copy_c_library_unprivileged(dst_root: str, toolchain_prefix: str, target_triple: str, arch_config: dict):
+    """Copy C runtime files without requiring root permissions."""
+    import shutil
+
+    ld_name = arch_config['ld_musl_name']
+    sysroot = os.path.join(toolchain_prefix, target_triple, 'sysroot', 'usr')
+    if not os.path.exists(sysroot):
+        print(f"   WARNING: toolchain sysroot not found at {sysroot}")
+        return
+
+    print("   CP toolchain C libraries")
+    sysroot_lib = os.path.join(sysroot, 'lib')
+    target_lib = os.path.join(dst_root, 'lib')
+    os.makedirs(target_lib, exist_ok=True)
+
+    libc_src = os.path.join(sysroot_lib, 'libc.so')
+    if os.path.exists(libc_src):
+        shutil.copy2(libc_src, target_lib)
+
+    for crt_file in ['Scrt1.o', 'crt1.o', 'crti.o', 'crtn.o']:
+        crt_path = os.path.join(sysroot_lib, crt_file)
+        if os.path.exists(crt_path):
+            shutil.copy2(crt_path, target_lib)
+
+    lib_libc = os.path.join(target_lib, 'libc.so')
+    lib_ld = os.path.join(target_lib, ld_name)
+    if os.path.exists(lib_libc):
+        print(f"   CP /lib/{ld_name}")
+        shutil.copy2(lib_libc, lib_ld)
+
+
+def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
+    """Build the complete disk image with all components.
+
+    All files are first collected into a staging directory at build/{arch}_{config}/{hd|iso},
+    then that tree is used to produce the final image.
+
     Args:
+        image_path: Output disk image path
         core_exe: Kernel executable path
         libraries: List of user library paths
         applications: List of user application paths
-        extra_files: Additional files to copy
+        extra_files: Additional files to copy (image/root contents)
         env: SCons environment
     """
-    stage_dir = tempfile.mkdtemp(prefix='valkyrie_image_')
+    import sh
+    import shutil
 
-    # Copy kernel
-    print(f"   CP {os.path.basename(core_exe)}")
-    bootdir = os.path.join(stage_dir, 'boot')
-    os.makedirs(bootdir, exist_ok=True)
-    shutil.copy2(core_exe, bootdir)
-
+    size = env['imageSize']
+    filesystem = env['imageFS']
+    output_format = env.get('outputFormat', 'hd')
+    partition_offset = 2048
     toolchain_prefix = env.get('TOOLCHAIN_PREFIX', '')
     arch = env.get('arch', 'i686')
+    config = env.get('config', 'release')
 
-    # Get architecture configuration
     arch_config = get_arch_config(arch)
     target_triple = arch_config['target_triple']
 
-    # Copy C library and runtime
-    copy_c_library(stage_dir, toolchain_prefix, target_triple, arch_config)
+    # -------------------------------------------------------------------------
+    # Stage all files into build/{arch}_{config}/{hd|iso}
+    # -------------------------------------------------------------------------
+    build_type = f'{arch}_{config}'
+    staging_dir = os.path.join('build', build_type, output_format)
+    shutil.rmtree(staging_dir, ignore_errors=True)
+    os.makedirs(staging_dir, exist_ok=True)
 
-    # Copy user libraries
+    print(f"   STAGE -> {staging_dir}")
+
+    # Kernel
+    bootdir = os.path.join(staging_dir, 'boot')
+    os.makedirs(bootdir, exist_ok=True)
+    print(f"   STAGE {os.path.basename(core_exe)} -> /boot")
+    shutil.copy2(core_exe, bootdir)
+
+    # GRUB config (single grub.cfg, content varies by format)
+    generate_grub_config(os.path.join(bootdir, 'grub'), output_format)
+
+    # C library and runtime files
+    _copy_c_library_unprivileged(staging_dir, toolchain_prefix, target_triple, arch_config)
+
+    # User libraries
     if libraries:
-        libdir = os.path.join(stage_dir, 'usr', 'lib')
+        libdir = os.path.join(staging_dir, 'usr', 'lib')
         os.makedirs(libdir, exist_ok=True)
         for lib in libraries:
-            print(f"   CP {os.path.basename(lib)} /usr/lib")
+            print(f"   STAGE {os.path.basename(lib)} -> /usr/lib")
             shutil.copy2(lib, libdir)
 
-    # Copy user applications
+    # User applications
     if applications:
-        bindir = os.path.join(stage_dir, 'usr', 'bin')
+        bindir = os.path.join(staging_dir, 'usr', 'bin')
         os.makedirs(bindir, exist_ok=True)
         for app in applications:
-            print(f"   CP {os.path.basename(app)} /usr/bin")
+            print(f"   STAGE {os.path.basename(app)} -> /usr/bin")
             shutil.copy2(app, bindir)
 
-    # Copy extra files preserving directory structure
+    # Extra files from image/root, preserving relative directory structure
     src_root = env['BASEDIR']
     for file in extra_files:
         file_src = file.srcnode().path
         file_rel = os.path.relpath(file_src, src_root)
-        file_dst = os.path.join(stage_dir, file_rel)
-
+        file_dst = os.path.join(staging_dir, file_rel)
         if os.path.isdir(file_src):
-            print('   MKDIR', file_rel)
             os.makedirs(file_dst, exist_ok=True)
         else:
-            print('   CP', file_rel)
+            print(f"   STAGE {file_rel}")
             os.makedirs(os.path.dirname(file_dst), exist_ok=True)
             shutil.copy2(file_src, file_dst)
 
-    return stage_dir
+    # -------------------------------------------------------------------------
+    # Produce the final image from the staging directory
+    # -------------------------------------------------------------------------
+    if output_format == 'iso':
+        create_bootable_iso(staging_dir, image_path, volume_label='VALKYRIE')
+        return
 
+    # HD: create disk image, mount it, copy staging tree, install GRUB
+    current_user = get_current_user()
 
-def build_hd(image_path, core_exe, libraries, applications, extra_files, env):
-    """Build an HD image using guestfish (no root/losetup)."""
-    size = env['imageSize']
-    filesystem = env['imageFS']
-    partition_offset = 2048
+    disk = DiskImage(image_path, size, sector_size=512)
+    disk.create()
 
-    stage_dir = _stage_image_tree(core_exe, libraries, applications, extra_files, env)
+    print("   PARTITIONING")
+    disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
 
-    try:
-        disk = DiskImage(image_path, size, sector_size=512)
-        disk.create()
+    print("   FORMATTING DISK")
+    disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
 
-        print("   PARTITIONING")
-        disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
-
-        print("   FORMATTING DISK")
-        disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
-
-        install_grub(image_path, stage_dir)
-
-        print("   POPULATING DISK")
-        disk.populate_from_directory(stage_dir)
-    finally:
-        shutil.rmtree(stage_dir, ignore_errors=True)
-
-
-def build_iso(image_path, core_exe, libraries, applications, extra_files, env):
-    """Build an ISO image with xorriso."""
-    stage_dir = _stage_image_tree(core_exe, libraries, applications, extra_files, env)
+    mount_dir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
+    os.makedirs(mount_dir, exist_ok=True)
 
     try:
-        print("   CREATING ISO")
-        create_iso_image(image_path, stage_dir, volume_label='VALKYRIE')
+        disk.mount(mount_dir)
+
+        # Copy entire staging tree to the mounted disk
+        print(f"   CP {staging_dir}/* -> disk")
+        for item in os.listdir(staging_dir):
+            sh.sudo.cp('-r', os.path.join(staging_dir, item), mount_dir)
+
+        install_grub(mount_dir)
+
     finally:
-        shutil.rmtree(stage_dir, ignore_errors=True)
+        try:
+            print(f"   UMOUNT {mount_dir}")
+            disk.unmount(mount_dir)
+            shutil.rmtree(mount_dir, ignore_errors=True)
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+            raise
+
+    # Fix ownership of generated files
+    print(f"   CHOWN {current_user} {image_path}")
+    sh.sudo.chown(f'{current_user}:{current_user}', image_path)
+    sh.sudo.chown('-R', f'{current_user}:{current_user}', 'build/')
 
 
 def build_image_action(target, source, env):
-    """SCons action to build HD/ISO images."""
+    """SCons action to build the disk image."""
     # Find kernel executable in sources
     kernel_name = env["kernelName"]
     core_exe = None
@@ -176,14 +233,7 @@ def build_image_action(target, source, env):
         if str(src) != core_exe and str(src) not in lib_paths and str(src) not in app_paths
     ]
     
-    output_format = env['outputFormat']
-    image_path = str(target[0])
-    if output_format == 'hd':
-        build_hd(image_path, core_exe, libs, apps, extra, env)
-    elif output_format == 'iso':
-        build_iso(image_path, core_exe, libs, apps, extra, env)
-    else:
-        raise RuntimeError(f"Unsupported outputFormat: {output_format}")
+    build_disk(str(target[0]), core_exe, libs, apps, extra, env)
 
 
 # =============================================================================
@@ -201,7 +251,7 @@ output = f'{env["outputFile"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
 image = env.Command(
     output,
     inputs,
-    action=Action(build_image_action, '   CREATING IMAGE'),
+    action=Action(build_image_action, '   CREATING DISK'),
     BASEDIR=root.srcnode().path,
 )
 

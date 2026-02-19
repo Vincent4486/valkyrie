@@ -91,8 +91,8 @@ Or call the helper scripts directly, for example:
 ```
 
 Notes and tips
-- Disk image creation uses libguestfs `guestfish` (no `losetup`/root mount required).
-- ISO image creation uses `xorriso`.
+- Disk image creation uses a raw partitioned image + loop mount + `grub-install`.
+- ISO image creation uses `grub-mkstandalone` + `xorriso` (El Torito BIOS boot).
 - Building the toolchain can take significant time and requires a number of build dependencies (autoconf/automake, make, wget, and the GMP/MPFR/MPC dev packages).
 - If you prefer not to build a toolchain locally, providing a prebuilt cross-toolchain in `toolchain/<target>` works: SCons will use `--toolchain` path when provided.
 
