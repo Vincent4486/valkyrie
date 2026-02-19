@@ -64,9 +64,6 @@ build_binutils() {
     cd ${BINUTILS_BUILD}
     CFLAGS= ASMFLAGS= CC= CXX= LD= ASM= LINKFLAGS= LIBS= 
     local BINUTILS_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --disable-werror"
-    if [ "$OS" = "Darwin" ]; then
-        BINUTILS_OPTS="$BINUTILS_OPTS --with-system-zlib --enable-zstd"
-    fi
     ../binutils-${BINUTILS_VERSION}/configure $BINUTILS_OPTS
     make -j8 
     make install
@@ -86,9 +83,6 @@ build_gcc_stage1() {
     cd ${GCC_BUILD}
     
     local GCC_OPTS="--prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --enable-languages=c --without-headers --disable-threads --disable-isl --disable-shared --with-newlib"
-    if [ "$OS" = "Darwin" ]; then
-        GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc"
-    fi
     ../gcc-${GCC_VERSION}/configure $GCC_OPTS
     make -j8 all-gcc all-target-libgcc
     make install-gcc install-target-libgcc
@@ -148,10 +142,6 @@ build_gcc_stage2() {
     cd ${GCC_BUILD}
     local BUILD_TRIPLE="$(../gcc-${GCC_VERSION}/config.guess)"
     local GCC_OPTS="--build=${BUILD_TRIPLE} --host=${BUILD_TRIPLE} --prefix=${TOOLCHAIN_PREFIX} --target=${TARGET} --with-sysroot=${SYSROOT} --disable-nls --enable-languages=c,c++ --disable-isl --disable-libsanitizer"
-    if [ "$OS" = "Darwin" ]; then
-        GCC_OPTS="$GCC_OPTS --with-system-zlib --with-gmp=/opt/homebrew/opt/gmp --with-mpfr=/opt/homebrew/opt/mpfr --with-mpc=/opt/homebrew/opt/libmpc --with-isl=/opt/homebrew/opt/isl"
-    fi
-    echo $PWD
     ../gcc-${GCC_VERSION}/configure $GCC_OPTS
     make -j8
     make install

@@ -91,20 +91,11 @@ class DiskImage:
         """
         fs_config = get_fs_config(filesystem)
         
-        if sys.platform.startswith('darwin'):
-            if not filesystem.startswith('fat'):
-                raise RuntimeError('macOS image creation currently supports only FAT filesystems')
-            # macOS uses sgdisk
-            sh.sgdisk('--zap-all', self.image_path)
-            sh.sgdisk('-o', self.image_path)
-            sh.sgdisk('-n', f'1:{offset}:0', 
-                     '-t', '1:0700', '-c', '1:VALKYRIE', self.image_path)
-        else:
-            # Linux uses parted
-            sh.parted('-s', self.image_path, 'mklabel', 'msdos')
-            sh.parted('-s', self.image_path, 'mkpart', 'primary',
-                     fs_config['parted_type'], f'{offset}s', '100%')
-            sh.parted('-s', self.image_path, 'set', '1', 'boot', 'on')
+        # Linux uses parted
+        sh.parted('-s', self.image_path, 'mklabel', 'msdos')
+        sh.parted('-s', self.image_path, 'mkpart', 'primary',
+                 fs_config['parted_type'], f'{offset}s', '100%')
+        sh.parted('-s', self.image_path, 'set', '1', 'boot', 'on')
     
     def format_partition(self, filesystem: str, offset: int = 0, 
                         reserved_sectors: int = 0, label: str = 'VALKYRIE'):
@@ -116,21 +107,6 @@ class DiskImage:
             reserved_sectors: Additional reserved sectors
             label: Volume label
         """
-        if sys.platform.startswith('darwin'):
-            if not filesystem.startswith('fat'):
-                raise RuntimeError('macOS image creation currently supports only FAT filesystems')
-
-            # On macOS, format the first partition after attaching the raw image.
-            device = self._attach_darwin_nomount()
-            partition = self._darwin_partition_device(device)
-            try:
-                fs_bits = filesystem[3:]
-                # newfs_msdos uses -F 12/16/32 and can write volume label via -v.
-                sh.sudo.newfs_msdos('-F', fs_bits, '-v', label, partition)
-            finally:
-                sh.hdiutil('detach', device)
-            return
-
         if filesystem.startswith('fat'):
             fat_reserved = reserved_sectors + 1
             if filesystem == 'fat32':
@@ -154,20 +130,6 @@ class DiskImage:
         """Mount the image to the specified directory."""
         self._mount_dir = mount_dir
         os.makedirs(mount_dir, exist_ok=True)
-
-        if sys.platform.startswith('darwin'):
-            # Attach raw image as a block device and mount first partition.
-            self._device = self._attach_darwin_nomount()
-            partition = self._darwin_partition_device(self._device)
-            self._wait_for_partition(partition)
-
-            device_file = mount_dir + '.device'
-            with open(device_file, 'w') as f:
-                f.write(self._device)
-
-            print(f"   MOUNT {partition} {mount_dir}")
-            sh.sudo.mount('-t', 'msdos', partition, mount_dir)
-            return
 
         # Setup loop device (Linux)
         self._device = sh.sudo.losetup('-fP', '--show', self.image_path).strip()
@@ -195,31 +157,8 @@ class DiskImage:
                 return
             time.sleep(0.5)
 
-        if not sys.platform.startswith('darwin'):
-            subprocess.run(['losetup', '-l'], check=False)
+        subprocess.run(['losetup', '-l'], check=False)
         raise RuntimeError(f"Loop partition {partition} not found")
-
-    def _attach_darwin_nomount(self) -> str:
-        """Attach image on macOS and return base disk device path (e.g. /dev/disk4)."""
-        out = sh.hdiutil(
-            'attach',
-            '-imagekey',
-            'diskimage-class=CRawDiskImage',
-            '-nomount',
-            self.image_path,
-        )
-
-        # hdiutil output commonly starts with the base disk node.
-        for line in str(out).splitlines():
-            line = line.strip()
-            if line.startswith('/dev/disk'):
-                return line.split()[0]
-
-        raise RuntimeError('Unable to parse hdiutil attach output for disk device')
-
-    def _darwin_partition_device(self, device: str) -> str:
-        """Build first-partition node for a macOS disk device."""
-        return f'{device}s1'
     
     def unmount(self, mount_dir: str = None):
         """Unmount and detach the loop device.
@@ -240,10 +179,7 @@ class DiskImage:
         with open(device_file, 'r') as f:
             device = f.read().strip()
         
-        if sys.platform.startswith('darwin'):
-            sh.hdiutil('detach', device)
-        else:
-            sh.sudo.losetup('-d', device)
+        sh.sudo.losetup('-d', device)
         os.remove(device_file)
 
 

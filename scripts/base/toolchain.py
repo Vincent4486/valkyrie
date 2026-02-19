@@ -88,18 +88,7 @@ def extract_archive(archive: str, dest_dir: str):
         tar.extractall(dest_dir)
 
 
-def get_macos_brew_opts() -> dict:
-    """Get macOS-specific configure options for Homebrew dependencies."""
-    brew_prefix = '/opt/homebrew/opt'
-    if not os.path.exists(brew_prefix):
-        brew_prefix = '/usr/local/opt'
-    
-    return {
-        'gmp': os.path.join(brew_prefix, 'gmp'),
-        'mpfr': os.path.join(brew_prefix, 'mpfr'),
-        'mpc': os.path.join(brew_prefix, 'libmpc'),
-        'isl': os.path.join(brew_prefix, 'isl'),
-    }
+
 
 
 # =============================================================================
@@ -119,7 +108,6 @@ class ToolchainBuilder:
         self.prefix = Path(prefix).resolve()
         self.target = target
         self.jobs = jobs or get_cpu_count()
-        self.host_os = detect_os()
         
         # Derived paths
         self.sysroot = self.prefix / target / 'sysroot'
@@ -176,21 +164,7 @@ class ToolchainBuilder:
     
     def _get_configure_opts(self, pkg: str) -> list:
         """Get platform-specific configure options."""
-        opts = []
-        
-        if self.host_os == 'Darwin':
-            brew = get_macos_brew_opts()
-            opts.extend([
-                '--with-system-zlib',
-                f"--with-gmp={brew['gmp']}",
-                f"--with-mpfr={brew['mpfr']}",
-                f"--with-mpc={brew['mpc']}",
-            ])
-            if pkg == 'gcc':
-                opts.append(f"--with-isl={brew['isl']}")
-                opts.append('--enable-zstd')
-        
-        return opts
+        return []
     
     def build_binutils(self):
         """Build and install binutils."""

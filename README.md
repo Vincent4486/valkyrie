@@ -5,8 +5,7 @@ The Valkyrie Operating System is a small Unix-like OS for x86. It implements man
 This repository targets low-level, cross-compiled builds for x86 (i686 and x64 variants). The build system uses `scons` and a small cross-toolchain produced by the included `scripts/base/toolchain.sh` helper.
 
 **Supported host environments**
-- Primary: Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine). The repository includes `scripts/base/dependencies.py` which detects the distro and installs the required packages.
-- macOS: partial support for building the cross-toolchain (toolchain script includes Darwin-specific flags). Disk/ISO image generation uses Linux guestfs/grub/xorriso tooling.
+- Linux distributions (Debian/Ubuntu, Fedora, Arch, openSUSE, Alpine). The repository includes `scripts/base/dependencies.py` which detects the distro and installs the required packages.
 
 Required build artifacts created by the toolchain script:
 - binutils: 2.45
@@ -14,18 +13,11 @@ Required build artifacts created by the toolchain script:
 - musl (for sysroot): 1.2.5
 
 Prerequisites
- - On Linux, prefer using `scripts/base/dependencies.py` to install the common packages for your distribution. The script will detect your distro and run the appropriate package manager. Example packages (by name) the script installs:
+ - Use `scripts/base/dependencies.py` to install the common packages for your Linux distribution. The script will detect your distro and run the appropriate package manager. Example packages (by name) the script installs:
    - Debian/Ubuntu: `libmpfr-dev libgmp-dev libmpc-dev gcc python3 scons guestfish libguestfs-tools grub-pc-bin xorriso`
    - Fedora: `mpfr-devel gmp-devel libmpc-devel gcc python3 scons guestfs-tools grub2-tools xorriso`
    - Arch: `mpfr gmp libmpc gcc python scons libguestfs-tools grub libisoburn`
    - openSUSE / Alpine: similar package names (see `scripts/base/dependencies.py`).
-
- - On macOS (if you wish to run the toolchain script), install the GMP/MPFR/MPC libraries with Homebrew so the toolchain script can find them:
-   ```bash
-   brew install gmp mpfr libmpc wget make automake autoconf pkg-config
-   ```
-
-Note: `scripts/base/dependencies.py` is designed for Linux package managers and will exit on unknown systems. On macOS you must install the prerequisites manually.
 
 Build steps
 
