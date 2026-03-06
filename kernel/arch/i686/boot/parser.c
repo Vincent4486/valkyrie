@@ -28,7 +28,7 @@ extern void start(BOOT_Info *boot);
  * Pre-heap storage for the parsed boot parameters.
  * Explicitly zeroed inside Parser_Multiboot rather than relying on BSS.
  * ------------------------------------------------------------------------- */
-static BOOT_Info *s_bootInfo = (BOOT_Info *)0x800100;
+static BOOT_Info *s_bootInfo = (BOOT_Info *)0x00931000;
 
 /* -------------------------------------------------------------------------
  * CopyString

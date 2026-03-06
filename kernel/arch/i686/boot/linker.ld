@@ -29,6 +29,10 @@ DYLIB_SIZE = 0x800000;  /* 8 MiB */
 BUFFER_START = 0x00900000;
 BUFFER_SIZE = 0x14000;  /* 80 KiB */
 
+/* g_SysInfo */
+SYS_INFO_START = 0x00930000;
+SYS_INFO_SIZE = 0x900;
+
 /* Kernel starts at 10 MiB */
 phys = 0x00A00000;
 
