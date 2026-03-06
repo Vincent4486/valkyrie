@@ -95,26 +95,26 @@ int DISK_Scan()
          if (partType == 0x04 || partType == 0x06 || partType == 0x0B ||
              partType == 0x0C)
          {
-            if (FAT_Initialize(volume))
+            FAT_Instance *fat_instance = FAT_Initialize(volume);
+            if (fat_instance)
             {
                // Allocate and populate Filesystem struct
                Filesystem *fs = (Filesystem *)kmalloc(sizeof(Filesystem));
                if (fs)
                {
-                  fs->mounted = 0; // Not mounted yet, just initialized
-                  fs->read_only = 0;
-                  fs->block_size = 512;
-                  fs->type = FAT32; // TODO: detect actual FAT type
-                  fs->ops = NULL;   // Will be set during FS_Mount
-                  volume->fs = fs;
+                  memset(fs, 0, sizeof(Filesystem));
+                  fs->block_size   = 512;
+                  fs->type         = FAT32; // TODO: read from fat_instance->FatType
+                  fs->private_data = fat_instance;
+                  volume->fs       = fs;
                }
                else
                {
                   // FAT initialized but we couldn't allocate filesystem struct
-                  // Ensure we don't leave a dangling pointer
-                  printf("[DISK] Warning: FAT init succeeded but allocation "
-                         "failed for volume[%d]\n",
+                  printf("[DISK] Warning: FAT init succeeded but Filesystem "
+                         "alloc failed for volume[%d]\n",
                          volumeIndex);
+                  free(fat_instance);
                   volume->fs = NULL;
                }
             }

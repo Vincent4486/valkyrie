@@ -30,6 +30,7 @@ typedef struct Filesystem
    uint32_t free_inodes;      /* Free inodes */
    uint8_t mounted;           /* 1 if mounted, 0 otherwise */
    uint8_t read_only;         /* 1 if read-only, 0 if read-write */
+   void *private_data;        /* FS-specific instance (e.g., FAT_Instance *) */
 } Filesystem;
 
 bool FS_Initialize();

@@ -12,6 +12,9 @@ To interact with the filesystem, use the VFS interface defined in fs/fs.h.
 #include <stdint.h>
 #include <valkyrie/fs.h>
 
+/* Opaque per-volume instance — defined in fat.c */
+typedef struct FAT_Instance FAT_Instance;
+
 typedef struct
 {
    uint8_t Name[11];
@@ -34,7 +37,8 @@ typedef struct
    bool IsDirectory;
    uint32_t Position;
    uint32_t Size;
-   uint8_t Name[11]; // FAT name (11 bytes, space-padded)
+   uint8_t Name[11];           /* FAT name (11 bytes, space-padded) */
+   FAT_Instance *instance;    /* Back-pointer to owning FAT_Instance */
 } FAT_File;
 
 enum FAT_Attributes
@@ -49,7 +53,10 @@ enum FAT_Attributes
                        FAT_ATTRIBUTE_SYSTEM | FAT_ATTRIBUTE_VOLUME_ID
 };
 
-bool FAT_Initialize(Partition *disk);
+/* Allocate, initialise and return the per-volume FAT_Instance.
+ * The caller must store the returned pointer in
+ * partition->fs->private_data.  Returns NULL on failure. */
+FAT_Instance *FAT_Initialize(Partition *disk);
 FAT_File *FAT_Open(Partition *disk, const char *path);
 uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                   void *dataOut);
@@ -90,8 +97,8 @@ FAT_File *FAT_Create(Partition *disk, const char *name);
 // Returns true on success.
 bool FAT_Delete(Partition *disk, const char *name);
 
-/* Invalidate FAT cache and reset file handles */
-void FAT_InvalidateCache(void);
+/* Invalidate FAT cache and reset file handles for the given instance */
+void FAT_InvalidateCache(FAT_Instance *inst);
 
 /* VFS Integration */
 struct VFS_Operations;
