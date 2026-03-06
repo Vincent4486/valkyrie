@@ -41,10 +41,10 @@ typedef struct
  * ------------------------------------------------------------------------- */
 typedef struct
 {
-   uint32_t size;        /* Size of this entry (not counting this field) */
-   uint64_t base_addr;   /* Starting physical address of the region */
-   uint64_t length;      /* Byte length of the region */
-   uint32_t type;        /* 1 = available RAM; anything else = reserved */
+   uint32_t size;      /* Size of this entry (not counting this field) */
+   uint64_t base_addr; /* Starting physical address of the region */
+   uint64_t length;    /* Byte length of the region */
+   uint32_t type;      /* 1 = available RAM; anything else = reserved */
 } __attribute__((packed)) multiboot_mmap_entry_t;
 
 /* -------------------------------------------------------------------------
@@ -60,8 +60,9 @@ typedef struct
  * void start(BOOT_Info *boot).
  *
  * Parameters (cdecl, matching the entry.S push order):
- *   magic  – value of %eax at kernel entry (must equal MULTIBOOT_BOOTLOADER_MAGIC)
- *   mbi    – physical pointer to the multiboot_info_t structure (%ebx at entry)
+ *   magic  – value of %eax at kernel entry (must equal
+ * MULTIBOOT_BOOTLOADER_MAGIC) mbi    – physical pointer to the multiboot_info_t
+ * structure (%ebx at entry)
  * ------------------------------------------------------------------------- */
 void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi);
 

@@ -126,14 +126,14 @@ static uint32_t PollTotalMemory(void)
    const uint32_t defaultMem = 256 * 1024 * 1024; /* 256 MB fallback */
 
    /* --- Prefer the full memory map when available ----------------------- */
-   uint32_t mapAddr   = g_SysInfo->boot.memMapAddr;
+   uint32_t mapAddr = g_SysInfo->boot.memMapAddr;
    uint32_t mapLength = g_SysInfo->boot.memMapLength;
 
    if (mapAddr >= 0x1000 && mapLength > 0)
    {
-      BOOT_MemMapEntry *entry    = (BOOT_MemMapEntry *)mapAddr;
-      BOOT_MemMapEntry *mapEnd   = (BOOT_MemMapEntry *)(mapAddr + mapLength);
-      uint32_t          highMark = 0;
+      BOOT_MemMapEntry *entry = (BOOT_MemMapEntry *)mapAddr;
+      BOOT_MemMapEntry *mapEnd = (BOOT_MemMapEntry *)(mapAddr + mapLength);
+      uint32_t highMark = 0;
 
       while (entry < mapEnd)
       {
@@ -143,8 +143,7 @@ static uint32_t PollTotalMemory(void)
             if (entry->baseAddr < 0x100000000ULL)
             {
                uint64_t regionEnd = entry->baseAddr + entry->length;
-               if (regionEnd > 0x100000000ULL)
-                  regionEnd = 0x100000000ULL;
+               if (regionEnd > 0x100000000ULL) regionEnd = 0x100000000ULL;
                if ((uint32_t)regionEnd > highMark)
                   highMark = (uint32_t)regionEnd;
             }
@@ -153,16 +152,14 @@ static uint32_t PollTotalMemory(void)
          entry = (BOOT_MemMapEntry *)((uint32_t)entry + entry->size +
                                       sizeof(entry->size));
       }
-      if (highMark >= 16u * 1024u * 1024u)
-         return highMark;
+      if (highMark >= 16u * 1024u * 1024u) return highMark;
    }
 
    /* --- Fall back to the simple mem_upper field (KB above 1 MB) --------- */
    if (g_SysInfo->boot.totalMemoryUpper > 0)
    {
       uint32_t total = g_SysInfo->boot.totalMemoryUpper * 1024;
-      if (total >= 16u * 1024u * 1024u)
-         return total;
+      if (total >= 16u * 1024u * 1024u) return total;
    }
    return defaultMem;
 }

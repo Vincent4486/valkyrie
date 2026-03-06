@@ -24,9 +24,9 @@ const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
 };
 
 const HAL_VideoOperations *g_HalVideoOperations = &(HAL_VideoOperations){
-    .PutChar      = HAL_ARCH_Video_PutChar,
-    .Clear        = HAL_ARCH_Video_Clear,
-    .SetCursor    = HAL_ARCH_Video_SetCursor,
+    .PutChar = HAL_ARCH_Video_PutChar,
+    .Clear = HAL_ARCH_Video_Clear,
+    .SetCursor = HAL_ARCH_Video_SetCursor,
     .UpdateBuffer = HAL_ARCH_Video_UpdateBuffer,
 };
 

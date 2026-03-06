@@ -27,8 +27,8 @@ extern "C"
    printf("%s" fmt "%s",                                                       \
           (logtype == LOG_INFO      ? "\x1B[37mINFO: "                         \
            : logtype == LOG_WARNING ? "\x1B[33mWARNING: "                      \
-          : logtype == LOG_ERROR   ? "\x1B[31mERROR: "                        \
-          : logtype == LOG_FATAL   ? "\x1B[1;41;37mFATAL: "                     \
+           : logtype == LOG_ERROR   ? "\x1B[31mERROR: "                        \
+           : logtype == LOG_FATAL   ? "\x1B[1;41;37mFATAL: "                   \
                                     : "UNKNOWN: "),                              \
           ##__VA_ARGS__, "\x1B[0m")
    void print_buffer(const char *msg, const void *buffer, uint32_t count);

@@ -2,8 +2,8 @@
 
 #include "vfs.h"
 
-#include <fs/fat/fat.h>
 #include <fs/devfs/devfs.h>
+#include <fs/fat/fat.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>

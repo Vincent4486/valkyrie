@@ -67,41 +67,44 @@ uint32_t Partition_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset,
                              uint32_t size, void *buffer)
 {
    if (!node || !node->private_data || !buffer) return 0;
-   
+
    Partition *part = (Partition *)node->private_data;
    if (!part->disk) return 0;
-   
+
    /* Calculate sector-based read within partition */
    uint32_t sector_size = 512;
    uint32_t start_sector = offset / sector_size;
    uint32_t sectors_needed = (size + sector_size - 1) / sector_size;
-   
+
    /* Bounds check */
    if (start_sector >= part->partitionSize) return 0;
-   if (start_sector + sectors_needed > part->partitionSize) {
+   if (start_sector + sectors_needed > part->partitionSize)
+   {
       sectors_needed = part->partitionSize - start_sector;
    }
-   
+
    /* Allocate temporary buffer */
    uint8_t *temp = kmalloc(sectors_needed * sector_size);
    if (!temp) return 0;
-   
+
    /* Read from partition (uses partition-relative LBA) */
-   if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp)) {
+   if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp))
+   {
       free(temp);
       return 0;
    }
-   
+
    /* Copy requested portion */
    uint32_t offset_in_sector = offset % sector_size;
    uint32_t bytes_to_copy = size;
-   if (bytes_to_copy > sectors_needed * sector_size - offset_in_sector) {
+   if (bytes_to_copy > sectors_needed * sector_size - offset_in_sector)
+   {
       bytes_to_copy = sectors_needed * sector_size - offset_in_sector;
    }
-   
+
    memcpy(buffer, temp + offset_in_sector, bytes_to_copy);
    free(temp);
-   
+
    return bytes_to_copy;
 }
 
@@ -109,47 +112,52 @@ uint32_t Partition_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset,
                               uint32_t size, const void *buffer)
 {
    if (!node || !node->private_data || !buffer) return 0;
-   
+
    Partition *part = (Partition *)node->private_data;
    if (!part->disk) return 0;
-   
+
    /* Calculate sector-based write */
    uint32_t sector_size = 512;
    uint32_t start_sector = offset / sector_size;
    uint32_t sectors_needed = (size + sector_size - 1) / sector_size;
    uint32_t offset_in_sector = offset % sector_size;
-   
+
    /* Bounds check */
    if (start_sector >= part->partitionSize) return 0;
-   if (start_sector + sectors_needed > part->partitionSize) {
+   if (start_sector + sectors_needed > part->partitionSize)
+   {
       sectors_needed = part->partitionSize - start_sector;
    }
-   
+
    /* Allocate temp buffer */
    uint8_t *temp = kmalloc(sectors_needed * sector_size);
    if (!temp) return 0;
-   
+
    /* Read-modify-write for partial sectors */
-   if (offset_in_sector != 0 || (size % sector_size) != 0) {
-      if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp)) {
+   if (offset_in_sector != 0 || (size % sector_size) != 0)
+   {
+      if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp))
+      {
          free(temp);
          return 0;
       }
    }
-   
+
    /* Copy new data */
    uint32_t bytes_to_write = size;
-   if (bytes_to_write > sectors_needed * sector_size - offset_in_sector) {
+   if (bytes_to_write > sectors_needed * sector_size - offset_in_sector)
+   {
       bytes_to_write = sectors_needed * sector_size - offset_in_sector;
    }
    memcpy(temp + offset_in_sector, buffer, bytes_to_write);
-   
+
    /* Write back */
-   if (!Partition_WriteSectors(part, start_sector, sectors_needed, temp)) {
+   if (!Partition_WriteSectors(part, start_sector, sectors_needed, temp))
+   {
       free(temp);
       return 0;
    }
-   
+
    free(temp);
    return bytes_to_write;
 }

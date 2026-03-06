@@ -3,8 +3,8 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-#include <stdint.h>
 #include <fs/devfs/devfs.h>
+#include <stdint.h>
 
 /**
  * Generic keyboard interface (platform-independent)

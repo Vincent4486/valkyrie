@@ -92,9 +92,10 @@ typedef struct
 struct FAT_Instance
 {
    /* Boot sector (formerly FAT_Data::BS) */
-   union {
+   union
+   {
       FAT_BootSector BootSector;
-      uint8_t        BootSectorBytes[SECTOR_SIZE];
+      uint8_t BootSectorBytes[SECTOR_SIZE];
    } BS;
 
    /* Root-directory pseudo-handle (always open, always index -1) */
@@ -104,12 +105,12 @@ struct FAT_Instance
    FAT_FileData OpenedFiles[MAX_FILE_HANDLES];
 
    /* FAT sector cache */
-   uint8_t  FatCache[FAT_CACHE_SIZE * SECTOR_SIZE];
+   uint8_t FatCache[FAT_CACHE_SIZE * SECTOR_SIZE];
    uint32_t FatCachePos;
 
    /* Derived filesystem geometry (formerly g_* globals) */
    uint32_t DataSectionLba;
-   uint8_t  FatType;        /* 12, 16, or 32 */
+   uint8_t FatType; /* 12, 16, or 32 */
    uint32_t TotalSectors;
    uint32_t SectorsPerFat;
    uint32_t RootDirLba;     /* FAT12/16 fixed-root start LBA (0 for FAT32) */
@@ -125,13 +126,13 @@ static inline FAT_Instance *fat_inst(const Partition *disk)
 
 /* Forward declarations for internal helpers */
 static uint32_t FAT_ClusterToLba(const FAT_Instance *inst, uint32_t cluster);
-static bool     FAT_ReadFat(FAT_Instance *inst, Partition *disk, size_t LBAIndex);
+static bool FAT_ReadFat(FAT_Instance *inst, Partition *disk, size_t LBAIndex);
 
 static bool FAT_ReadFat(FAT_Instance *inst, Partition *disk, size_t LBAIndex)
 {
-   return Partition_ReadSectors(
-       disk, inst->BS.BootSector.ReservedSectors + LBAIndex, FAT_CACHE_SIZE,
-       inst->FatCache);
+   return Partition_ReadSectors(disk,
+                                inst->BS.BootSector.ReservedSectors + LBAIndex,
+                                FAT_CACHE_SIZE, inst->FatCache);
 }
 
 static void FAT_Detect(FAT_Instance *inst)
@@ -236,8 +237,9 @@ FAT_Instance *FAT_Initialize(Partition *disk)
                              inst->SectorsPerFat * inst->BS.BootSector.FatCount;
 
       // For FAT32 the root directory is a normal cluster chain starting at
-      // RootDirectoryCluster. Keep cluster number in RootDirectory.FirstCluster.
-      // RootDirLba/RootDirSectors = 0 indicates a clustered root.
+      // RootDirectoryCluster. Keep cluster number in
+      // RootDirectory.FirstCluster. RootDirLba/RootDirSectors = 0 indicates a
+      // clustered root.
       inst->RootDirLba = 0;
       inst->RootDirSectors = 0;
       rootDirLba = FAT_ClusterToLba(inst, rootDirCluster); // first cluster LBA
@@ -245,7 +247,8 @@ FAT_Instance *FAT_Initialize(Partition *disk)
    }
    else
    {
-      // FAT12/16: root directory stored in a fixed area (immediately after FATs)
+      // FAT12/16: root directory stored in a fixed area (immediately after
+      // FATs)
       rootDirLba = inst->BS.BootSector.ReservedSectors +
                    inst->SectorsPerFat * inst->BS.BootSector.FatCount;
       rootDirSize =
@@ -454,7 +457,7 @@ static FAT_File *FAT_OpenEntry(FAT_Instance *inst, Partition *disk,
    fd->Public.Position = 0;
    fd->Public.Size = entry->Size;
    fd->Public.instance = inst; // backpointer so callers don't need Partition*
-   fd->Truncated = false;                    // Not yet truncated
+   fd->Truncated = false;      // Not yet truncated
    memcpy(fd->Public.Name, entry->Name, 11); // Save the name
    fd->FirstCluster =
        entry->FirstClusterLow + ((uint32_t)entry->FirstClusterHigh << 16);
@@ -559,8 +562,7 @@ static uint32_t FAT_NextCluster(FAT_Instance *inst, Partition *disk,
       else
          nextCluster = (*(uint16_t *)(inst->FatCache + fatIndex)) >> 4;
 
-      if (nextCluster >= 0xff8)
-         nextCluster |= 0xfffff000;
+      if (nextCluster >= 0xff8) nextCluster |= 0xfffff000;
    }
    else if (inst->FatType == 16)
    {
@@ -914,10 +916,9 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
             return NULL;
          }
 
-         FAT_FileData *parentData =
-             (current->Handle == ROOT_DIRECTORY_HANDLE)
-                 ? &inst->RootDirectory
-                 : &inst->OpenedFiles[current->Handle];
+         FAT_FileData *parentData = (current->Handle == ROOT_DIRECTORY_HANDLE)
+                                        ? &inst->RootDirectory
+                                        : &inst->OpenedFiles[current->Handle];
 
          previous = current;
          current = FAT_OpenEntry(inst, disk, &entry, parentData);
@@ -1154,8 +1155,8 @@ bool FAT_WriteEntry(Partition *disk, FAT_File *file,
    uint32_t sectorLba = 0;
    if (!isRoot || inst->FatType == 32)
    {
-      sectorLba =
-          FAT_ClusterToLba(inst, fd->CurrentCluster) + fd->CurrentSectorInCluster;
+      sectorLba = FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                  fd->CurrentSectorInCluster;
    }
    else
    {
@@ -1290,9 +1291,8 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
       // Write sector back to disk if we've filled it or reached end of request
       if (offsetInSector + take == SECTOR_SIZE || byteCount == 0)
       {
-         uint32_t sectorLba =
-             FAT_ClusterToLba(inst, fd->CurrentCluster) +
-             fd->CurrentSectorInCluster;
+         uint32_t sectorLba = FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                              fd->CurrentSectorInCluster;
 
          if (!Partition_WriteSectors(disk, sectorLba, 1, fd->Buffer))
          {
@@ -1413,7 +1413,11 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
    while (testCluster < eofMarker && chainLength < 100)
    {
       uint32_t next = FAT_NextCluster(inst, disk, testCluster);
-      if (next >= eofMarker) { chainLength++; break; }
+      if (next >= eofMarker)
+      {
+         chainLength++;
+         break;
+      }
       testCluster = next;
       chainLength++;
       if (next < 2)
@@ -1516,9 +1520,8 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
 
       while (cluster < eofMarker && sectorsScanned < maxSectorsToScan)
       {
-         for (uint32_t sec = 0;
-              sec < inst->BS.BootSector.SectorsPerCluster &&
-              sectorsScanned < maxSectorsToScan;
+         for (uint32_t sec = 0; sec < inst->BS.BootSector.SectorsPerCluster &&
+                                sectorsScanned < maxSectorsToScan;
               sec++, sectorsScanned++)
          {
             uint8_t *sectorBuffer = kmalloc(SECTOR_SIZE);
@@ -1535,8 +1538,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
             {
                FAT_DirectoryEntry *entry =
                    (FAT_DirectoryEntry *)(sectorBuffer + i);
-               if ((entry->Attributes & 0x0F) == 0x0F ||
-                   entry->Name[0] == 0x00)
+               if ((entry->Attributes & 0x0F) == 0x0F || entry->Name[0] == 0x00)
                   continue;
                if (memcmp(entry->Name, fd->Public.Name, 11) == 0)
                {
@@ -1615,9 +1617,8 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
    }
 
    // Open parent directory
-   FAT_File *parentFile = (parentPath[0] == '\0')
-                              ? &inst->RootDirectory.Public
-                              : FAT_Open(disk, parentPath);
+   FAT_File *parentFile = (parentPath[0] == '\0') ? &inst->RootDirectory.Public
+                                                  : FAT_Open(disk, parentPath);
    if (!parentFile || !parentFile->IsDirectory)
    {
       free(parentPath);
@@ -1870,8 +1871,8 @@ bool FAT_Delete(Partition *disk, const char *name)
    // Free all clusters in the chain
    uint32_t currentCluster = firstCluster;
    uint32_t eofMarker = (inst->FatType == 12)   ? 0xFF8
-                         : (inst->FatType == 16) ? 0xFFF8
-                                                 : 0x0FFFFFF8;
+                        : (inst->FatType == 16) ? 0xFFF8
+                                                : 0x0FFFFFF8;
    const uint32_t largeClusterThreshold = 0x0FFFFF00;
 
    if (inst->BS.BootSector.SectorsPerCluster == 0 ||
@@ -1959,8 +1960,8 @@ bool FAT_Delete(Partition *disk, const char *name)
    {
       uint32_t cluster = parentData->FirstCluster;
       uint32_t eofMarkerDel = (inst->FatType == 12)   ? 0xFF8
-                               : (inst->FatType == 16) ? 0xFFF8
-                                                       : 0x0FFFFFF8;
+                              : (inst->FatType == 16) ? 0xFFF8
+                                                      : 0x0FFFFFF8;
       uint32_t scanned = 0;
       while (cluster < eofMarkerDel && scanned < 10000)
       {
@@ -2056,8 +2057,8 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
 
    uint32_t currentCluster = fd->FirstCluster;
    uint32_t eofMarker = (inst->FatType == 12)   ? 0xFF8
-                         : (inst->FatType == 16) ? 0xFFF8
-                                                 : 0x0FFFFFF8;
+                        : (inst->FatType == 16) ? 0xFFF8
+                                                : 0x0FFFFFF8;
 
    if (currentCluster < 2 || currentCluster >= eofMarker)
    {

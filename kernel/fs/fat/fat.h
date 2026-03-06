@@ -37,8 +37,8 @@ typedef struct
    bool IsDirectory;
    uint32_t Position;
    uint32_t Size;
-   uint8_t Name[11];           /* FAT name (11 bytes, space-padded) */
-   FAT_Instance *instance;    /* Back-pointer to owning FAT_Instance */
+   uint8_t Name[11];       /* FAT name (11 bytes, space-padded) */
+   FAT_Instance *instance; /* Back-pointer to owning FAT_Instance */
 } FAT_File;
 
 enum FAT_Attributes

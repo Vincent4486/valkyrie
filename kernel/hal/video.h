@@ -20,9 +20,9 @@
 
 #if defined(I686)
 #include <arch/i686/video/vga.h>
-#define HAL_ARCH_Video_PutChar      VGA_PutChar
-#define HAL_ARCH_Video_Clear        VGA_Clear
-#define HAL_ARCH_Video_SetCursor    VGA_SetCursor
+#define HAL_ARCH_Video_PutChar VGA_PutChar
+#define HAL_ARCH_Video_Clear VGA_Clear
+#define HAL_ARCH_Video_SetCursor VGA_SetCursor
 #define HAL_ARCH_Video_UpdateBuffer VGA_UpdateBuffer
 #else
 #error "Unsupported architecture for HAL Video"

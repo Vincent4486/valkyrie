@@ -3,12 +3,12 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#include <hal/irq.h> /* Registers – the interrupt stack frame type */
 #include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <valkyrie/fs.h>
-#include <hal/irq.h>   /* Registers – the interrupt stack frame type */
 
 #define HEAP_MAX 0xC0000000u // Don't allow heap
 

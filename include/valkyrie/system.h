@@ -18,10 +18,10 @@
  */
 typedef struct
 {
-   uint32_t size;      /* Bytes that follow this field in the entry */
-   uint64_t baseAddr;  /* First physical byte of the region */
-   uint64_t length;    /* Byte length of the region */
-   uint32_t type;      /* 1 = available RAM; anything else = reserved/unusable */
+   uint32_t size;     /* Bytes that follow this field in the entry */
+   uint64_t baseAddr; /* First physical byte of the region */
+   uint64_t length;   /* Byte length of the region */
+   uint32_t type;     /* 1 = available RAM; anything else = reserved/unusable */
 } __attribute__((packed)) BOOT_MemMapEntry;
 
 /**
@@ -33,11 +33,12 @@ typedef struct
  */
 typedef struct
 {
-   char     commandLine[256];   /* Null-terminated kernel command line */
-   uint32_t memMapAddr;         /* Physical address of the memory map table */
-   uint32_t memMapLength;       /* Byte length of the memory map table */
-   char     bootLoaderName[64]; /* Null-terminated bootloader name string */
-   uint32_t totalMemoryUpper;   /* Memory above 1 MB reported by bootloader (KB) */
+   char commandLine[256];   /* Null-terminated kernel command line */
+   uint32_t memMapAddr;     /* Physical address of the memory map table */
+   uint32_t memMapLength;   /* Byte length of the memory map table */
+   char bootLoaderName[64]; /* Null-terminated bootloader name string */
+   uint32_t
+       totalMemoryUpper; /* Memory above 1 MB reported by bootloader (KB) */
 } BOOT_Info;
 
 #endif

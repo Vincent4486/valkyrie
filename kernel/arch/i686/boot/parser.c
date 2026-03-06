@@ -41,8 +41,7 @@ static void CopyString(char *dst, const char *src, uint32_t maxLen)
 {
    uint32_t i = 0;
 
-   if (!dst || maxLen == 0)
-      return;
+   if (!dst || maxLen == 0) return;
 
    if (src)
    {
@@ -65,8 +64,7 @@ static void CopyString(char *dst, const char *src, uint32_t maxLen)
 static void ZeroBytes(void *ptr, uint32_t len)
 {
    uint8_t *p = (uint8_t *)ptr;
-   for (uint32_t i = 0; i < len; i++)
-      p[i] = 0;
+   for (uint32_t i = 0; i < len; i++) p[i] = 0;
 }
 
 /* -------------------------------------------------------------------------
@@ -92,22 +90,19 @@ void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
        * Not a Multiboot-compliant boot; halt the processor.
        * No panic/printf available at this stage.
        */
-      for (;;)
-         __asm__ volatile("hlt");
+      for (;;) __asm__ volatile("hlt");
    }
 
    /* --- Sanity-check the info pointer ----------------------------------- */
    if (!mbi || (uint32_t)mbi < 0x1000)
    {
-      for (;;)
-         __asm__ volatile("hlt");
+      for (;;) __asm__ volatile("hlt");
    }
 
    /* --- Command line (Multiboot flags bit 2) ----------------------------- */
    if (mbi->flags & (1u << 2))
    {
-      CopyString(s_bootInfo->commandLine,
-                 (const char *)(uintptr_t)mbi->cmdline,
+      CopyString(s_bootInfo->commandLine, (const char *)(uintptr_t)mbi->cmdline,
                  sizeof(s_bootInfo->commandLine));
    }
 
@@ -124,7 +119,8 @@ void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
    {
       /*
        * mem_upper: kilobytes of contiguous RAM starting at 1 MB.
-       * $TotalPages = \frac{g\_SysInfo.boot.totalMemoryUpper \times 1024}{4096}$
+       * $TotalPages = \frac{g\_SysInfo.boot.totalMemoryUpper \times
+       * 1024}{4096}$
        */
       s_bootInfo->totalMemoryUpper = mbi->mem_upper;
    }
@@ -132,7 +128,7 @@ void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
    /* --- Memory map (Multiboot flags bit 6) ------------------------------ */
    if (mbi->flags & (1u << 6))
    {
-      s_bootInfo->memMapAddr   = mbi->mmap_addr;
+      s_bootInfo->memMapAddr = mbi->mmap_addr;
       s_bootInfo->memMapLength = mbi->mmap_length;
    }
 
@@ -140,6 +136,5 @@ void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
    start(s_bootInfo);
 
    /* Should never reach here; loop defensively. */
-   for (;;)
-      __asm__ volatile("hlt");
+   for (;;) __asm__ volatile("hlt");
 }

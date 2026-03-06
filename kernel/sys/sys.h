@@ -50,7 +50,7 @@ typedef struct
 
    /* Bootloader and hardware */
    uint32_t boot_device; /* Device booted from (legacy, set by parser) */
-   BOOT_Info boot;       /* Abstracted boot parameters (populated before start()) */
+   BOOT_Info boot; /* Abstracted boot parameters (populated before start()) */
 
    /* Status flags */
    uint8_t initialized; /* 1 if fully initialized, 0 otherwise */

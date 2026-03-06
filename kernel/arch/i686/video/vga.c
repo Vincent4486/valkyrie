@@ -12,23 +12,23 @@
 
 #include "vga.h"
 #include <hal/io.h>
+#include <mem/mm_kernel.h>
 #include <std/string.h>
 #include <stdint.h>
-#include <mem/mm_kernel.h>
 
 /* ── Hardware constants ──────────────────────────────────────────────────── */
 
-#define VGA_COLS    80
-#define VGA_ROWS    25
-#define VGA_BUFFER  ((volatile uint16_t *)0xB8000)
+#define VGA_COLS 80
+#define VGA_ROWS 25
+#define VGA_BUFFER ((volatile uint16_t *)0xB8000)
 
 /* CRT controller: index port and data port */
-#define VGA_CRTC_ADDR   0x3D4
-#define VGA_CRTC_DATA   0x3D5
+#define VGA_CRTC_ADDR 0x3D4
+#define VGA_CRTC_DATA 0x3D5
 
 /* CRTC cursor position registers */
-#define VGA_CRTC_CURSOR_HI  0x0E
-#define VGA_CRTC_CURSOR_LO  0x0F
+#define VGA_CRTC_CURSOR_HI 0x0E
+#define VGA_CRTC_CURSOR_LO 0x0F
 
 /* ── Backend implementation ──────────────────────────────────────────────── */
 
@@ -51,8 +51,7 @@ void VGA_PutChar(char c, uint8_t color, int x, int y)
 void VGA_Clear(uint8_t color)
 {
    uint16_t blank = ((uint16_t)color << 8) | ' ';
-   for (int i = 0; i < VGA_COLS * VGA_ROWS; i++)
-      VGA_BUFFER[i] = blank;
+   for (int i = 0; i < VGA_COLS * VGA_ROWS; i++) VGA_BUFFER[i] = blank;
 }
 
 /*
@@ -83,6 +82,5 @@ void VGA_SetCursor(int x, int y)
  */
 void VGA_UpdateBuffer(void *buffer)
 {
-   memcpy((void *)VGA_BUFFER, buffer,
-          VGA_COLS * VGA_ROWS * sizeof(uint16_t));
+   memcpy((void *)VGA_BUFFER, buffer, VGA_COLS * VGA_ROWS * sizeof(uint16_t));
 }
