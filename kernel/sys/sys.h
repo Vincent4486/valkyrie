@@ -16,29 +16,6 @@ extern __attribute__((cdecl)) uint32_t get_cpu_frequency(void);
 extern __attribute__((cdecl)) uint32_t get_cache_line_size(void);
 extern __attribute__((cdecl)) uint32_t get_cpu_features(void);
 
-/* Multiboot structures for memory detection */
-typedef struct
-{
-   uint32_t flags;
-   uint32_t mem_lower;
-   uint32_t mem_upper;
-   uint32_t boot_device;
-   uint32_t cmdline;
-   uint32_t mods_count;
-   uint32_t mods_addr;
-   uint32_t syms[4];
-   uint32_t mmap_length;
-   uint32_t mmap_addr;
-} __attribute__((packed)) multiboot_info_t;
-
-typedef struct
-{
-   uint32_t size;
-   uint64_t base_addr;
-   uint64_t length;
-   uint32_t type; /* 1 = available RAM */
-} __attribute__((packed)) multiboot_mmap_entry_t;
-
 /* Architecture/CPU information */
 typedef struct
 {
@@ -72,11 +49,8 @@ typedef struct
    IRQ_Info irq; /* Interrupt controller information */
 
    /* Bootloader and hardware */
-   uint32_t boot_device; /* Device booted from */
-   uint32_t cmdline;
-   uint32_t video_memory; /* Video memory size in bytes */
-   uint16_t video_width;  /* Video width in pixels/chars */
-   uint16_t video_height; /* Video height in pixels/chars */
+   uint32_t boot_device; /* Device booted from (legacy, set by parser) */
+   BOOT_Info boot;       /* Abstracted boot parameters (populated before start()) */
 
    /* Status flags */
    uint8_t initialized; /* 1 if fully initialized, 0 otherwise */

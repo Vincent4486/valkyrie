@@ -2,7 +2,6 @@
 
 ## Current todo
 
-3) implement full devfs + let all drivers register devices + refactor keyboard driver to `drivers/keyboard/`
 5) Get root partition via cmdline uuid and label + find root partition
 
 # ValkyrieOS glibc Implementation Roadmap

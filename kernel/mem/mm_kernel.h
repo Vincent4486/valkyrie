@@ -37,7 +37,7 @@ int strncmp(const char *s1, const char *s2, size_t n);
 
 void *SegmentOffsetToLinear(void *addr);
 
-void MEM_Initialize(void *multiboot_info_ptr);
+void MEM_Initialize(void); /* Reads boot params from g_SysInfo->boot */
 
 /* Heap / allocator initialization */
 void Heap_Initialize(void);

@@ -14,47 +14,34 @@
 .section .entry
 	# Entry point symbol - linker ENTRY points here
 .global _start
-.extern start
+.extern Parser_Multiboot
 
 _start:
-	# GRUB passes: EAX = 0x2BADB002 (magic), EBX = pointer to multiboot_info
+	# GRUB/Multiboot passes: EAX = 0x2BADB002 (magic), EBX = *multiboot_info_t
     cmpl $0x2BADB002, %eax
     jne .no_multiboot
 
-	# EBX -> multiboot_info structure
-    movl %ebx, %esi
-	# boot_device field is at offset 0x0C in multiboot_info
-    movl 0x0c(%esi), %ebx
-	# drive number is stored in the highest byte (per multiboot spec)
-    shrl $24, %ebx
-	# Set up a small temporary stack to avoid relying on GRUB-provided stack
+	# Preserve the two Multiboot registers before anything clobbers them.
+    movl %eax, %edi         # edi = magic   (1st argument to Parser_Multiboot)
+    movl %ebx, %esi         # esi = mbi ptr (2nd argument to Parser_Multiboot)
+
+	# Set up a small temporary stack (below the 640 KB low-memory mark).
     movl $0x90000, %esp
     movl %esp, %ebp
 
-	# Push args for C start(bootDrive, multiboot_info_ptr)
-    pushl %esi      # multiboot_info pointer
-    pushl %ebx      # bootDrive (32-bit value; C will take low byte)
-    call start
+	# Push arguments in cdecl right-to-left order:
+	#   2nd arg: multiboot_info_t *mbi
+    pushl %esi
+	#   1st arg: uint32_t magic
+    pushl %edi
+    call Parser_Multiboot
+    # Parser_Multiboot never returns (it calls start(), which loops forever).
     jmp .
 
 .no_multiboot:
-	# No multiboot info present.
-	# -if the kernel was started by our stage2 bootloader it was called as:
-	#    kernel_entry(bootDrive, partitionPtr)
-	# In that case the bootDrive and partitionPtr are on the caller stack
-	# ([esp+4] and [esp+8]). We need to grab those, establish a fresh
-	# kernel stack, then call the C `start` function with the same args.
-    #
-	# Stack at entry: [esp] = return_addr, [esp+4] = bootDrive, [esp+8] = partitionPtr
-    movl 4(%esp), %eax    # bootDrive (32-bit, low byte used)
-    movl 8(%esp), %edx    # partitionPtr
-
-	# Set up a small temporary stack for the kernel (same as multiboot path)
-    movl $0x90000, %esp
-    movl %esp, %ebp
-
-	# Push arguments for C start(partitionPtr, bootDrive)
-    pushl %edx            # partitionPtr
-    pushl %eax            # bootDrive
-    call start
-    jmp .
+	# No valid Multiboot handoff.  The kernel requires a Multiboot-compliant
+	# bootloader (e.g. GRUB2).  Hang the processor cleanly.
+.hang:
+    cli
+    hlt
+    jmp .hang

@@ -108,75 +108,78 @@ int strncmp(const char *s1, const char *s2, size_t n)
 }
 
 /**
- * Parse Multiboot memory map to detect total system memory
- * Returns total memory in bytes
+ * PollTotalMemory
+ *
+ * Derives total physical memory from the bootloader-agnostic BOOT_Info
+ * stored in g_SysInfo->boot.
+ *
+ * Priority:
+ *  1. Walk the BOOT_MemMapEntry table (memMapAddr / memMapLength) and find
+ *     the highest physical address covered by a type-1 (available RAM) region.
+ *  2. Fall back to totalMemoryUpper * 1024 (simple mem_upper KB field).
+ *  3. Hard-coded 256 MB default if neither source is usable.
+ *
+ * Returns total addressable RAM in bytes (clamped to 32-bit space).
  */
-static uint32_t parse_multiboot_memory(multiboot_info_t *mbi)
+static uint32_t PollTotalMemory(void)
 {
-   uint32_t total_mem = 0;
-   const uint32_t default_mem = 256 * 1024 * 1024; /* Default: 256 MB */
+   const uint32_t defaultMem = 256 * 1024 * 1024; /* 256 MB fallback */
 
-   /* Validate pointer is in a reasonable range */
-   if (!mbi || (uint32_t)mbi < 0x1000 || (uint32_t)mbi > 0x100000)
+   /* --- Prefer the full memory map when available ----------------------- */
+   uint32_t mapAddr   = g_SysInfo->boot.memMapAddr;
+   uint32_t mapLength = g_SysInfo->boot.memMapLength;
+
+   logfmt(LOG_FATAL, "Entering Memory Detection!\n");
+   logfmt(LOG_FATAL, "Addr: %u, Len: %u", mapAddr, mapLength);
+
+   if (mapAddr >= 0x1000 && mapLength > 0)
    {
-      return default_mem;
-   }
+      BOOT_MemMapEntry *entry    = (BOOT_MemMapEntry *)mapAddr;
+      BOOT_MemMapEntry *mapEnd   = (BOOT_MemMapEntry *)(mapAddr + mapLength);
+      uint32_t          highMark = 0;
+      logfmt(LOG_FATAL, "1");
 
-   /* Check if memory info is available (flags bit 0) */
-   if (mbi->flags & 0x01)
-   {
-      /* mem_lower = KB below 1MB, mem_upper = KB above 1MB */
-      total_mem = (mbi->mem_lower + mbi->mem_upper) * 1024;
-      /* Sanity check: memory should be at least 16MB and less than 64GB */
-      if (total_mem >= 16 * 1024 * 1024 && total_mem <= 0xFFFFFFFF)
+      while (entry < mapEnd)
       {
-         return total_mem;
-      }
-   }
-
-   /* Check if memory map is available (flags bit 6) */
-   if (mbi->flags & 0x40)
-   {
-      /* Validate mmap_addr is reasonable */
-      if (mbi->mmap_addr < 0x1000 || mbi->mmap_addr > 0x100000)
-      {
-         return default_mem;
-      }
-
-      multiboot_mmap_entry_t *mmap = (multiboot_mmap_entry_t *)mbi->mmap_addr;
-      multiboot_mmap_entry_t *mmap_end =
-          (multiboot_mmap_entry_t *)(mbi->mmap_addr + mbi->mmap_length);
-
-      while (mmap < mmap_end)
-      {
-         if (mmap->type == 1) /* Available RAM */
+         if (entry->type == 1) /* Available RAM */
          {
-            uint64_t region_end = mmap->base_addr + mmap->length;
-            if (region_end > total_mem)
+            logfmt(LOG_FATAL, "2");
+            /* Clamp to 32-bit address space; ignore regions above 4 GB. */
+            if (entry->baseAddr < 0x100000000ULL)
             {
-               total_mem = (uint32_t)region_end;
+               logfmt(LOG_FATAL, "3");
+               uint64_t regionEnd = entry->baseAddr + entry->length;
+               if (regionEnd > 0x100000000ULL)
+                  regionEnd = 0x100000000ULL;
+               if ((uint32_t)regionEnd > highMark)
+                  highMark = (uint32_t)regionEnd;
             }
          }
-         mmap = (multiboot_mmap_entry_t *)((uint32_t)mmap + mmap->size +
-                                           sizeof(mmap->size));
+         /* Advance by (entry->size + sizeof(entry->size)) per spec. */
+         entry = (BOOT_MemMapEntry *)((uint32_t)entry + entry->size +
+                                      sizeof(entry->size));
       }
-
-      /* Sanity check result */
-      if (total_mem >= 16 * 1024 * 1024 && total_mem <= 0xFFFFFFFF)
-      {
-         return total_mem;
-      }
+      logfmt(LOG_FATAL, "4");
+      if (highMark >= 16u * 1024u * 1024u)
+         return highMark;
    }
 
-   /* No valid memory info available, use default */
-   return default_mem;
+   /* --- Fall back to the simple mem_upper field (KB above 1 MB) --------- */
+   if (g_SysInfo->boot.totalMemoryUpper > 0)
+   {
+      logfmt(LOG_FATAL, "5");
+      uint32_t total = g_SysInfo->boot.totalMemoryUpper * 1024;
+      if (total >= 16u * 1024u * 1024u)
+         return total;
+   }
+   logfmt(LOG_FATAL, "6");
+   return defaultMem;
 }
 
-void MEM_Initialize(void *multiboot_info_ptr)
+void MEM_Initialize(void)
 {
-   /* Detect total memory from Multiboot info */
-   uint32_t total_memory =
-       parse_multiboot_memory((multiboot_info_t *)multiboot_info_ptr);
+   /* Derive total memory from g_SysInfo->boot (bootloader-agnostic) */
+   uint32_t total_memory = PollTotalMemory();
 
    Heap_Initialize();
    Heap_SelfTest();

@@ -124,17 +124,19 @@ void perform_mount(void){
 }
 
 
-void __attribute__((section(".entry"))) start(uint16_t bootDrive,
-                                              void *multiboot_info_ptr)
+void __attribute__((section(".entry"))) start(BOOT_Info *boot)
 {
    // Init system
    memset(&__bss_start, 0, (&__end) - (&__bss_start));
    _init();
 
    memset(g_SysInfo, 0, sizeof(SYS_Info));
-   g_SysInfo->boot_device = bootDrive;
 
-   MEM_Initialize(multiboot_info_ptr);
+   /* Member-wise copy of the pre-parsed boot parameters into g_SysInfo. */
+   g_SysInfo->boot = *boot;
+   logfmt(LOG_FATAL, "Total Memory Upper: %u\n", boot->totalMemoryUpper);
+
+   MEM_Initialize();
    TTY_Initialize();
    SYS_Initialize();
    CPU_Initialize();
