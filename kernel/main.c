@@ -4,7 +4,6 @@
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
 #include <hal/hal.h>
-#include <hal/tty.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>

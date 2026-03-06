@@ -7,7 +7,7 @@
 #include "scheduler.h"
 #include "stack.h"
 #include "syscall.h"
-#include "tty.h"
+#include "video.h"
 
 const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
     .outb = HAL_ARCH_outb,
@@ -23,8 +23,11 @@ const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
     .Panic = HAL_ARCH_Panic,
 };
 
-const HAL_TtyOperations *g_HalTtyOperations = &(HAL_TtyOperations){
-    .UpdateVga = HAL_ARCH_TTY_UPDATE_VGA,
+const HAL_VideoOperations *g_HalVideoOperations = &(HAL_VideoOperations){
+    .PutChar      = HAL_ARCH_Video_PutChar,
+    .Clear        = HAL_ARCH_Video_Clear,
+    .SetCursor    = HAL_ARCH_Video_SetCursor,
+    .UpdateBuffer = HAL_ARCH_Video_UpdateBuffer,
 };
 
 const HAL_IrqOperations *g_HalIrqOperations = &(HAL_IrqOperations){

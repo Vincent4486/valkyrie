@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <valkyrie/fs.h>
+#include <hal/irq.h>   /* Registers – the interrupt stack frame type */
 
 #define HEAP_MAX 0xC0000000u // Don't allow heap
 
@@ -25,13 +26,24 @@ typedef struct
    uint32_t stack_start; // Start of user stack
    uint32_t stack_end;   // End of user stack
 
-   // CPU state
+   /* CPU state – flat fields used at process creation and fork.
+    * During a live context switch the scheduler instead consults
+    * saved_regs, which points directly into the interrupt stack frame
+    * constructed by the ISR stub (isr_asm.S) and passed to
+    * i686_ISR_Handler(Registers *regs).  Storing the pointer here lets
+    * the scheduler save/restore every register atomically without
+    * copying the frame into the PCB. */
    uint32_t eip;                // Instruction pointer
    uint32_t esp;                // Stack pointer
    uint32_t ebp;                // Base pointer
    uint32_t eax, ebx, ecx, edx; // General purpose registers
    uint32_t esi, edi;           // Index registers
    uint32_t eflags;             // Flags register
+
+   /* Canonical saved register frame for context switching.
+    * Set by the context-switch path; NULL when the process has never
+    * been preempted (e.g. a freshly-created, not-yet-run process). */
+   Registers *saved_regs;
 
    // File descriptors
    FileDescriptor

@@ -14,6 +14,8 @@
 
 #include <arch/i686/drivers/ps2.h>
 #include <arch/i686/syscall/syscall.h>
+
+#include <arch/i686/video/vga.h>
 #else
 #error "Unsupported architecture for HAL"
 #endif

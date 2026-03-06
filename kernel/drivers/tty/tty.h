@@ -83,7 +83,7 @@ typedef struct TTY_Device {
    bool eof_pending;         /* EOF was received */
    
    /* Output/display - scrollback buffer */
-   char (*screen_buf)[SCREEN_WIDTH];  /* [TTY_SCROLLBACK][SCREEN_WIDTH] */
+   uint16_t (*screen_buf)[SCREEN_WIDTH];  /* [TTY_SCROLLBACK][SCREEN_WIDTH], packed (color<<8)|char */
    uint16_t *display_buf;             /* VGA display buffer */
    uint32_t buf_head;        /* First line index in circular buffer */
    uint32_t buf_lines;       /* Number of lines used */

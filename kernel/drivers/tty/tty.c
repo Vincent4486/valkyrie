@@ -2,7 +2,7 @@
 
 #include "tty.h"
 #include <fs/devfs/devfs.h>
-#include <hal/tty.h>
+#include <hal/video.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -24,16 +24,13 @@
 #define BUFFER_BASE_ADDR   0x00110000
 #define BUFFER_DISP_ADDR   0xB8000
 
-/* External cursor function from stdio */
-extern void setcursor(int x, int y);
-
 /* TTY device array */
 static TTY_Device *g_TTYDevices[TTY_MAX_DEVICES];
 static TTY_Device *g_ActiveTTY = NULL;
 static bool g_TTYInitialized = false;
 
 /* Static buffers for TTY0 (console) - avoid early kmalloc */
-static char g_TTY0ScreenBuf[TTY_SCROLLBACK][SCREEN_WIDTH];
+static uint16_t g_TTY0ScreenBuf[TTY_SCROLLBACK][SCREEN_WIDTH];
 static char g_TTY0InputBuf[TTY_INPUT_SIZE];
 static uint16_t *g_TTY0DisplayBuf = (uint16_t *)BUFFER_DISP_ADDR;
 
@@ -122,7 +119,7 @@ static void ensure_line_exists(TTY_Device *tty)
    if (tty->buf_lines == 0) {
       tty->buf_lines = 1;
       tty->buf_head = 0;
-      memset(tty->screen_buf[0], 0, SCREEN_WIDTH);
+      memset(tty->screen_buf[0], 0, SCREEN_WIDTH * sizeof(uint16_t));
    }
 }
 
@@ -131,13 +128,13 @@ static void push_newline(TTY_Device *tty)
 {
    if (tty->buf_lines < TTY_SCROLLBACK) {
       uint32_t idx = (tty->buf_head + tty->buf_lines) % TTY_SCROLLBACK;
-      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
+      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH * sizeof(uint16_t));
       tty->buf_lines++;
    } else {
       /* Buffer full, drop oldest line */
       tty->buf_head = (tty->buf_head + 1) % TTY_SCROLLBACK;
       uint32_t idx = (tty->buf_head + tty->buf_lines - 1) % TTY_SCROLLBACK;
-      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
+      memset(tty->screen_buf[idx], 0, SCREEN_WIDTH * sizeof(uint16_t));
    }
    
    /* Update cursor for new line */
@@ -216,12 +213,12 @@ static void handle_ansi_command(TTY_Device *tty, char cmd)
             if (rel < tty->buf_lines) {
                uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
                if (n == 0) {
-                  memset(&tty->screen_buf[idx][tty->cursor_x], 0, 
-                         SCREEN_WIDTH - tty->cursor_x);
+                  memset(&tty->screen_buf[idx][tty->cursor_x], 0,
+                         (SCREEN_WIDTH - tty->cursor_x) * sizeof(uint16_t));
                } else if (n == 1) {
-                  memset(tty->screen_buf[idx], 0, tty->cursor_x + 1);
+                  memset(tty->screen_buf[idx], 0, (tty->cursor_x + 1) * sizeof(uint16_t));
                } else {
-                  memset(tty->screen_buf[idx], 0, SCREEN_WIDTH);
+                  memset(tty->screen_buf[idx], 0, SCREEN_WIDTH * sizeof(uint16_t));
                }
                mark_dirty(tty, tty->cursor_y);
             }
@@ -324,8 +321,8 @@ static void tty_output_char(TTY_Device *tty, char c)
             uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
             memmove(&tty->screen_buf[idx][tty->cursor_x],
                     &tty->screen_buf[idx][tty->cursor_x + 1],
-                    SCREEN_WIDTH - tty->cursor_x - 1);
-            tty->screen_buf[idx][SCREEN_WIDTH - 1] = '\0';
+                    (SCREEN_WIDTH - tty->cursor_x - 1) * sizeof(uint16_t));
+            tty->screen_buf[idx][SCREEN_WIDTH - 1] = 0;
             mark_dirty(tty, tty->cursor_y);
          }
       }
@@ -341,7 +338,7 @@ static void tty_output_char(TTY_Device *tty, char c)
    }
    
    uint32_t idx = (tty->buf_head + rel) % TTY_SCROLLBACK;
-   tty->screen_buf[idx][tty->cursor_x] = c;
+   tty->screen_buf[idx][tty->cursor_x] = ((uint16_t)tty->color << 8) | (uint8_t)c;
    tty->cursor_x++;
    
    if (tty->cursor_x >= SCREEN_WIDTH) {
@@ -441,14 +438,14 @@ TTY_Device *TTY_Create(uint32_t id)
       tty = (TTY_Device *)kzalloc(sizeof(TTY_Device));
       if (!tty) return NULL;
       
-      tty->screen_buf = (char (*)[SCREEN_WIDTH])g_TTY0ScreenBuf;
+      tty->screen_buf = (uint16_t (*)[SCREEN_WIDTH])g_TTY0ScreenBuf;
       tty->display_buf = g_TTY0DisplayBuf;
       buffer_init(&tty->input, g_TTY0InputBuf, TTY_INPUT_SIZE);
    } else {
       tty = (TTY_Device *)kzalloc(sizeof(TTY_Device));
       if (!tty) return NULL;
       
-      tty->screen_buf = (char (*)[SCREEN_WIDTH])kmalloc(TTY_SCROLLBACK * SCREEN_WIDTH);
+      tty->screen_buf = (uint16_t (*)[SCREEN_WIDTH])kmalloc(TTY_SCROLLBACK * SCREEN_WIDTH * sizeof(uint16_t));
       if (!tty->screen_buf) {
          free(tty);
          return NULL;
@@ -494,7 +491,7 @@ TTY_Device *TTY_Create(uint32_t id)
    tty->bytes_written = 0;
    
    /* Clear screen buffer */
-   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH);
+   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH * sizeof(uint16_t));
    
    g_TTYDevices[id] = tty;
    return tty;
@@ -731,7 +728,7 @@ void TTY_ClearDevice(TTY_Device *tty)
 {
    if (!tty) return;
    
-   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH);
+   memset(tty->screen_buf, 0, TTY_SCROLLBACK * SCREEN_WIDTH * sizeof(uint16_t));
    tty->buf_head = 0;
    tty->buf_lines = 0;
    tty->scroll_offset = 0;
@@ -770,11 +767,12 @@ void TTY_Repaint(TTY_Device *tty)
 {
    if (!tty) return;
    if (tty != g_ActiveTTY) return;  /* Only repaint active TTY */
-   
+
+   const HAL_VideoOperations *vdev = g_HalVideoOperations;
    int start = compute_visible_start(tty);
-   
+
    if (tty->dirty_start > tty->dirty_end) {
-      setcursor(tty->cursor_x, tty->cursor_y);
+      if (vdev && vdev->SetCursor) vdev->SetCursor(tty->cursor_x, tty->cursor_y);
       return;
    }
    
@@ -792,19 +790,17 @@ void TTY_Repaint(TTY_Device *tty)
       } else {
          uint32_t idx = (tty->buf_head + logical) % TTY_SCROLLBACK;
          for (int col = 0; col < SCREEN_WIDTH; col++) {
-            char ch = tty->screen_buf[idx][col];
-            if (!ch) ch = ' ';
-            dest[col] = attr | (uint8_t)ch;
+            uint16_t cell = tty->screen_buf[idx][col];
+            dest[col] = cell ? cell : (attr | ' ');
          }
       }
    }
    
-   if (g_HalTtyOperations && g_HalTtyOperations->UpdateVga) {
-      g_HalTtyOperations->UpdateVga(tty->display_buf);
-   }
-   
+   if (vdev && vdev->UpdateBuffer)
+      vdev->UpdateBuffer(tty->display_buf);
+
    reset_dirty(tty);
-   setcursor(tty->cursor_x, tty->cursor_y);
+   if (vdev && vdev->SetCursor) vdev->SetCursor(tty->cursor_x, tty->cursor_y);
 }
 
 void TTY_Flush(TTY_Device *tty)
@@ -831,7 +827,8 @@ void TTY_SetCursor(TTY_Device *tty, int x, int y)
    tty->cursor_y = y;
    
    if (tty == g_ActiveTTY) {
-      setcursor(x, y);
+      const HAL_VideoOperations *vdev = g_HalVideoOperations;
+      if (vdev && vdev->SetCursor) vdev->SetCursor(x, y);
    }
 }
 
@@ -881,7 +878,7 @@ int TTY_GetVisibleLineLength(int y)
    
    uint32_t idx = (tty->buf_head + logical) % TTY_SCROLLBACK;
    int len = 0;
-   while (len < SCREEN_WIDTH && tty->screen_buf[idx][len]) len++;
+   while (len < SCREEN_WIDTH && (tty->screen_buf[idx][len] & 0xFF)) len++;
    return len;
 }
 
