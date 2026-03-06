@@ -129,25 +129,19 @@ static uint32_t PollTotalMemory(void)
    uint32_t mapAddr   = g_SysInfo->boot.memMapAddr;
    uint32_t mapLength = g_SysInfo->boot.memMapLength;
 
-   logfmt(LOG_FATAL, "Entering Memory Detection!\n");
-   logfmt(LOG_FATAL, "Addr: %u, Len: %u", mapAddr, mapLength);
-
    if (mapAddr >= 0x1000 && mapLength > 0)
    {
       BOOT_MemMapEntry *entry    = (BOOT_MemMapEntry *)mapAddr;
       BOOT_MemMapEntry *mapEnd   = (BOOT_MemMapEntry *)(mapAddr + mapLength);
       uint32_t          highMark = 0;
-      logfmt(LOG_FATAL, "1");
 
       while (entry < mapEnd)
       {
          if (entry->type == 1) /* Available RAM */
          {
-            logfmt(LOG_FATAL, "2");
             /* Clamp to 32-bit address space; ignore regions above 4 GB. */
             if (entry->baseAddr < 0x100000000ULL)
             {
-               logfmt(LOG_FATAL, "3");
                uint64_t regionEnd = entry->baseAddr + entry->length;
                if (regionEnd > 0x100000000ULL)
                   regionEnd = 0x100000000ULL;
@@ -159,7 +153,6 @@ static uint32_t PollTotalMemory(void)
          entry = (BOOT_MemMapEntry *)((uint32_t)entry + entry->size +
                                       sizeof(entry->size));
       }
-      logfmt(LOG_FATAL, "4");
       if (highMark >= 16u * 1024u * 1024u)
          return highMark;
    }
@@ -167,12 +160,10 @@ static uint32_t PollTotalMemory(void)
    /* --- Fall back to the simple mem_upper field (KB above 1 MB) --------- */
    if (g_SysInfo->boot.totalMemoryUpper > 0)
    {
-      logfmt(LOG_FATAL, "5");
       uint32_t total = g_SysInfo->boot.totalMemoryUpper * 1024;
       if (total >= 16u * 1024u * 1024u)
          return total;
    }
-   logfmt(LOG_FATAL, "6");
    return defaultMem;
 }
 

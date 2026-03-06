@@ -83,7 +83,7 @@ static void ZeroBytes(void *ptr, uint32_t len)
 void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
 {
    /* --- Explicit zero-init (BSS may not be cleared yet) ----------------- */
-   ZeroBytes(&s_bootInfo, sizeof(BOOT_Info));
+   ZeroBytes(s_bootInfo, sizeof(BOOT_Info));
 
    /* --- Validate Multiboot magic number --------------------------------- */
    if (magic != MULTIBOOT_BOOTLOADER_MAGIC)

@@ -134,7 +134,6 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
 
    /* Member-wise copy of the pre-parsed boot parameters into g_SysInfo. */
    g_SysInfo->boot = *boot;
-   logfmt(LOG_FATAL, "Total Memory Upper: %u\n", boot->totalMemoryUpper);
 
    MEM_Initialize();
    TTY_Initialize();
