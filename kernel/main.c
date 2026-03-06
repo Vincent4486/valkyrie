@@ -136,7 +136,6 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
 
    MEM_Initialize(multiboot_info_ptr);
    TTY_Initialize();
-   Keyboard_Initialize();
    SYS_Initialize();
    CPU_Initialize();
    HAL_Initialize();
@@ -150,6 +149,7 @@ void __attribute__((section(".entry"))) start(uint16_t bootDrive,
       goto end;
    }
    perform_mount();
+   Keyboard_Initialize();
 
    if (!Dylib_Initialize())
    {
