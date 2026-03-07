@@ -63,6 +63,79 @@ int DISK_Scan()
          continue;
       }
       memcpy(disk, source, sizeof(DISK));
+
+      /* ---------------------------------------------------------------
+       * Floppy disks have no MBR partition table.  Represent the entire
+       * medium as a single FAT12 volume occupying the raw device.
+       * The whole-disk devfs node (fd0, fd1, …) was already registered
+       * by FDC_Scan; only the Partition / Filesystem metadata is needed
+       * here so the VFS can mount the FAT12 image.
+       * ------------------------------------------------------------- */
+      if (disk->type == DISK_TYPE_FLOPPY)
+      {
+         int floppy_slot = -1;
+         for (int j = 0; j < 32; j++)
+         {
+            if (g_SysInfo->volume[j].disk == NULL)
+            {
+               floppy_slot = j;
+               break;
+            }
+         }
+         if (floppy_slot == -1)
+         {
+            logfmt(LOG_ERROR, "[DISK] No free volume slot for floppy fd%u\n",
+                   disk->id);
+            free(disk);
+            continue;
+         }
+
+         Partition *vol = &g_SysInfo->volume[floppy_slot];
+         memset(vol, 0, sizeof(Partition));
+         vol->disk            = disk;
+         vol->partitionOffset = 0;
+         vol->partitionSize   = (uint32_t)disk->cylinders *
+                                (uint32_t)disk->heads *
+                                (uint32_t)disk->sectors;
+         vol->partitionType   = 0x01; /* FAT12 */
+
+         logfmt(LOG_INFO, "[DISK] Floppy volume[%d]: fd%u, %u sectors\n",
+                floppy_slot, disk->id, vol->partitionSize);
+
+         VBR_ProbeIdentity(vol, rootCmdVal);
+
+         FAT_Instance *floppy_fat = FAT_Initialize(vol);
+         if (floppy_fat)
+         {
+            Filesystem *fs = (Filesystem *)kmalloc(sizeof(Filesystem));
+            if (fs)
+            {
+               memset(fs, 0, sizeof(Filesystem));
+               fs->block_size   = 512;
+               fs->type         = FAT12; /* Floppy is always FAT12 */
+               fs->private_data = floppy_fat;
+               vol->fs          = fs;
+            }
+            else
+            {
+               logfmt(LOG_ERROR,
+                      "[DISK] Filesystem alloc failed for floppy volume[%d]\n",
+                      floppy_slot);
+               free(floppy_fat);
+               vol->fs = NULL;
+            }
+         }
+         else
+         {
+            logfmt(LOG_INFO,
+                   "[DISK] No FAT filesystem detected on floppy volume[%d]\n",
+                   floppy_slot);
+            vol->fs = NULL;
+         }
+         continue;
+      }
+
+      /* ---- ATA / hard disk: parse the MBR partition table ---- */
       int volumeIndex = -1;
       for (int j = 0; j < 32; j++)
       {
@@ -131,8 +204,7 @@ int DISK_Scan()
                {
                   memset(fs, 0, sizeof(Filesystem));
                   fs->block_size = 512;
-                  fs->type = FAT32; // TODO: read from fat_instance->FatType
-                  fs->private_data = fat_instance;
+                  fs->private_data = fat_instance; /* type set below */
                   volume->fs = fs;
                }
                else
@@ -159,6 +231,16 @@ int DISK_Scan()
                 LOG_INFO,
                 "[DISK] Skipping filesystem init for partition type 0x%02x\n",
                 partType);
+         }
+
+         /* Set the correct FilesystemType on the Filesystem struct so the
+          * VFS can route through the right operations table. */
+         if (volume->fs)
+         {
+            if (partType == 0x04 || partType == 0x06)
+               volume->fs->type = FAT16;
+            else /* 0x0B or 0x0C */
+               volume->fs->type = FAT32;
          }
 
          volumeIndex++;

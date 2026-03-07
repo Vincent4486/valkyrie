@@ -146,26 +146,6 @@ static int ata_wait_for_ready(uint16_t tf_port)
 }
 
 /**
- * Wait for data ready (DRQ set)
- */
-static int ata_wait_for_data(uint16_t tf_port)
-{
-   int timeout = 10000;
-
-   while (timeout--)
-   {
-      uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
-      if (status & ATA_STATUS_DRQ) return 0;
-      if (status & ATA_STATUS_ERR) return -1;
-
-      // Small delay
-      for (volatile int i = 0; i < 100; i++);
-   }
-
-   return -1; // Timeout
-}
-
-/**
  * Perform software reset on ATA channel
  */
 static void ata_soft_reset(uint16_t dcr_port)
@@ -355,7 +335,10 @@ int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer, uint32_t count)
    uint8_t final_status = g_HalIoOperations->inb(drv->tf_port + ATA_REG_STATUS);
    if (final_status & ATA_STATUS_ERR)
    {
-      uint8_t error = g_HalIoOperations->inb(drv->tf_port + ATA_REG_ERROR);
+      /* Read and log the error register to determine the cause */
+      uint8_t err = g_HalIoOperations->inb(drv->tf_port + ATA_REG_ERROR);
+      logfmt(LOG_ERROR, "[ATA] Write error: status=0x%02x error=0x%02x\n",
+             final_status, err);
       return -1;
    }
 
@@ -376,10 +359,7 @@ void ATA_Reset(int channel)
  */
 int ATA_Identify(int channel, int drive, uint16_t *buffer)
 {
-   ata_driver_t *driver = (channel == 0 && drive == 0) ? &primary_master
-                          : (channel == 0 && drive == 1)
-                              ? &primary_slave
-                              : NULL; // Add secondary if needed
+   ata_driver_t *driver = ata_get_driver(channel, drive);
    if (!driver) return -1;
 
    // Select drive
@@ -393,7 +373,7 @@ int ATA_Identify(int channel, int drive, uint16_t *buffer)
    g_HalIoOperations->outb(driver->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 
    // Wait for data
-   if (ata_wait_for_data(driver->tf_port) != 0) return -1;
+   if (ata_wait_drq(driver->tf_port) != 0) return -1;
 
    // Read 256 words
    for (int i = 0; i < 256; i++)
@@ -416,19 +396,6 @@ int ATA_Scan(DISK *disks, int maxDisks)
    // Channel 0 (Primary), Drive 1 (Slave)
    // Channel 1 (Secondary), Drive 0 (Master)
    // Channel 1 (Secondary), Drive 1 (Slave)
-   int driveStartIndex = 0x80;
-   for (int i = 0; i < MAX_DISKS; i++)
-   {
-      // Check if the disk pointer is valid first
-      if (g_SysInfo->volume[i].disk == NULL) continue;
-
-      // Skip floppy drives (0x00-0x7F)
-      if (g_SysInfo->volume[i].disk->id < 0x80) continue;
-
-      // Found a hard drive, increment start index
-      driveStartIndex++;
-   }
-
    for (int ch = 0; ch < 2; ch++)
    {
       for (int dr = 0; dr < 2; dr++)
@@ -455,8 +422,9 @@ int ATA_Scan(DISK *disks, int maxDisks)
             private->channel = ch;
             private->drive = dr;
 
-            disks[count].id =
-                driveStartIndex + count; // Assign BIOS-style ID (0x80, 0x81...)
+            /* BIOS-style drive ID: 0x80=primary-master, 0x81=primary-slave,
+             * 0x82=secondary-master, 0x83=secondary-slave */
+            disks[count].id = (uint8_t)(0x80 + ch * 2 + dr);
             disks[count].type = 1;       // DISK_TYPE_ATA
 
             // Extract model name (words 27-46, 40 chars)

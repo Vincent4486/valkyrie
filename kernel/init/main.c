@@ -8,6 +8,7 @@
 #include <fs/devfs/devfs.h>
 #include <fs/fd/fd.h>
 #include <hal/hal.h>
+#include <hal/io.h>
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
@@ -45,7 +46,12 @@ void hold(int sec)
 
       /* Idle efficiently until next interrupt: enable interrupts, HLT,
          then disable again. Matches i686 PS/2 idle usage. */
-      __asm__ volatile("sti; hlt; cli");
+      uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
+      g_HalIoOperations->iowait();
+      if (!interrupts_were_enabled)
+      {
+         g_HalIoOperations->DisableInterrupts();
+      }
    }
    printf("\n");
 }
@@ -95,6 +101,9 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
    SYS_Finalize();
 
    ELF_LoadProcess("/usr/bin/sh", false);
+   FS_Mount(&g_SysInfo->volume[0], "/fd0");
+   FS_Mount(&g_SysInfo->volume[2], "/hd1");
+   FS_Mount(&g_SysInfo->volume[3], "/hd2");
 
    /* Start interactive line reader: on ENTER, print the entered text. */
    interact();

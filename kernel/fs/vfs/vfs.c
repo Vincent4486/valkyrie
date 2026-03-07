@@ -271,6 +271,31 @@ VFS_File *VFS_Open(const char *path)
    return result;
 }
 
+VFS_File *VFS_Create(const char *path)
+{
+   Partition *part = NULL;
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative) return NULL;
+
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
+   {
+      free(relative);
+      return NULL;
+   }
+
+   if (!part || !part->fs || !part->fs->ops || !part->fs->ops->create)
+   {
+      logfmt(LOG_ERROR, "[VFS] No create operation for path '%s'\n",
+             path ? path : "");
+      free(relative);
+      return NULL;
+   }
+
+   VFS_File *result = part->fs->ops->create(part, relative);
+   free(relative);
+   return result;
+}
+
 bool VFS_Delete(const char *path)
 {
    Partition *part = NULL;
@@ -383,7 +408,11 @@ void VFS_SelfTest(void)
    uint32_t len = strlen(test_data_str);
    VFS_File *test_file = NULL;
 
+   /* Try to open the existing test file; create it on first boot if absent */
    test_file = VFS_Open(test_path);
+   if (!test_file)
+      test_file = VFS_Create(test_path);
+
    if (!test_file)
    {
       logfmt(LOG_ERROR, "[VFS] Failed to open/create file\n");

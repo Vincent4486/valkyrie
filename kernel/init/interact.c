@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include <drivers/tty/tty.h>
+#include <hal/io.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -31,7 +32,7 @@ void interact(void)
          else if (strcmp(buf, "shutdown") == 0)
          {
             printf("Shutting down...\n");
-            __asm__ volatile("hlt");
+            g_HalIoOperations->Halt();
             break;
          }
          else if (strcmp(buf, "reboot") == 0)
@@ -89,7 +90,12 @@ void interact(void)
       else
       {
          /* Wait for interrupt/input */
-         __asm__ volatile("sti; hlt; cli");
+         uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
+         g_HalIoOperations->iowait();
+         if (!interrupts_were_enabled)
+         {
+            g_HalIoOperations->DisableInterrupts();
+         }
       }
    }
    free(buf);

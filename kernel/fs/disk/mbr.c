@@ -38,36 +38,17 @@ Partition **MBR_DetectPartition(DISK *disk, int *outCount)
 
    *outCount = 0;
 
-   // Floppy: treat entire device as a single partition
+   /* Floppy disks have no MBR partition table.  DISK_Scan handles them
+    * directly by creating a synthetic FAT12 volume entry; this function
+    * must never be called for floppy devices. */
    if (disk->type == DISK_TYPE_FLOPPY)
    {
-      Partition **list = (Partition **)kmalloc(sizeof(Partition *));
-      if (!list) return NULL;
-
-      Partition *part = (Partition *)kzalloc(sizeof(Partition));
-      if (!part) return NULL;
-
-      part->disk = disk;
-      part->partitionOffset = 0;
-      part->partitionSize = (uint32_t)(disk->cylinders) *
-                            (uint32_t)(disk->heads) * (uint32_t)(disk->sectors);
-
-      /* Register floppy partition in devfs: fd0p1, fd1p1, etc. */
-      char devname[8];
-      devname[0] = 'f';
-      devname[1] = 'd';
-      devname[2] = '0' + (disk->id & 0x0F);
-      devname[3] = 'p';
-      devname[4] = '1';
-      devname[5] = '\0';
-      uint32_t part_size = part->partitionSize * 512;
-      DEVFS_RegisterDevice(devname, DEVFS_TYPE_BLOCK, 2,
-                           (disk->id & 0x0F) * 16 + 1, part_size,
-                           &partition_ops, part);
-
-      list[0] = part;
-      *outCount = 1;
-      return list;
+      logfmt(LOG_WARNING,
+             "[MBR] MBR_DetectPartition called on floppy disk (fd%u) — "
+             "floppy partitioning is handled by DISK_Scan directly\n",
+             disk->id);
+      *outCount = 0;
+      return NULL;
    }
 
    // Hard disk: inspect MBR

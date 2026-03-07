@@ -44,11 +44,19 @@ i686_inl:
 
 .global i686_EnableInterrupts
 i686_EnableInterrupts:
+    pushfl
+    popl %eax
+    andl $0x200, %eax
+    shrl $9, %eax
     sti
     ret
 
 .global i686_DisableInterrupts
 i686_DisableInterrupts:
+    pushfl
+    popl %eax
+    andl $0x200, %eax
+    shrl $9, %eax
     cli
     ret
 

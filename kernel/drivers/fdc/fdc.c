@@ -5,6 +5,7 @@
 #include <hal/io.h>
 #include <hal/irq.h>
 #include <std/stdio.h>
+#include <std/string.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -69,11 +70,16 @@ static void fdc_dma_init(bool is_read)
     *   - Bits 6-7: Mode (01 = single mode, 10 = block mode)
     */
 
-   // Clear any data from previous DMA buffer (for testing)
-   uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
-   for (int i = 0; i < FLOPPY_SECTOR_SIZE; i++)
+   /* For reads only, clear DMA buffer so stale bytes are not mistaken
+    * for valid transferred data when troubleshooting failures.
+    */
+   if (is_read)
    {
-      dma_buffer[i] = 0xAA; // Fill with test pattern
+      uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
+      for (int i = 0; i < FLOPPY_SECTOR_SIZE; i++)
+      {
+         dma_buffer[i] = 0xAA;
+      }
    }
 
    // Mask DMA channel 2
@@ -138,19 +144,31 @@ static void fdc_irq_handler(Registers *regs) { g_fdc_irq_received = true; }
 // Wait for FDC IRQ with timeout
 static bool fdc_wait_irq(void)
 {
+   uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
+
    unsigned timeout = 0x100000;
    while (!g_fdc_irq_received && timeout > 0)
    {
       timeout--;
-      i686_iowait();
+      g_HalIoOperations->iowait();
    }
 
    if (!g_fdc_irq_received)
    {
+      if (!interrupts_were_enabled)
+      {
+         g_HalIoOperations->DisableInterrupts();
+      }
       return false;
    }
 
    g_fdc_irq_received = false;
+
+   if (!interrupts_were_enabled)
+   {
+      g_HalIoOperations->DisableInterrupts();
+   }
+
    return true;
 }
 
@@ -287,69 +305,93 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
    FDC_DISK *private = (FDC_DISK *)disk->private;
    int drive = private->drive;
 
+   /* Make sure IRQ 6 is not masked — another subsystem (keyboard, timer)
+    * may have modified the PIC mask after FDC_Reset ran. */
+   i686_IRQ_Unmask(FDC_IRQ);
+
    fdc_motor_on(drive);
 
-   // Small delay for motor spin-up
-   for (volatile int i = 0; i < 100000; i++);
+   /* Spin-up delay: ~300 ms on real hardware.  In QEMU the floppy is
+    * virtual so the loop need not be huge, but a generous delay prevents
+    * races when the motor was previously off for a long time. */
+   for (volatile int i = 0; i < 500000; i++);
 
    for (size_t i = 0; i < count; i++)
    {
       uint8_t head, track, sector;
       lba_to_chs(lba + i, &head, &track, &sector);
 
-      // Seek to track
-      if (!fdc_seek(drive, head, track))
+      bool sector_ok = false;
+
+      /* Retry the sector up to 3 times.  On the first retry, recalibrate
+       * the drive so mechanical positioning errors are corrected. */
+      for (int attempt = 0; attempt < 3 && !sector_ok; attempt++)
       {
-         fdc_motor_off(drive);
-         return 1;
+         if (attempt > 0)
+         {
+            logfmt(LOG_WARNING,
+                   "[FDC] Retry %d for LBA=%u (T=%u H=%u S=%u)\n",
+                   attempt, (unsigned)(lba + i), track, head, sector);
+            /* Recalibrate moves head back to track 0 — clears state */
+            fdc_recalibrate(drive);
+         }
+
+         /* Seek to correct track */
+         if (!fdc_seek(drive, head, track))
+            continue;
+
+         /* Set up DMA for a single-sector read */
+         fdc_dma_init(true);
+
+         g_fdc_irq_received = false;
+
+         /* Issue READ DATA command */
+         fdc_send_byte(FDC_CMD_READ_DATA);
+         fdc_send_byte((head << 2) | (drive & 0x03));
+         fdc_send_byte(track);
+         fdc_send_byte(head);
+         fdc_send_byte(sector);
+         fdc_send_byte(2);            /* N=2 → 512 bytes/sector */
+         fdc_send_byte(sector);       /* EOT = same sector → read 1 sector */
+         fdc_send_byte(0x1B);         /* GPL */
+         fdc_send_byte(0xFF);         /* DTL */
+
+         if (!fdc_wait_irq())
+         {
+            logfmt(LOG_WARNING, "[FDC] IRQ timeout on attempt %d\n", attempt);
+            continue;
+         }
+
+         /* Read all 7 result bytes (must be consumed regardless of error) */
+         uint8_t st0    = fdc_read_byte();
+         uint8_t st1    = fdc_read_byte();
+         uint8_t st2    = fdc_read_byte();
+         uint8_t rtrack = fdc_read_byte();
+         uint8_t rhead  = fdc_read_byte();
+         uint8_t rsect  = fdc_read_byte();
+         uint8_t bps    = fdc_read_byte();
+
+         if ((st0 & 0xC0) != 0)
+         {
+            logfmt(LOG_ERROR,
+                   "[FDC] Read error: st0=0x%02x st1=0x%02x st2=0x%02x "
+                   "T=%u H=%u S=%u BPS=%u\n",
+                   st0, st1, st2, rtrack, rhead, rsect, bps);
+            continue;
+         }
+
+         /* Copy DMA buffer to caller's destination buffer */
+         uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
+         memcpy(buffer + i * FLOPPY_SECTOR_SIZE, dma_buffer, FLOPPY_SECTOR_SIZE);
+         sector_ok = true;
       }
 
-      // Initialize DMA for read operation (transfer from floppy to memory)
-      fdc_dma_init(true);
-
-      g_fdc_irq_received = false;
-
-      // Issue READ DATA command
-      fdc_send_byte(FDC_CMD_READ_DATA);
-      fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
-      fdc_send_byte(track);
-      fdc_send_byte(head);
-      fdc_send_byte(sector);
-      fdc_send_byte(2);      // 512 bytes per sector
-      fdc_send_byte(sector); // Read only this sector
-      fdc_send_byte(0x1B);   // GPL (gap3 length)
-      fdc_send_byte(0xFF); // DTL (data length, 0xFF for specified sector size)
-
-      // Wait for IRQ indicating data transfer complete
-      if (!fdc_wait_irq())
+      if (!sector_ok)
       {
+         logfmt(LOG_ERROR, "[FDC] All retries failed for LBA=%u\n",
+                (unsigned)(lba + i));
          fdc_motor_off(drive);
          return 1;
-      }
-
-      // Read result bytes (7 bytes for READ DATA)
-      uint8_t st0 = fdc_read_byte();
-      uint8_t st1 = fdc_read_byte();
-      uint8_t st2 = fdc_read_byte();
-      uint8_t rtrack = fdc_read_byte();
-      uint8_t rhead = fdc_read_byte();
-      uint8_t rsector = fdc_read_byte();
-      uint8_t bps = fdc_read_byte();
-
-      // Check for errors in status
-      if ((st0 & 0xC0) != 0)
-      {
-         fdc_motor_off(drive);
-         return 1;
-      }
-
-      // Get DMA buffer pointer
-      uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
-
-      // Copy data from DMA buffer to destination
-      for (int j = 0; j < FLOPPY_SECTOR_SIZE; j++)
-      {
-         buffer[i * FLOPPY_SECTOR_SIZE + j] = dma_buffer[j];
       }
    }
 
@@ -365,65 +407,80 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
    FDC_DISK *private = (FDC_DISK *)disk->private;
    int drive = private->drive;
 
+   i686_IRQ_Unmask(FDC_IRQ);
+
    fdc_motor_on(drive);
 
-   // Small delay for motor spin-up
-   for (volatile int i = 0; i < 100000; i++);
+   for (volatile int i = 0; i < 500000; i++);
 
    for (size_t i = 0; i < count; i++)
    {
       uint8_t head, track, sector;
       lba_to_chs(lba + i, &head, &track, &sector);
 
-      // Seek to track
-      if (!fdc_seek(drive, head, track))
+      bool sector_ok = false;
+
+      for (int attempt = 0; attempt < 3 && !sector_ok; attempt++)
       {
-         fdc_motor_off(drive);
-         return 1;
+         if (attempt > 0)
+         {
+            logfmt(LOG_WARNING,
+                   "[FDC] Write retry %d for LBA=%u\n",
+                   attempt, (unsigned)(lba + i));
+            fdc_recalibrate(drive);
+         }
+
+         if (!fdc_seek(drive, head, track))
+            continue;
+
+         /* Copy data to DMA buffer before DMA init */
+         uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
+         memcpy(dma_buffer, buffer + i * FLOPPY_SECTOR_SIZE, FLOPPY_SECTOR_SIZE);
+
+         fdc_dma_init(false);
+
+         g_fdc_irq_received = false;
+
+         fdc_send_byte(FDC_CMD_WRITE_DATA);
+         fdc_send_byte((head << 2) | (drive & 0x03));
+         fdc_send_byte(track);
+         fdc_send_byte(head);
+         fdc_send_byte(sector);
+         fdc_send_byte(2);
+         fdc_send_byte(sector);
+         fdc_send_byte(0x1B);
+         fdc_send_byte(0xFF);
+
+         if (!fdc_wait_irq())
+         {
+            logfmt(LOG_WARNING, "[FDC] Write IRQ timeout on attempt %d\n", attempt);
+            continue;
+         }
+
+         uint8_t st0    = fdc_read_byte();
+         uint8_t st1    = fdc_read_byte();
+         uint8_t st2    = fdc_read_byte();
+         uint8_t rtrack = fdc_read_byte();
+         uint8_t rhead  = fdc_read_byte();
+         uint8_t rsect  = fdc_read_byte();
+         uint8_t bps    = fdc_read_byte();
+
+         if ((st0 & 0xC0) != 0)
+         {
+            logfmt(LOG_ERROR,
+                   "[FDC] Write error: st0=0x%02x st1=0x%02x st2=0x%02x "
+                   "T=%u H=%u S=%u BPS=%u\n",
+                   st0, st1, st2, rtrack, rhead, rsect, bps);
+            continue;
+         }
+
+         sector_ok = true;
       }
 
-      // Copy data to DMA buffer
-      uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
-      for (int j = 0; j < FLOPPY_SECTOR_SIZE; j++)
+      if (!sector_ok)
       {
-         dma_buffer[j] = buffer[i * FLOPPY_SECTOR_SIZE + j];
-      }
-
-      // Initialize DMA for write operation (transfer from memory to floppy)
-      fdc_dma_init(false); // false = write mode
-
-      g_fdc_irq_received = false;
-
-      // Issue WRITE DATA command
-      fdc_send_byte(FDC_CMD_WRITE_DATA);
-      fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
-      fdc_send_byte(track);
-      fdc_send_byte(head);
-      fdc_send_byte(sector);
-      fdc_send_byte(2);      // 512 bytes per sector
-      fdc_send_byte(sector); // Write only this sector
-      fdc_send_byte(0x1B);   // GPL (gap3 length)
-      fdc_send_byte(0xFF); // DTL (data length, 0xFF for specified sector size)
-
-      // Wait for IRQ indicating data transfer complete
-      if (!fdc_wait_irq())
-      {
-         fdc_motor_off(drive);
-         return 1;
-      }
-
-      // Read result bytes (7 bytes for WRITE DATA)
-      uint8_t st0 = fdc_read_byte();
-      uint8_t st1 = fdc_read_byte();
-      uint8_t st2 = fdc_read_byte();
-      uint8_t rtrack = fdc_read_byte();
-      uint8_t rhead = fdc_read_byte();
-      uint8_t rsector = fdc_read_byte();
-      uint8_t bps = fdc_read_byte();
-
-      // Check for errors in status
-      if ((st0 & 0xC0) != 0)
-      {
+         logfmt(LOG_ERROR, "[FDC] All write retries failed for LBA=%u\n",
+                (unsigned)(lba + i));
          fdc_motor_off(drive);
          return 1;
       }
@@ -440,19 +497,6 @@ int FDC_Scan(DISK *disks, int maxDisks)
 {
    int count = 0;
    if (maxDisks <= 0) return 0;
-
-   int driveStartIndex = 0x0;
-   for (int i = 0; i < MAX_DISKS; i++)
-   {
-      // Check if the disk pointer is valid first
-      if (g_SysInfo->volume[i].disk == NULL) continue;
-
-      // Skip floppy drives (0x00-0x7F)
-      if (g_SysInfo->volume[i].disk->id < 0x80) continue;
-
-      // Found a hard drive, increment start index
-      driveStartIndex++;
-   }
 
    uint8_t equip = cmos_read(0x10);
    uint8_t drive_types[2] = {(uint8_t)((equip >> 4) & 0x0F),
@@ -509,6 +553,12 @@ int FDC_Scan(DISK *disks, int maxDisks)
       }
 
       FDC_DISK *private = kmalloc(sizeof(FDC_DISK));
+      if (!private)
+      {
+         logfmt(LOG_ERROR, "[FDC] Failed to allocate FDC_DISK for drive %u\n",
+                drive);
+         continue;
+      }
       private->drive = drive;
 
       DISK *disk = &disks[count];

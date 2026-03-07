@@ -277,14 +277,16 @@ FAT_Instance *FAT_Initialize(Partition *disk)
           sizeof(FAT_DirectoryEntry) * inst->BS.BootSector.DirEntryCount;
    if (isFat32)
    {
-      // For FAT32 we keep cluster numbers for root directory
       inst->RootDirectory.FirstCluster = rootDirCluster;
       inst->RootDirectory.CurrentCluster = rootDirCluster;
       inst->RootDirectory.CurrentSectorInCluster = 0;
 
       // Read first sector of root cluster into buffer
-      Partition_ReadSectors(disk, FAT_ClusterToLba(inst, rootDirCluster), 1,
-                            inst->RootDirectory.Buffer);
+      if (!Partition_ReadSectors(disk, FAT_ClusterToLba(inst, rootDirCluster), 1,
+                            inst->RootDirectory.Buffer))
+      {
+         logfmt(LOG_WARNING, "[FAT] Warning: could not pre-load FAT32 root dir sector\n");
+      }
    }
    else
    {
@@ -294,7 +296,10 @@ FAT_Instance *FAT_Initialize(Partition *disk)
       inst->RootDirectory.CurrentSectorInCluster = 0;
 
       // Read first sector of root directory from disk
-      Partition_ReadSectors(disk, rootDirLba, 1, inst->RootDirectory.Buffer);
+      if (!Partition_ReadSectors(disk, rootDirLba, 1, inst->RootDirectory.Buffer))
+      {
+         logfmt(LOG_WARNING, "[FAT] Warning: could not pre-load FAT12/16 root dir sector\n");
+      }
    }
 
    inst->RootDirectory.ParentCluster = inst->RootDirectory.FirstCluster;
@@ -794,7 +799,11 @@ bool FAT_FindFile(Partition *disk, FAT_File *file, const char *name,
    FAT_DirectoryEntry entry;
 
    // Reset directory position to start searching from the beginning
-   FAT_Seek(disk, file, 0);
+   if (!FAT_Seek(disk, file, 0))
+   {
+      logfmt(LOG_ERROR, "[FAT] FAT_FindFile: FAT_Seek(0) failed for '%s'\n", name);
+      return false;
+   }
 
    // convert from name to fat name
    memset(fatName, ' ', sizeof(fatName));
@@ -920,6 +929,9 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
       {
          if (isLast)
          {
+            /* File not found.  FAT_Open is strictly read/navigate-only.
+             * Callers that need to create a new file must use FAT_Create
+             * (or VFS_Create at the VFS layer) explicitly. */
             if (current != NULL && current->Handle != ROOT_DIRECTORY_HANDLE)
             {
                FAT_Close(current);
@@ -929,14 +941,10 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
                FAT_Close(previous);
             }
 
-            FAT_File *created = FAT_Create(disk, normalizedPath);
-            if (!created)
-            {
-               logfmt(LOG_ERROR, "[FAT] %s not found and create failed\n", name);
-            }
+            logfmt(LOG_INFO, "[FAT] %s not found\n", name);
             free(normalizedPath);
             free(name);
-            return created;
+            return NULL;
          }
          else
          {
@@ -1052,10 +1060,18 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
       {
          // root directory is organized by sectors (not clusters)
          uint32_t sectorIndex = position / bytesPerSector;
-         fd->CurrentCluster = fd->FirstCluster + sectorIndex;
+         uint32_t newCluster = fd->FirstCluster + sectorIndex;
+
+         /* Only re-read from disk if moving to a different sector.
+          * Seeking back to position 0 when the buffer already holds the
+          * first root-dir sector (loaded by FAT_Initialize) avoids a
+          * redundant FDC read that could fail if the motor was off. */
+         bool needsRead = (fd->CurrentCluster != newCluster);
+         fd->CurrentCluster = newCluster;
          fd->CurrentSectorInCluster = 0;
 
-         if (!Partition_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer))
+         if (needsRead &&
+             !Partition_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer))
          {
             logfmt(LOG_ERROR, "[FAT] seek read error (root)\n");
             return false;
@@ -2173,6 +2189,25 @@ static VFS_File *fat_vfs_open(Partition *partition, const char *path)
    return vf;
 }
 
+/* VFS create wrapper: opens a new (non-existing) file via FAT_Create */
+static VFS_File *fat_vfs_create(Partition *partition, const char *path)
+{
+   if (!partition || !partition->fs || !path) return NULL;
+
+   FAT_File *fat_file = FAT_Create(partition, path);
+   if (!fat_file) return NULL;
+
+   VFS_File *vf = (VFS_File *)kmalloc(sizeof(VFS_File));
+   if (!vf) return NULL;
+
+   vf->partition = partition;
+   vf->type = partition->fs->type;
+   vf->fs_file = fat_file;
+   vf->is_directory = fat_file->IsDirectory;
+   vf->size = fat_file->Size;
+   return vf;
+}
+
 /* Small wrapper to extract size from FAT_File */
 static uint32_t fat_vfs_get_size(void *fs_file)
 {
@@ -2182,7 +2217,8 @@ static uint32_t fat_vfs_get_size(void *fs_file)
 
 /* FAT operations structure - directly points to FAT functions */
 static const VFS_Operations fat_vfs_ops = {
-    .open = fat_vfs_open, /* Special wrapper - returns VFS_File */
+    .open = fat_vfs_open,   /* Open an existing file (returns NULL if not found) */
+    .create = fat_vfs_create, /* Create a new file */
     .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
         (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,

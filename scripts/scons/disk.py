@@ -271,7 +271,7 @@ set default=0
 
 menuentry "Valkyrie OS" {
     search --no-floppy --file /boot/valkyrix --set=root || search --no-floppy --label VALKYRIE --set=root
-    multiboot /boot/valkyrix
+    multiboot /boot/valkyrix root=LABEL=VALKYRIE
     boot
 }
 """)
@@ -281,7 +281,7 @@ set timeout=0
 set default=0
 
 menuentry "Valkyrie OS" {
-    multiboot /boot/valkyrix
+    multiboot /boot/valkyrix root=LABEL=VALKYRIE
     boot
 }
 """)
