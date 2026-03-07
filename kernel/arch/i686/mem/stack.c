@@ -172,7 +172,7 @@ void i686_Stack_InitializeKernel(void)
  * just log and halt. Replace with a proper process teardown when available. */
 __attribute__((noreturn)) void _process_exit_handler(void)
 {
-   printf("[process] exit handler invoked; halting.\n");
+   logfmt(LOG_FATAL, "[process] exit handler invoked; halting.\n");
    for (;;)
    {
       __asm__ volatile("cli; hlt");

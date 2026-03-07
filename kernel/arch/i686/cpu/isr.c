@@ -48,7 +48,7 @@ void i686_ISR_Initialize()
 {
    i686_ISR_InitializeGates();
    for (int i = 0; i < 256; i++) i686_IDT_EnableGate(i);
-   printf("[ISR] initialized\n");
+   logfmt(LOG_INFO, "[ISR] initialized\n");
 }
 
 void __attribute__((cdecl)) i686_ISR_Handler(Registers *regs)
@@ -57,7 +57,7 @@ void __attribute__((cdecl)) i686_ISR_Handler(Registers *regs)
       g_ISRHandlers[regs->interrupt](regs);
 
    else if (regs->interrupt >= 32)
-      printf("Unhandled interrupt %d!\n", regs->interrupt);
+      logfmt(LOG_WARNING, "[ISR] Unhandled interrupt %d!\n", regs->interrupt);
 
    else
    {
@@ -81,7 +81,7 @@ void __attribute__((cdecl)) i686_ISR_Handler(Registers *regs)
          printf("  fault_address=%x\n", fault_addr);
       }
 
-      printf("KERNEL PANIC!\n");
+      logfmt(LOG_FATAL, "KERNEL PANIC!\n");
       i686_Panic();
    }
 }
@@ -90,7 +90,7 @@ void i686_ISR_RegisterHandler(int interrupt, ISRHandler handler)
 {
    if (interrupt < 0 || interrupt >= 256)
    {
-      printf("i686_ISR_RegisterHandler: invalid interrupt %d\n", interrupt);
+      logfmt(LOG_WARNING, "[ISR] i686_ISR_RegisterHandler: invalid interrupt %d\n", interrupt);
       return;
    }
    g_ISRHandlers[interrupt] = handler;

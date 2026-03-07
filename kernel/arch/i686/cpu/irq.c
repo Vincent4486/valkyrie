@@ -22,7 +22,7 @@ void i686_IRQ_Handler(Registers *regs)
    // Bounds check to prevent array out-of-bounds access
    if (irq < 0 || irq >= 16)
    {
-      printf("IRQ out of bounds: interrupt=%d, irq=%d\n", regs->interrupt, irq);
+      logfmt(LOG_WARNING, "[IRQ] Out of bounds: interrupt=%d, irq=%d\n", regs->interrupt, irq);
       return;
    }
 
@@ -33,7 +33,7 @@ void i686_IRQ_Handler(Registers *regs)
    }
    else
    {
-      printf("Unhandled IRQ %d...\n", irq);
+      logfmt(LOG_WARNING, "[IRQ] Unhandled IRQ %d...\n", irq);
    }
 
    // send EOI
@@ -42,7 +42,7 @@ void i686_IRQ_Handler(Registers *regs)
 
 void i686_IRQ_Initialize()
 {
-   printf("[IRQ] initialized\n");
+   logfmt(LOG_INFO, "[IRQ] initialized\n");
    const PICDriver *drivers[] = {
        i8259_GetDriver(),
    };
@@ -57,11 +57,11 @@ void i686_IRQ_Initialize()
 
    if (g_Driver == NULL)
    {
-      printf("Warning: No PIC found!\n");
+      logfmt(LOG_WARNING, "[IRQ] No PIC found!\n");
       return;
    }
 
-   printf("[IRQ] Found %s.\n", g_Driver->Name);
+   logfmt(LOG_INFO, "[IRQ] Found %s.\n", g_Driver->Name);
    g_Driver->Initialize(PIC_REMAP_OFFSET, PIC_REMAP_OFFSET + 8, false);
 
    // register ISR handlers for each of the 16 irq lines
@@ -84,7 +84,7 @@ void i686_IRQ_RegisterHandler(int irq, IRQHandler handler)
 {
    if (irq < 0 || irq >= 16)
    {
-      printf("i686_IRQ_RegisterHandler: invalid IRQ %d\n", irq);
+      logfmt(LOG_WARNING, "[IRQ] RegisterHandler: invalid IRQ %d\n", irq);
       return;
    }
    g_IRQHandlers[irq] = handler;
@@ -94,7 +94,7 @@ void i686_IRQ_Unmask(int irq)
 {
    if (irq < 0 || irq >= 16)
    {
-      printf("i686_IRQ_Unmask: invalid IRQ %d\n", irq);
+      logfmt(LOG_INFO, "[IRQ] IRQ_Unmask: invalid IRQ %d\n", irq);
       return;
    }
    if (g_Driver != NULL)

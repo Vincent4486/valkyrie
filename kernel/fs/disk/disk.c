@@ -59,7 +59,7 @@ int DISK_Scan()
       DISK *disk = (DISK *)kmalloc(sizeof(DISK));
       if (!disk)
       {
-         printf("[DISK] Failed to allocate disk entry for %s\n", source->brand);
+         logfmt(LOG_ERROR, "[DISK] Failed to allocate disk entry for %s\n", source->brand);
          continue;
       }
       memcpy(disk, source, sizeof(DISK));
@@ -112,7 +112,7 @@ int DISK_Scan()
          // Defensive: ensure partition has a backing disk before initializing
          if (!volume->disk)
          {
-            printf("[DISK] Skipping init: volume[%d] has no disk pointer\n",
+            logfmt(LOG_ERROR, "[DISK] Skipping init: volume[%d] has no disk pointer\n",
                    volumeIndex);
             volumeIndex++;
             continue;
@@ -138,7 +138,7 @@ int DISK_Scan()
                else
                {
                   // FAT initialized but we couldn't allocate filesystem struct
-                  printf("[DISK] Warning: FAT init succeeded but Filesystem "
+                  logfmt(LOG_ERROR, "[DISK] Warning: FAT init succeeded but Filesystem "
                          "alloc failed for volume[%d]\n",
                          volumeIndex);
                   free(fat_instance);

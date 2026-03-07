@@ -79,13 +79,13 @@ DEVFS_DeviceNode *DEVFS_RegisterDevice(const char *name, DEVFS_DeviceType type,
 {
    if (!name || name[0] == '\0')
    {
-      printf("[DEVFS] RegisterDevice: invalid name\n");
+      logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: invalid name\n");
       return NULL;
    }
 
    if (g_DevNodeCount >= DEVFS_MAXFILES)
    {
-      printf("[DEVFS] RegisterDevice: device table full\n");
+      logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: device table full\n");
       return NULL;
    }
 
@@ -95,7 +95,7 @@ DEVFS_DeviceNode *DEVFS_RegisterDevice(const char *name, DEVFS_DeviceType type,
       if (g_DevNodes[i].in_use &&
           strncmp(g_DevNodes[i].name, name, DEVFS_PATHMAX) == 0)
       {
-         printf("[DEVFS] RegisterDevice: '%s' already exists\n", name);
+         logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: '%s' already exists\n", name);
          return NULL;
       }
    }
@@ -113,7 +113,7 @@ DEVFS_DeviceNode *DEVFS_RegisterDevice(const char *name, DEVFS_DeviceType type,
 
    if (!node)
    {
-      printf("[DEVFS] RegisterDevice: no free slots\n");
+      logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: no free slots\n");
       return NULL;
    }
 
@@ -155,7 +155,7 @@ bool DEVFS_UnregisterDevice(DEVFS_DeviceNode *node)
 
    if (!found)
    {
-      printf("[DEVFS] UnregisterDevice: node not found\n");
+      logfmt(LOG_ERROR, "[DEVFS] UnregisterDevice: node not found\n");
       return false;
    }
 

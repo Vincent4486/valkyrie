@@ -103,7 +103,7 @@ intptr_t syscall(uint32_t syscall_num, uint32_t *args)
       return sys_lseek(args[0], (int32_t)args[1], args[2]);
 
    default:
-      printf("[syscall] unknown syscall %u\n", syscall_num);
+      logfmt(LOG_ERROR, "[SYSCALL] unknown syscall %u\n", syscall_num);
       return -1;
    }
 }

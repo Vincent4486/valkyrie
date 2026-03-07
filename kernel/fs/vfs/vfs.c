@@ -173,7 +173,7 @@ int FS_Mount(Partition *volume, const char *location)
    char *normalized = kmalloc(VFS_MAX_PATH);
    if (!normalized)
    {
-      printf("[VFS] Failed to allocate mount path buffer\n");
+      logfmt(LOG_ERROR, "[VFS] Failed to allocate mount path buffer\n");
       return -1;
    }
 
@@ -201,7 +201,7 @@ int FS_Mount(Partition *volume, const char *location)
       volume->fs->ops = get_fs_operations(volume->fs->type);
       if (!volume->fs->ops)
       {
-         printf("[VFS] No operations available for filesystem type %d\n",
+         logfmt(LOG_ERROR, "[VFS] No operations available for filesystem type %d\n",
                 volume->fs->type);
          free(normalized);
          return -1;
@@ -325,27 +325,27 @@ bool VFS_Seek(VFS_File *file, uint32_t position)
 {
    if (!file)
    {
-      printf("[VFS_Seek] file is NULL\n");
+      logfmt(LOG_ERROR, "[VFS_Seek] file is NULL\n");
       return false;
    }
    if (!file->partition)
    {
-      printf("[VFS_Seek] partition is NULL\n");
+      logfmt(LOG_ERROR, "[VFS_Seek] partition is NULL\n");
       return false;
    }
    if (!file->partition->fs)
    {
-      printf("[VFS_Seek] fs is NULL\n");
+      logfmt(LOG_ERROR, "[VFS_Seek] fs is NULL\n");
       return false;
    }
    if (!file->partition->fs->ops)
    {
-      printf("[VFS_Seek] ops is NULL\n");
+      logfmt(LOG_ERROR, "[VFS_Seek] ops is NULL\n");
       return false;
    }
    if (!file->partition->fs->ops->seek)
    {
-      printf("[VFS_Seek] seek function pointer is NULL\n");
+      logfmt(LOG_ERROR, "[VFS_Seek] seek function pointer is NULL\n");
       return false;
    }
 
@@ -386,8 +386,8 @@ void VFS_SelfTest(void)
    test_file = VFS_Open(test_path);
    if (!test_file)
    {
-      printf("[VFS] Failed to open/create file\n");
-      printf("[VFS] SelfTest: done\n");
+      logfmt(LOG_ERROR, "[VFS] Failed to open/create file\n");
+      logfmt(LOG_INFO, "[VFS] SelfTest: done\n");
       return;
    }
 

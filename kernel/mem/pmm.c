@@ -57,7 +57,7 @@ void PMM_Initialize(uint32_t total_mem_bytes)
 
    if (bitmap_bytes > sizeof(bitmap_storage))
    {
-      printf("[PMM] WARNING: bitmap too small for %u pages\n", total_pages);
+      logfmt(LOG_WARNING, "[MEM] WARNING: bitmap too small for %u pages\n", total_pages);
       total_pages = sizeof(bitmap_storage) * BITS_PER_BYTE;
       bitmap_bytes = sizeof(bitmap_storage);
    }
@@ -73,7 +73,7 @@ void PMM_Initialize(uint32_t total_mem_bytes)
       bitmap_set(i);
    }
 
-   printf("[PMM] init: total=%u pages, reserved=%u, free=%u\n", total_pages,
+   logfmt(LOG_INFO, "[MEM] init: total=%u pages, reserved=%u, free=%u\n", total_pages,
           reserved_pages, total_pages - allocated_count);
 }
 
@@ -93,7 +93,7 @@ uint32_t PMM_AllocatePhysicalPage(void)
       }
    }
 
-   printf("[PMM] PMM_AllocatePhysicalPage: out of memory\n");
+   logfmt(LOG_ERROR, "[MEM] PMM_AllocatePhysicalPage: out of memory\n");
    return 0;
 }
 
@@ -128,7 +128,7 @@ uint32_t PMM_AllocatedPages(void) { return allocated_count; }
 
 void PMM_SelfTest(void)
 {
-   printf("[PMM] self-test: starting\n");
+   logfmt(LOG_INFO, "[MEM] self-test: starting\n");
 
    // Allocate a few pages
    uint32_t p1 = PMM_AllocatePhysicalPage();
@@ -137,20 +137,20 @@ void PMM_SelfTest(void)
 
    if (!p1 || !p2 || !p3)
    {
-      printf("[PMM] self-test: FAIL (alloc returned 0)\n");
+      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (alloc returned 0)\n");
       return;
    }
 
    // Check they're page-aligned and different
    if ((p1 % PAGE_SIZE) || (p2 % PAGE_SIZE) || (p3 % PAGE_SIZE))
    {
-      printf("[PMM] self-test: FAIL (not page-aligned)\n");
+      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (not page-aligned)\n");
       return;
    }
 
    if (p1 == p2 || p2 == p3 || p1 == p3)
    {
-      printf("[PMM] self-test: FAIL (pages are same)\n");
+      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (pages are same)\n");
       return;
    }
 
@@ -158,7 +158,7 @@ void PMM_SelfTest(void)
    PMM_FreePhysicalPage(p2);
    if (!PMM_IsPhysicalPageFree(p2))
    {
-      printf("[PMM] self-test: FAIL (free didn't work)\n");
+      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (free didn't work)\n");
       return;
    }
 
@@ -166,9 +166,9 @@ void PMM_SelfTest(void)
    uint32_t p2_new = PMM_AllocatePhysicalPage();
    if (p2_new != p2)
    {
-      printf("[PMM] self-test: FAIL (realloc didn't get same page)\n");
+      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (realloc didn't get same page)\n");
       return;
    }
 
-   printf("[PMM] self-test: PASS (allocated %u, freed, reallocated)\n", p1);
+   logfmt(LOG_INFO, "[MEM] self-test: PASS (allocated %u, freed, reallocated)\n", p1);
 }

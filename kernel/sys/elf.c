@@ -23,7 +23,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    // read ELF header
    if (!VFS_Seek(file, 0))
    {
-      printf("ELF: seek header failed\n");
+      logfmt(LOG_ERROR, "[ELF] seek header failed\n");
       return false;
    }
 
@@ -33,14 +33,14 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    void *hdr_buf = kmalloc(sizeof(ehdr));
    if (!hdr_buf)
    {
-      printf("ELF: failed to allocate header buffer\n");
+      logfmt(LOG_ERROR, "[ELF] failed to allocate header buffer\n");
       return false;
    }
 
    uint32_t hdr_read = VFS_Read(file, sizeof(ehdr), hdr_buf);
    if (hdr_read != sizeof(ehdr))
    {
-      printf("ELF: read header failed (got %u)\n", hdr_read);
+      logfmt(LOG_ERROR, "[ELF] read header failed (got %u)\n", hdr_read);
       free(hdr_buf);
       return false;
    }
@@ -52,26 +52,26 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
        ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
    {
-      printf("ELF: bad magic\n");
+      logfmt(LOG_ERROR, "[ELF] bad magic\n");
       return false;
    }
 
    if (ehdr.e_ident[4] != ELFCLASS32 || ehdr.e_ident[5] != ELFDATA2LSB)
    {
-      printf("ELF: unsupported ELF class or endian\n");
+      logfmt(LOG_ERROR, "[ELF] unsupported ELF class or endian\n");
       return false;
    }
 
    if (ehdr.e_machine != EM_386)
    {
-      printf("ELF: unsupported machine\n");
+      logfmt(LOG_ERROR, "[ELF] unsupported machine\n");
       return false;
    }
 
    // read program headers
    if (ehdr.e_phnum == 0 || ehdr.e_phentsize != sizeof(Elf32_Phdr))
    {
-      printf("ELF: no program headers or unexpected phentsize\n");
+      logfmt(LOG_ERROR, "[ELF] no program headers or unexpected phentsize\n");
       return false;
    }
 
@@ -83,21 +83,21 @@ bool ELF_Load(VFS_File *file, void **entryOut)
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
       if (!VFS_Seek(file, phoff))
       {
-         printf("ELF: seek phdr %u failed\n", i);
+         logfmt(LOG_ERROR, "[ELF] seek phdr %u failed\n", i);
          return false;
       }
 
       void *ph_buf = kmalloc(sizeof(phdr));
       if (!ph_buf)
       {
-         printf("ELF: alloc phdr buffer failed\n");
+         logfmt(LOG_ERROR, "[ELF] alloc phdr buffer failed\n");
          return false;
       }
 
       uint32_t ph_read = VFS_Read(file, sizeof(phdr), ph_buf);
       if (ph_read != sizeof(phdr))
       {
-         printf("ELF: read phdr %u failed (got %u)\n", i, ph_read);
+         logfmt(LOG_ERROR, "[ELF] read phdr %u failed (got %u)\n", i, ph_read);
          free(ph_buf);
          return false;
       }
@@ -121,7 +121,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
       {
          if (!VFS_Seek(file, fileOffset))
          {
-            printf("ELF: seek segment data failed\n");
+            logfmt(LOG_ERROR, "[ELF] seek segment data failed\n");
             return false;
          }
 
@@ -131,7 +131,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
             uint32_t got = VFS_Read(file, toRead, dest);
             if (got == 0)
             {
-               printf("ELF: short read for segment\n");
+               logfmt(LOG_ERROR, "[ELF] short read for segment\n");
                return false;
             }
 
@@ -185,7 +185,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    uint32_t read_bytes = VFS_Read(file, sizeof(ehdr), (uint8_t *)hdr_buf);
    if (read_bytes != sizeof(ehdr))
    {
-      printf("[ELF] LoadProcess: read header failed\n");
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: read header failed\n");
       free(hdr_buf);
       VFS_Close(file);
       return NULL;
@@ -238,7 +238,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t ph_read = VFS_Read(file, sizeof(phdr), (uint8_t *)ph_buf);
       if (ph_read != sizeof(phdr))
       {
-         printf("[ELF] LoadProcess: read phdr %u failed (got %u)\n", i,
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: read phdr %u failed (got %u)\n", i,
                 ph_read);
          free(ph_buf);
          Process_Destroy(proc);
@@ -306,7 +306,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint8_t *buffer = (uint8_t *)kmalloc(CHUNK);
       if (!buffer)
       {
-         printf("[ELF] LoadProcess: alloc buffer failed\n");
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: alloc buffer failed\n");
          Process_Destroy(proc);
          VFS_Close(file);
          return NULL;

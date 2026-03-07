@@ -205,20 +205,20 @@ void Process_SetCurrent(Process *proc)
 
 void Process_SelfTest(void)
 {
-   printf("[PROC] self-test: starting\n");
+   logfmt(LOG_INFO, "[PROC] self-test: starting\n");
 
    // Create a test process
    Process *p = Process_Create(0x08048000, false);
    if (!p)
    {
-      printf("[PROC] self-test: FAIL (Process_Create returned NULL)\n");
+      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (Process_Create returned NULL)\n");
       return;
    }
 
    // Test per-process heap
    if (Heap_ProcessSbrk(p, 4096) == (void *)-1)
    {
-      printf("[PROC] self-test: FAIL (sbrk failed)\n");
+      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (sbrk failed)\n");
       Process_Destroy(p);
       return;
    }
@@ -231,7 +231,7 @@ void Process_SelfTest(void)
 
    if (val != 0xCAFEBABEu)
    {
-      printf("[PROC] self-test: FAIL (heap write/read)\n");
+      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (heap write/read)\n");
       Process_Destroy(p);
       return;
    }
@@ -243,11 +243,11 @@ void Process_SelfTest(void)
    uint32_t sval = *stack_test;
    if (sval != 0x11223344u)
    {
-      printf("[PROC] self-test: FAIL (stack write/read)\n");
+      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (stack write/read)\n");
       Process_Destroy(p);
       return;
    }
 
-   printf("[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
+   logfmt(LOG_INFO, "[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
    Process_Destroy(p);
 }

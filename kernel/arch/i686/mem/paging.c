@@ -62,7 +62,7 @@ static uint32_t alloc_frame(void)
       uint32_t p = PMM_AllocatePhysicalPage();
       if (p == 0)
       {
-         printf("[paging] CRITICAL: PMM exhausted while allocating frame\n");
+         logfmt(LOG_ERROR, "[PAGING] CRITICAL: PMM exhausted while allocating frame\n");
       }
       return p;
    }
@@ -77,7 +77,7 @@ static uint32_t alloc_frame(void)
    const uint32_t MAX_EARLY_BYTES = 256 * 1024 * 1024;
    if (phys_alloc_ptr >= MAX_EARLY_BYTES)
    {
-      printf("[paging] CRITICAL: alloc_frame early allocator exhausted "
+      logfmt(LOG_ERROR, "[PAGING] CRITICAL: alloc_frame early allocator exhausted "
              "(ptr=0x%08x)\n",
              (uint32_t)phys_alloc_ptr);
       return 0;
@@ -93,7 +93,7 @@ static uint32_t *alloc_page_table(void)
    uint32_t phys = alloc_frame();
    if (phys == 0)
    {
-      printf("[paging] ERROR: alloc_page_table failed - no frames\n");
+      logfmt(LOG_ERROR, "[PAGING] alloc_page_table failed - no frames\n");
       return NULL;
    }
    uint32_t *tbl = (uint32_t *)phys; // identity mapped
@@ -106,7 +106,7 @@ static uint32_t *alloc_page_directory(void)
    uint32_t phys = alloc_frame();
    if (phys == 0)
    {
-      printf("[paging] ERROR: alloc_page_directory failed - no frames\n");
+      logfmt(LOG_ERROR, "[PAGING] alloc_page_directory failed - no frames\n");
       return NULL;
    }
    uint32_t *pd = (uint32_t *)phys; // identity mapped
@@ -138,7 +138,7 @@ void i686_Paging_Initialize(void)
    kernel_page_directory = alloc_page_directory();
    if (!kernel_page_directory)
    {
-      printf("[paging] FATAL: failed to allocate kernel page directory\n");
+      logfmt(LOG_FATAL, "[PAGING] Failed to allocate kernel page directory\n");
       return;
    }
    identity_map_range(kernel_page_directory, 0, IDENTITY_MAP_LIMIT);
@@ -156,8 +156,8 @@ void *i686_Paging_CreatePageDirectory(void)
    uint32_t *pd = alloc_page_directory();
    if (!pd)
    {
-      printf(
-          "[paging] ERROR: i686_Paging_CreatePageDirectory - alloc failed\n");
+      logfmt(LOG_ERROR, 
+          "[PAGING] i686_Paging_CreatePageDirectory - alloc failed\n");
       return NULL;
    }
    // Copy kernel mappings so shared kernel space stays accessible
@@ -184,7 +184,7 @@ static uint32_t *get_page_table(uint32_t *pd, uint32_t vaddr, bool create)
       uint32_t *pt = alloc_page_table();
       if (!pt)
       {
-         printf("[paging] ERROR: get_page_table - alloc_page_table failed\n");
+         logfmt(LOG_ERROR, "[PAGING] get_page_table - alloc_page_table failed\n");
          return NULL;
       }
       pd[pd_idx] = ((uint32_t)pt) | PAGE_PRESENT | PAGE_RW;
@@ -235,8 +235,8 @@ bool i686_Paging_IsPageMapped(void *page_dir, uint32_t vaddr)
 
 void i686_Paging_PageFaultHandler(uint32_t fault_address, uint32_t error_code)
 {
-   printf("Page fault at 0x%08x, error=0x%x\n", fault_address, error_code);
-   printf("  present=%d rw=%d user=%d reserved=%d fetch=%d\n",
+   logfmt(LOG_FATAL, "Page fault at 0x%08x, error=0x%x\n", fault_address, error_code);
+   logfmt(LOG_FATAL, "  present=%d rw=%d user=%d reserved=%d fetch=%d\n",
           (error_code & 1) != 0, (error_code & 2) != 0, (error_code & 4) != 0,
           (error_code & 8) != 0, (error_code & 16) != 0);
    // In a real kernel, handle or panic. For now, halt.
@@ -287,14 +287,14 @@ void i686_Paging_SelfTest(void)
    void *phys_page = i686_Paging_AllocateKernelPages(1);
    if (!phys_page)
    {
-      printf("[paging] self-test: failed to alloc frame\n");
+      logfmt(LOG_ERROR, "[PAGING] self-test: failed to alloc frame\n");
       return;
    }
 
    if (!i686_Paging_MapPage(pd, test_va, (uint32_t)phys_page,
                             PAGE_RW | PAGE_PRESENT))
    {
-      printf("[paging] self-test: map failed\n");
+      logfmt(LOG_ERROR, "[PAGING] self-test: map failed\n");
       return;
    }
 
@@ -304,11 +304,11 @@ void i686_Paging_SelfTest(void)
 
    if (val == 0x12345678u)
    {
-      printf("[paging] self-test: PASS (wrote/read 0x%08x)\n", val);
+      logfmt(LOG_INFO, "[PAGING] self-test: PASS (wrote/read 0x%08x)\n", val);
    }
    else
    {
-      printf("[paging] self-test: FAIL (got 0x%08x)\n", val);
+      logfmt(LOG_ERROR, "[PAGING] self-test: FAIL (got 0x%08x)\n", val);
    }
 
    // Unmap to confirm no crash; ignore result

@@ -36,7 +36,7 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (phys == 0)
    {
-      printf("[HEAP] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
+      logfmt(LOG_ERROR, "[MEM] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
       return -1;
    }
 
@@ -44,7 +44,7 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    if (!g_HalPagingOperations->MapPage(proc->page_directory, heap_start_va,
                                        phys, 0x007))
    { // RW, Present
-      printf("[HEAP] Heap_Initialize: map_page failed\n");
+      logfmt(LOG_ERROR, "[MEM] Heap_Initialize: map_page failed\n");
       PMM_FreePhysicalPage(phys);
       return -1;
    }
@@ -71,7 +71,7 @@ int Heap_ProcessBrk(Process *proc, void *addr)
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (phys == 0)
          {
-            printf("[HEAP] brk: PMM_AllocatePhysicalPage failed at page "
+            logfmt(LOG_ERROR, "[MEM] brk: PMM_AllocatePhysicalPage failed at page "
                    "%u/%u\n",
                    i, pages_needed);
             return -1;
@@ -79,7 +79,7 @@ int Heap_ProcessBrk(Process *proc, void *addr)
          if (!g_HalPagingOperations->MapPage(proc->page_directory, va, phys,
                                              0x007))
          { // RW, Present
-            printf("[HEAP] brk: map_page failed at 0x%08x\n", va);
+            logfmt(LOG_ERROR, "[MEM] brk: map_page failed at 0x%08x\n", va);
             PMM_FreePhysicalPage(phys);
             return -1;
          }
@@ -135,7 +135,7 @@ void Heap_Initialize(void)
    heap_ptr = heap_start;
 
    /* Concise banner to avoid noisy repeats */
-   printf("[heap] start=0x%08x end=0x%08x size=%u MB\n", (uint32_t)heap_start,
+   logfmt(LOG_INFO, "[MEM] start=0x%08x end=0x%08x size=%u MB\n", (uint32_t)heap_start,
           (uint32_t)heap_end,
           (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
 }
@@ -150,7 +150,7 @@ void *kmalloc(size_t size)
 
    if (cur > heap_end)
    {
-      printf("[heap] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n",
+      logfmt(LOG_ERROR, "[MEM] kmalloc: EXHAUSTED (cur=0x%08x > end=0x%08x)\n",
              (uint32_t)cur, (uint32_t)heap_end);
       return NULL; /* heap already exhausted */
    }
@@ -159,7 +159,7 @@ void *kmalloc(size_t size)
    uintptr_t avail = (heap_end - cur) + 1;
    if (total > avail)
    {
-      printf("[heap] kmalloc: OUT OF MEMORY (need=%u avail=%u)\n",
+      logfmt(LOG_ERROR, "[MEM] kmalloc: OUT OF MEMORY (need=%u avail=%u)\n",
              (uint32_t)total, (uint32_t)avail);
       return NULL; /* not enough room */
    }
@@ -198,12 +198,12 @@ void heap_check_integrity(void)
 
       if (h->canary_before != HEAP_CANARY || h->canary_after != HEAP_CANARY)
       {
-         printf("[HEAP] CORRUPTION at 0x%08x! Block size=%u "
+         logfmt(LOG_ERROR, "[MEM] CORRUPTION at 0x%08x! Block size=%u "
                 "canary_before=0x%08x canary_after=0x%08x\n",
                 (uint32_t)cur, (uint32_t)h->size, h->canary_before,
                 h->canary_after);
          /* Call panic function if available */
-         printf("[HEAP] PANIC: Heap corruption detected!\n");
+         logfmt(LOG_ERROR, "[MEM] PANIC: Heap corruption detected!\n");
          while (1)
          {
          } /* Hang */
@@ -213,7 +213,7 @@ void heap_check_integrity(void)
       block_count++;
    }
 
-   printf("[heap] integrity check passed: %u blocks verified\n", block_count);
+   logfmt(LOG_INFO, "[MEM] integrity check passed: %u blocks verified\n", block_count);
 }
 
 void free(void *ptr)
@@ -268,13 +268,13 @@ void *sbrk(intptr_t inc)
 /* Self-test ------------------------------------------------------------- */
 void Heap_SelfTest(void)
 {
-   printf("[HEAP] start=0x%08x end=0x%08x\n", (uint32_t)heap_start,
+   logfmt(LOG_INFO, "[MEM] start=0x%08x end=0x%08x\n", (uint32_t)heap_start,
           (uint32_t)heap_end);
 
    char *p = (char *)kmalloc(32);
    if (!p)
    {
-      printf("[HEAP] kmalloc failed\n");
+      logfmt(LOG_ERROR, "[MEM] kmalloc failed\n");
       return;
    }
    for (int i = 0; i < 32; ++i) p[i] = (char)(i + 1);
@@ -282,7 +282,7 @@ void Heap_SelfTest(void)
    char *q = (char *)realloc(p, 64);
    if (!q)
    {
-      printf("[HEAP] realloc failed\n");
+      logfmt(LOG_ERROR, "[MEM] realloc failed\n");
       return;
    }
    int ok = 1;
@@ -303,6 +303,6 @@ void Heap_SelfTest(void)
    int brk_ok = (brk1 != (void *)-1);
    brk(brk0);
 
-   printf("[HEAP] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
+   logfmt(LOG_INFO, "[MEM] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
           ok ? "OK" : "FAIL", zeroed ? "OK" : "FAIL", brk_ok ? "OK" : "FAIL");
 }

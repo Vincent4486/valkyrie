@@ -25,7 +25,7 @@ bool Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
    if (!((p >= volumes_start && p < volumes_end) ||
          (heap_start != 0 && p >= heap_start && p < heap_end)))
    {
-      printf("[PART] Invalid partition pointer: 0x%08x\n", (unsigned int)p);
+      logfmt(LOG_ERROR, "[PART] Invalid partition pointer: 0x%08x\n", (unsigned int)p);
       return false;
    }
 
@@ -49,7 +49,7 @@ bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
    if (!((p >= volumes_start && p < volumes_end) ||
          (heap_start != 0 && p >= heap_start && p < heap_end)))
    {
-      printf("[PART] Invalid partition pointer: 0x%08x\n", (unsigned int)p);
+      logfmt(LOG_ERROR, "[PART] Invalid partition pointer: 0x%08x\n", (unsigned int)p);
       return false;
    }
 

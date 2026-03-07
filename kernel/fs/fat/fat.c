@@ -153,7 +153,7 @@ FAT_Instance *FAT_Initialize(Partition *disk)
    FAT_Instance *inst = (FAT_Instance *)kmalloc(sizeof(FAT_Instance));
    if (!inst)
    {
-      printf("[FAT] Failed to allocate FAT_Instance\n");
+      logfmt(LOG_ERROR, "[FAT] Failed to allocate FAT_Instance\n");
       return NULL;
    }
    memset(inst, 0, sizeof(FAT_Instance));
@@ -162,7 +162,7 @@ FAT_Instance *FAT_Initialize(Partition *disk)
    uint8_t *bootSector = (uint8_t *)kmalloc(512);
    if (!bootSector)
    {
-      printf("[FAT] Failed to allocate boot sector buffer\n");
+      logfmt(LOG_ERROR, "[FAT] Failed to allocate boot sector buffer\n");
       free(inst);
       return NULL;
    }
@@ -328,7 +328,7 @@ static bool FAT_WriteFatEntry(FAT_Instance *inst, Partition *disk,
 {
    if (!inst || !disk)
    {
-      printf("FAT_WriteFatEntry: inst or disk is NULL\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_WriteFatEntry: inst or disk is NULL\n");
       return false;
    }
 
@@ -382,8 +382,7 @@ static bool FAT_WriteFatEntry(FAT_Instance *inst, Partition *disk,
          *entry = (*entry & 0xF0000000) | (value & 0x0FFFFFFF);
          if (cluster >= 9564 && cluster <= 9580)
          {
-            printf("FAT_WriteFatEntry: cluster=%u, oldValue=0x%08x, "
-                   "newValue=0x%08x, LBA=%u, offset=%u\n",
+            logfmt(LOG_INFO, "[FAT] FAT_WriteFatEntry: cluster=%u, oldValue=0x%08x, newValue=0x%08x, LBA=%u, offset=%u\n",
                    cluster, oldValue, *entry, fatSectorLba,
                    fatByteOffsetInSector);
          }
@@ -469,10 +468,8 @@ static FAT_File *FAT_OpenEntry(FAT_Instance *inst, Partition *disk,
                              inst->BS.BootSector.SectorsPerCluster;
       if (fd->FirstCluster < 2 || fd->FirstCluster >= maxClusters + 2)
       {
-         printf("FAT: invalid FirstCluster=%u (max=%u) for file: ",
+         logfmt(LOG_ERROR, "[FAT] invalid FirstCluster=%u (max=%u) for file\n",
                 fd->FirstCluster, maxClusters + 2);
-         for (int i = 0; i < 11; i++) printf("%c", entry->Name[i]);
-         printf("\n");
          return NULL;
       }
    }
@@ -506,7 +503,7 @@ static FAT_File *FAT_OpenEntry(FAT_Instance *inst, Partition *disk,
    /* Guard against bogus cluster numbers that would underflow LBA math */
    if (fd->FirstCluster < 2)
    {
-      printf("FAT: invalid FirstCluster=%u for file, refusing to open\n",
+      logfmt(LOG_ERROR, "[FAT] invalid FirstCluster=%u for file, refusing to open\n",
              fd->FirstCluster);
       return NULL;
    }
@@ -515,11 +512,8 @@ static FAT_File *FAT_OpenEntry(FAT_Instance *inst, Partition *disk,
 
    if (!Partition_ReadSectors(disk, lba, 1, fd->Buffer))
    {
-      printf("FAT: open entry failed - read error cluster=%u lba=%u\n",
+      logfmt(LOG_ERROR, "[FAT] open entry failed - read error cluster=%u lba=%u\n",
              fd->CurrentCluster, lba);
-      printf("     file: ");
-      for (int i = 0; i < 11; i++) printf("%c", entry->Name[i]);
-      printf("\n");
       // Don't open the file if we can't read its data
       return NULL;
    }
@@ -546,7 +540,7 @@ static uint32_t FAT_NextCluster(FAT_Instance *inst, Partition *disk,
    {
       if (!FAT_ReadFat(inst, disk, fatIndexSector))
       {
-         printf("FAT_NextCluster: FAT_ReadFat failed for sector %u\n",
+         logfmt(LOG_ERROR, "[FAT] FAT_NextCluster: FAT_ReadFat failed for sector %u\n",
                 fatIndexSector);
          return 0xFFFFFFFF; // Return EOC marker to stop cluster traversal
       }
@@ -588,7 +582,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
    if (file->Handle != ROOT_DIRECTORY_HANDLE &&
        (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES))
    {
-      printf("FAT_Read: invalid file handle %d\n", file->Handle);
+      logfmt(LOG_ERROR, "[FAT] FAT_Read: invalid file handle %d\n", file->Handle);
       return 0;
    }
 
@@ -602,8 +596,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
    // For regular files (not directories), don't read empty files
    if (fd->Public.Size == 0 && !fd->Public.IsDirectory)
    {
-      printf("FAT_Read: file is empty (Size=0), returning 0 bytes, "
-             "IsDirectory=%u\n",
+      logfmt(LOG_WARNING, "[FAT] FAT_Read: file is empty (Size=0), returning 0 bytes, IsDirectory=%u\n",
              fd->Public.IsDirectory);
       return 0;
    }
@@ -642,7 +635,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
          // Prevent infinite loops - safety check (per call)
          if (++loop_counter > 10000)
          {
-            printf("FAT_Read: infinite loop detected, breaking\n");
+            logfmt(LOG_ERROR, "[FAT] FAT_Read: infinite loop detected, breaking\n");
             break;
          }
          // Special handling for root directory
@@ -682,7 +675,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                            fd->CurrentSectorInCluster,
                        1, fd->Buffer))
                {
-                  printf("FAT: read error!\n");
+                  logfmt(LOG_ERROR, "[FAT] read error!\n");
                   break;
                }
             }
@@ -701,7 +694,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                if (!Partition_ReadSectors(disk, fd->CurrentCluster, 1,
                                           fd->Buffer))
                {
-                  printf("FAT: read error!\n");
+                  logfmt(LOG_ERROR, "[FAT] read error!\n");
                   break;
                }
             }
@@ -744,7 +737,7 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                         fd->CurrentSectorInCluster,
                     1, fd->Buffer))
             {
-               printf("FAT: read error!\n");
+               logfmt(LOG_ERROR, "[FAT] read error!\n");
                break;
             }
          }
@@ -779,7 +772,7 @@ void FAT_Close(FAT_File *file)
       // Validate handle before accessing array
       if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
       {
-         printf("FAT_Close: invalid file handle %d\n", file->Handle);
+         logfmt(LOG_ERROR, "[FAT] FAT_Close: invalid file handle %d\n", file->Handle);
          return;
       }
       inst->OpenedFiles[file->Handle].Opened = false;
@@ -792,7 +785,7 @@ bool FAT_FindFile(Partition *disk, FAT_File *file, const char *name,
    // Reject paths; this helper expects a single 8.3 component
    if (strchr(name, '/'))
    {
-      printf("FAT_FindFile: received path '%s', expected single component\n",
+      logfmt(LOG_WARNING, "[FAT] FAT_FindFile: received path '%s', expected single component\n",
              name);
       return false;
    }
@@ -908,7 +901,7 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
 
          if (!isLast && (entry.Attributes & FAT_ATTRIBUTE_DIRECTORY) == 0)
          {
-            printf("FAT: %s not a directory\n", name);
+            logfmt(LOG_ERROR, "[FAT] %s not a directory\n", name);
             if (current != NULL && current->Handle != ROOT_DIRECTORY_HANDLE)
                FAT_Close(current);
             free(normalizedPath);
@@ -939,7 +932,7 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
             FAT_File *created = FAT_Create(disk, normalizedPath);
             if (!created)
             {
-               printf("FAT: %s not found and create failed\n", name);
+               logfmt(LOG_ERROR, "[FAT] %s not found and create failed\n", name);
             }
             free(normalizedPath);
             free(name);
@@ -956,7 +949,7 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
                FAT_Close(current);
             }
 
-            printf("FAT: %s not found\n", name);
+            logfmt(LOG_WARNING, "[FAT] %s not found\n", name);
             free(normalizedPath);
             free(name);
             return NULL;
@@ -979,7 +972,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
 {
    if (!disk)
    {
-      printf("FAT_Seek: disk is NULL\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Seek: disk is NULL\n");
       return false;
    }
 
@@ -992,7 +985,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
    if (file->Handle != ROOT_DIRECTORY_HANDLE &&
        (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES))
    {
-      printf("FAT_Seek: invalid file handle %d\n", file->Handle);
+      logfmt(LOG_ERROR, "[FAT] FAT_Seek: invalid file handle %d\n", file->Handle);
       return false;
    }
 
@@ -1004,7 +997,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
    // track size)
    if (!fd->Public.IsDirectory && position > fd->Public.Size)
    {
-      printf("FAT_Seek: position %u > size %u\n", position, fd->Public.Size);
+      logfmt(LOG_ERROR, "[FAT] FAT_Seek: position %u > size %u\n", position, fd->Public.Size);
       return false;
    }
 
@@ -1017,8 +1010,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
    // Guard against divide-by-zero from invalid FAT parameters
    if (bytesPerSector == 0 || sectorsPerCluster == 0)
    {
-      printf("FAT_Seek: invalid FAT parameters (BytesPerSector=%u, "
-             "SectorsPerCluster=%u)\n",
+      logfmt(LOG_ERROR, "[FAT] FAT_Seek: invalid FAT parameters (BytesPerSector=%u, SectorsPerCluster=%u)\n",
              bytesPerSector, sectorsPerCluster);
       return false;
    }
@@ -1052,7 +1044,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
                                         fd->CurrentSectorInCluster,
                                     1, fd->Buffer))
          {
-            printf("FAT: seek read error (root)\n");
+            logfmt(LOG_ERROR, "[FAT] seek read error (root)\n");
             return false;
          }
       }
@@ -1065,7 +1057,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
 
          if (!Partition_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer))
          {
-            printf("FAT: seek read error (root)\n");
+            logfmt(LOG_ERROR, "[FAT] seek read error (root)\n");
             return false;
          }
       }
@@ -1075,13 +1067,13 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
       // Guard: don't try to seek on regular files that are empty
       if (fd->Public.Size == 0 && !fd->Public.IsDirectory)
       {
-         printf("FAT_Seek: cannot seek on empty regular file\n");
+         logfmt(LOG_ERROR, "[FAT] FAT_Seek: cannot seek on empty regular file\n");
          return false;
       }
 
       if (fd->FirstCluster == 0)
       {
-         printf("FAT_Seek: FirstCluster is 0 for non-empty file (size=%u)\n",
+         logfmt(LOG_ERROR, "[FAT] FAT_Seek: FirstCluster is 0 for non-empty file (size=%u)\n",
                 fd->Public.Size);
          return false;
       }
@@ -1101,6 +1093,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
          {
             // invalid / end of chain
             fd->Public.Size = fd->Public.Position;
+            logfmt(LOG_WARNING, "[FAT] FAT_Seek: reached end of cluster chain\n");
             return false;
          }
       }
@@ -1113,7 +1106,7 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
                                      fd->CurrentSectorInCluster,
                                  1, fd->Buffer))
       {
-         printf("FAT: seek read error (file)\n");
+         logfmt(LOG_ERROR, "[FAT] seek read error (file)\n");
          return false;
       }
    }
@@ -1142,7 +1135,7 @@ bool FAT_WriteEntry(Partition *disk, FAT_File *file,
 
    if (!file->IsDirectory)
    {
-      printf("FAT: WriteEntry called on non-directory file\n");
+      logfmt(LOG_ERROR, "[FAT] WriteEntry called on non-directory file\n");
       return false;
    }
 
@@ -1168,12 +1161,12 @@ bool FAT_WriteEntry(Partition *disk, FAT_File *file,
    uint8_t *sectorBuffer = kmalloc(SECTOR_SIZE);
    if (!sectorBuffer)
    {
-      printf("FAT: WriteEntry kmalloc failed\n");
+      logfmt(LOG_ERROR, "[FAT] WriteEntry kmalloc failed\n");
       return false;
    }
    if (!Partition_ReadSectors(disk, sectorLba, 1, sectorBuffer))
    {
-      printf("FAT: WriteEntry read error\n");
+      logfmt(LOG_ERROR, "[FAT] WriteEntry read error\n");
       free(sectorBuffer);
       return false;
    }
@@ -1182,7 +1175,7 @@ bool FAT_WriteEntry(Partition *disk, FAT_File *file,
 
    if (!Partition_WriteSectors(disk, sectorLba, 1, sectorBuffer))
    {
-      printf("FAT: WriteEntry write error\n");
+      logfmt(LOG_ERROR, "[FAT] WriteEntry write error\n");
       free(sectorBuffer);
       return false;
    }
@@ -1203,14 +1196,14 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
    // Don't write to directories or root
    if (!file || file->IsDirectory || file->Handle == ROOT_DIRECTORY_HANDLE)
    {
-      printf("FAT_Write: cannot write to directory or null file\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Write: cannot write to directory or null file\n");
       return 0;
    }
 
    // Validate file handle BEFORE accessing array
    if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
    {
-      printf("FAT_Write: invalid file handle %d\n", file->Handle);
+      logfmt(LOG_ERROR, "[FAT] FAT_Write: invalid file handle %d\n", file->Handle);
       return 0;
    }
 
@@ -1222,7 +1215,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
 
    if (!fd->Opened)
    {
-      printf("FAT_Write: file not opened\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Write: file not opened\n");
       return 0;
    }
 
@@ -1230,7 +1223,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
    if (inst->BS.BootSector.BytesPerSector == 0 ||
        inst->BS.BootSector.SectorsPerCluster == 0)
    {
-      printf("FAT_Write: invalid BPB parameters\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Write: invalid BPB parameters\n");
       return 0;
    }
 
@@ -1238,11 +1231,11 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
    // been truncated
    if (!fd->Truncated && fd->Public.Size > 0 && fd->Public.Position == 0)
    {
-      printf("FAT_Write: auto-truncating file (Size=%u) before first write\n",
+      logfmt(LOG_INFO, "[FAT] FAT_Write: auto-truncating file (Size=%u) before first write\n",
              fd->Public.Size);
       if (!FAT_Truncate(disk, file))
       {
-         printf("FAT_Write: auto-truncate failed\n");
+         logfmt(LOG_ERROR, "[FAT] FAT_Write: auto-truncate failed\n");
          return 0;
       }
       fd->Truncated = true;
@@ -1270,7 +1263,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
       if (offsetInSector >= SECTOR_SIZE || take > SECTOR_SIZE ||
           offsetInSector + take > SECTOR_SIZE)
       {
-         printf("FAT_Write: offset overflow (pos=%u off=%u take=%u)\n",
+         logfmt(LOG_ERROR, "[FAT] FAT_Write: offset overflow (pos=%u off=%u take=%u)\n",
                 fd->Public.Position, offsetInSector, take);
          return bytesWritten;
       }
@@ -1296,7 +1289,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
 
          if (!Partition_WriteSectors(disk, sectorLba, 1, fd->Buffer))
          {
-            printf("FAT_Write: sector write error at LBA %u\n", sectorLba);
+            logfmt(LOG_ERROR, "[FAT] FAT_Write: sector write error at LBA %u\n", sectorLba);
             return bytesWritten;
          }
 
@@ -1339,7 +1332,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
 
                if (newCluster == 0)
                {
-                  printf("FAT_Write: no free clusters available\n");
+                  logfmt(LOG_ERROR, "[FAT] FAT_Write: no free clusters available\n");
                   return bytesWritten;
                }
 
@@ -1351,8 +1344,8 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                                       newCluster) ||
                    !FAT_WriteFatEntry(inst, disk, newCluster, eofVal))
                {
-                  printf(
-                      "FAT_Write: FAT write error linking/marking cluster\n");
+                  logfmt(LOG_ERROR,
+                      "[FAT] FAT_Write: FAT write error linking/marking cluster\n");
                   return bytesWritten;
                }
 
@@ -1360,8 +1353,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                uint32_t verify = FAT_NextCluster(inst, disk, newCluster);
                if (verify != eofVal)
                {
-                  printf("FAT_Write: ERROR: linked %u->%u, marked %u as EOF "
-                         "(0x%08x), but verify=0x%08x\n",
+                  logfmt(LOG_ERROR, "[FAT] FAT_Write: ERROR: linked %u->%u, marked %u as EOF (0x%08x), but verify=0x%08x\n",
                          fd->CurrentCluster, newCluster, newCluster, eofVal,
                          verify);
                }
@@ -1370,7 +1362,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                if (!Partition_ReadSectors(
                        disk, FAT_ClusterToLba(inst, newCluster), 1, fd->Buffer))
                {
-                  printf("FAT_Write: failed to read new cluster\n");
+                  logfmt(LOG_ERROR, "[FAT] FAT_Write: failed to read new cluster\n");
                   return bytesWritten;
                }
             }
@@ -1381,7 +1373,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                        disk, FAT_ClusterToLba(inst, fd->CurrentCluster), 1,
                        fd->Buffer))
                {
-                  printf("FAT_Write: failed to read next cluster\n");
+                  logfmt(LOG_ERROR, "[FAT] FAT_Write: failed to read next cluster\n");
                   return bytesWritten;
                }
             }
@@ -1394,7 +1386,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                         fd->CurrentSectorInCluster,
                     1, fd->Buffer))
             {
-               printf("FAT_Write: failed to read next sector\n");
+               logfmt(LOG_ERROR, "[FAT] FAT_Write: failed to read next sector\n");
                return bytesWritten;
             }
          }
@@ -1422,7 +1414,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
       chainLength++;
       if (next < 2)
       {
-         printf("FAT_Write: ERROR - chain broken at cluster %u (next=%u)\n",
+         logfmt(LOG_ERROR, "[FAT] FAT_Write: ERROR - chain broken at cluster %u (next=%u)\n",
                 testCluster, next);
          break;
       }
@@ -1433,7 +1425,7 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
       char namebuf[12];
       memcpy(namebuf, fd->Public.Name, 11);
       namebuf[11] = '\0';
-      printf("FAT_Write: failed to update directory entry for '%s'\n", namebuf);
+      logfmt(LOG_ERROR, "[FAT] FAT_Write: failed to update directory entry for '%s'\n", namebuf);
    }
 
    return bytesWritten;
@@ -1467,7 +1459,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
                                                 : 0x0FFFFFF8;
    if (parentCluster >= eofMarker)
    {
-      printf("FAT_UpdateEntry: invalid parent cluster %u\n", parentCluster);
+      logfmt(LOG_ERROR, "[FAT] FAT_UpdateEntry: invalid parent cluster %u\n", parentCluster);
       return false;
    }
 
@@ -1488,6 +1480,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
          uint32_t lba = inst->RootDirLba + s;
          if (!Partition_ReadSectors(disk, lba, 1, sectorBuffer))
          {
+            logfmt(LOG_ERROR, "[FAT] FAT_UpdateEntry: failed to read root directory sector\n");
             free(sectorBuffer);
             return false;
          }
@@ -1529,6 +1522,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
             uint32_t lba = FAT_ClusterToLba(inst, cluster) + sec;
             if (!Partition_ReadSectors(disk, lba, 1, sectorBuffer))
             {
+               logfmt(LOG_ERROR, "[FAT] FAT_UpdateEntry: failed to read directory cluster sector\n");
                free(sectorBuffer);
                return false;
             }
@@ -1561,7 +1555,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
       }
    }
 
-   printf("FAT: UpdateEntry - file not found in parent directory\n");
+   logfmt(LOG_WARNING, "[FAT] UpdateEntry - file not found in parent directory\n");
    return false;
 }
 
@@ -1569,7 +1563,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 {
    if (!disk)
    {
-      printf("FAT_Create: disk is NULL!\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Create: disk is NULL!\n");
       return NULL;
    }
 
@@ -1610,7 +1604,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 
    if (baseName[0] == '\0')
    {
-      printf("FAT_Create: empty basename\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Create: empty basename\n");
       free(parentPath);
       free(baseName);
       return NULL;
@@ -1678,7 +1672,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 
    if (firstFreeCluster == 0)
    {
-      printf("FAT_Create: no free clusters available\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Create: no free clusters available\n");
       free(parentPath);
       free(baseName);
       return NULL;
@@ -1690,7 +1684,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
                                              : 0x0FFFFFFF;
    if (!FAT_WriteFatEntry(inst, disk, firstFreeCluster, eofVal))
    {
-      printf("FAT_Create: FAT write error\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Create: FAT write error\n");
       free(parentPath);
       free(baseName);
       return NULL;
@@ -1735,7 +1729,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
          // Write the new entry
          if (!FAT_WriteEntry(disk, parentFile, &newEntry))
          {
-            printf("FAT_Create: failed to write directory entry\n");
+            logfmt(LOG_ERROR, "[FAT] FAT_Create: failed to write directory entry\n");
             free(parentPath);
             free(baseName);
             return NULL;
@@ -1763,7 +1757,7 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
       }
    }
 
-   printf("FAT_Create: no space in root directory (checked %u entries)\n",
+   logfmt(LOG_ERROR, "[FAT] FAT_Create: no space in root directory (checked %u entries)\n",
           entryCount);
    free(parentPath);
    free(baseName);
@@ -1808,7 +1802,7 @@ bool FAT_Delete(Partition *disk, const char *name)
 
    if (baseName[0] == '\0')
    {
-      printf("FAT_Delete: empty basename in path\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Delete: empty basename in path\n");
       free(parentPath);
       free(baseName);
       return false;
@@ -1818,7 +1812,7 @@ bool FAT_Delete(Partition *disk, const char *name)
                                                  : FAT_Open(disk, parentPath);
    if (!parentDir || !parentDir->IsDirectory)
    {
-      printf("FAT_Delete: parent directory '%s' not found\n", parentPath);
+      logfmt(LOG_ERROR, "[FAT] FAT_Delete: parent directory '%s' not found\n", parentPath);
       free(parentPath);
       free(baseName);
       return false;
@@ -1827,7 +1821,7 @@ bool FAT_Delete(Partition *disk, const char *name)
    FAT_DirectoryEntry entry;
    if (!FAT_FindFile(disk, parentDir, baseName, &entry))
    {
-      printf("FAT_Delete: file '%s' not found in '%s'\n", baseName,
+      logfmt(LOG_WARNING, "[FAT] FAT_Delete: file '%s' not found in '%s'\n", baseName,
              parentPath[0] ? parentPath : "/");
       free(parentPath);
       free(baseName);
@@ -1878,7 +1872,7 @@ bool FAT_Delete(Partition *disk, const char *name)
    if (inst->BS.BootSector.SectorsPerCluster == 0 ||
        inst->BS.BootSector.BytesPerSector == 0)
    {
-      printf("FAT_Delete: invalid FAT parameters, skipping cluster free\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Delete: invalid FAT parameters, skipping cluster free\n");
       currentCluster = 0;
    }
 
@@ -1905,7 +1899,7 @@ bool FAT_Delete(Partition *disk, const char *name)
          uint32_t nextCluster = FAT_NextCluster(inst, disk, currentCluster);
          if (!FAT_WriteFatEntry(inst, disk, currentCluster, 0))
          {
-            printf("FAT_Delete: FAT write error freeing cluster %u\n",
+            logfmt(LOG_ERROR, "[FAT] FAT_Delete: FAT write error freeing cluster %u\n",
                    currentCluster);
             break;
          }
@@ -1947,7 +1941,7 @@ bool FAT_Delete(Partition *disk, const char *name)
                sectorBuffer[off] = 0xE5;
                Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                free(sectorBuffer);
-               printf("FAT_Delete: deleted '%s'\n", name);
+               logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
                free(parentPath);
                free(baseName);
                return true;
@@ -1991,7 +1985,7 @@ bool FAT_Delete(Partition *disk, const char *name)
                   sectorBuffer[off] = 0xE5;
                   Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                   free(sectorBuffer);
-                  printf("FAT_Delete: deleted '%s'\n", name);
+                  logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
                   free(parentPath);
                   free(baseName);
                   return true;
@@ -2004,7 +1998,7 @@ bool FAT_Delete(Partition *disk, const char *name)
       }
    }
 
-   printf("FAT_Delete: entry not found during mark phase for '%s'\n", name);
+   logfmt(LOG_WARNING, "[FAT] FAT_Delete: entry not found during mark phase for '%s'\n", name);
    free(parentPath);
    free(baseName);
    return false;
@@ -2014,37 +2008,36 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
 {
    if (!file)
    {
-      printf("FAT_Truncate: file is NULL\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: file is NULL\n");
       return false;
    }
 
    if (file->Handle == ROOT_DIRECTORY_HANDLE)
    {
-      printf("FAT_Truncate: cannot truncate root directory\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: cannot truncate root directory\n");
       return false;
    }
 
    if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES)
    {
-      printf("FAT_Truncate: invalid file handle %d\n", file->Handle);
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: invalid file handle %d\n", file->Handle);
       return false;
    }
 
-   printf("FAT_Truncate: called, file=%p, Handle=%d\n", file, file->Handle);
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: called, file=%p, Handle=%d\n", file, file->Handle);
 
    FAT_Instance *inst = fat_inst(disk);
    if (!inst) return false;
 
    FAT_FileData *fd = &inst->OpenedFiles[file->Handle];
-   printf("FAT_Truncate: fd=%p, Opened=%d\n", fd, fd->Opened);
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: fd=%p, Opened=%d\n", fd, fd->Opened);
    if (!fd->Opened) return false;
 
    // Validate FAT parameters to avoid divide-by-zero
    if (inst->BS.BootSector.SectorsPerCluster == 0 ||
        inst->BS.BootSector.BytesPerSector == 0)
    {
-      printf("FAT_Truncate: invalid FAT parameters (SectorsPerCluster=%u, "
-             "BytesPerSector=%u)\n",
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: invalid FAT parameters (SectorsPerCluster=%u, BytesPerSector=%u)\n",
              inst->BS.BootSector.SectorsPerCluster,
              inst->BS.BootSector.BytesPerSector);
       fd->FirstCluster = 0;
@@ -2073,14 +2066,13 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
    uint8_t fatBuffer[SECTOR_SIZE];
    int clusterCount = 0;
 
-   printf("FAT_Truncate: starting cluster chain cleanup, FirstCluster=%u, "
-          "FatType=%u\n",
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: starting cluster chain cleanup, FirstCluster=%u, FatType=%u\n",
           fd->FirstCluster, inst->FatType);
-   printf("FAT_Truncate: eofMarker=%u (0x%x)\n", eofMarker, eofMarker);
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: eofMarker=%u (0x%x)\n", eofMarker, eofMarker);
 
    // Get the next cluster BEFORE freeing anything
    uint32_t nextCluster = FAT_NextCluster(inst, disk, currentCluster);
-   printf("FAT_Truncate: FirstCluster nextCluster=%u, eofMarker=%u\n",
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: FirstCluster nextCluster=%u, eofMarker=%u\n",
           nextCluster, eofMarker);
 
    // Free all clusters EXCEPT the first one (we want to keep that for potential
@@ -2091,13 +2083,13 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
       while (currentCluster >= 2 && currentCluster < eofMarker &&
              clusterCount < 5000)
       {
-         printf("FAT_Truncate: freeing cluster %u\n", currentCluster);
+         logfmt(LOG_INFO, "[FAT] FAT_Truncate: freeing cluster %u\n", currentCluster);
          clusterCount++;
 
          uint32_t tempNextCluster = FAT_NextCluster(inst, disk, currentCluster);
          if (!FAT_WriteFatEntry(inst, disk, currentCluster, 0))
          {
-            printf("FAT_Truncate: FAT write error freeing cluster %u\n",
+            logfmt(LOG_ERROR, "[FAT] FAT_Truncate: FAT write error freeing cluster %u\n",
                    currentCluster);
             return false;
          }
@@ -2107,13 +2099,13 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
    }
 
    // Now mark the first cluster as EOF (end of chain)
-   printf("FAT_Truncate: marking first cluster %u as EOF\n", fd->FirstCluster);
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: marking first cluster %u as EOF\n", fd->FirstCluster);
    uint32_t eofVal = (inst->FatType == 12)   ? 0x0FFF
                      : (inst->FatType == 16) ? 0xFFFF
                                              : 0x0FFFFFFF;
    if (!FAT_WriteFatEntry(inst, disk, fd->FirstCluster, eofVal))
    {
-      printf("FAT_Truncate: FAT write error marking first cluster as EOF\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: FAT write error marking first cluster as EOF\n");
       return false;
    }
 
@@ -2130,12 +2122,12 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
    if (!Partition_ReadSectors(disk, FAT_ClusterToLba(inst, fd->FirstCluster), 1,
                               fd->Buffer))
    {
-      printf("FAT_Truncate: failed to read first cluster into buffer\n");
+      logfmt(LOG_ERROR, "[FAT] FAT_Truncate: failed to read first cluster into buffer\n");
       return false;
    }
 
    inst->FatCachePos = 0xFFFFFFFF;
-   printf("FAT_Truncate: truncate complete, file ready for writes\n");
+   logfmt(LOG_INFO, "[FAT] FAT_Truncate: truncate complete, file ready for writes\n");
    return true;
 }
 

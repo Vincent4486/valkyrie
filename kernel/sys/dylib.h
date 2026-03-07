@@ -153,7 +153,7 @@ bool Dylib_Initialize(void);
    functype funcname = (functype)Dylib_FindSymbol(libname, #funcname);         \
    if (!funcname)                                                              \
    {                                                                           \
-      printf("[!] Failed to resolve: " #libname "::" #funcname "\n");          \
+      logfmt(LOG_ERROR, "[DYLIB] Failed to resolve: " #libname "::" #funcname "\n");          \
       goto end;                                                                \
    }
 

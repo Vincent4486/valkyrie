@@ -448,7 +448,7 @@ int ATA_Scan(DISK *disks, int maxDisks)
             ATA_DISK *private = kmalloc(sizeof(ATA_DISK));
             if (!private)
             {
-               printf("[DISK] Failed to allocate ATA_DISK for ch%d dr%d\n", ch,
+               logfmt(LOG_ERROR, "[DISK] Failed to allocate ATA_DISK for ch%d dr%d\n", ch,
                       dr);
                continue;
             }

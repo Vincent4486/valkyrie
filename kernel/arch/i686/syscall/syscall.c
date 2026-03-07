@@ -17,7 +17,7 @@ void i686_Syscall_IRQ(Registers *regs)
    uint32_t args[6] = {regs->ebx, regs->ecx, regs->edx,
                        regs->esi, regs->edi, regs->ebp};
 
-   printf("[i686_syscall] num=%u, args=[0x%x, 0x%x, 0x%x, ...]\n", syscall_num,
+   logfmt(LOG_INFO, "[i686_syscall] num=%u, args=[0x%x, 0x%x, 0x%x, ...]\n", syscall_num,
           args[0], args[1], args[2]);
 
    // Call generic dispatcher
