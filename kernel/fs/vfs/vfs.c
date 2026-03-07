@@ -201,7 +201,8 @@ int FS_Mount(Partition *volume, const char *location)
       volume->fs->ops = get_fs_operations(volume->fs->type);
       if (!volume->fs->ops)
       {
-         logfmt(LOG_ERROR, "[VFS] No operations available for filesystem type %d\n",
+         logfmt(LOG_ERROR,
+                "[VFS] No operations available for filesystem type %d\n",
                 volume->fs->type);
          free(normalized);
          return -1;
@@ -410,8 +411,7 @@ void VFS_SelfTest(void)
 
    /* Try to open the existing test file; create it on first boot if absent */
    test_file = VFS_Open(test_path);
-   if (!test_file)
-      test_file = VFS_Create(test_path);
+   if (!test_file) test_file = VFS_Create(test_path);
 
    if (!test_file)
    {

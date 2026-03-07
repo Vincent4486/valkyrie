@@ -48,7 +48,8 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
    // Find a free virtual address range (simple bump allocator)
    if (*bump + aligned_size > KERNEL_BASE || *bump + aligned_size < *bump)
    {
-      logfmt(LOG_ERROR, "[MEM] VMM_Allocate: virtual address space exhausted\n");
+      logfmt(LOG_ERROR,
+             "[MEM] VMM_Allocate: virtual address space exhausted\n");
       return NULL;
    }
 
@@ -62,7 +63,8 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
       uint32_t paddr = PMM_AllocatePhysicalPage();
       if (paddr == 0)
       {
-         logfmt(LOG_ERROR, "[MEM] VMM_Allocate: failed to allocate physical page %u/%u\n",
+         logfmt(LOG_ERROR,
+                "[MEM] VMM_Allocate: failed to allocate physical page %u/%u\n",
                 i + 1, num_pages);
          goto fail_cleanup;
       }
@@ -71,7 +73,8 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
       if (!g_HalPagingOperations->MapPage(page_dir, va, paddr,
                                           flags | HAL_PAGE_PRESENT))
       {
-         logfmt(LOG_ERROR, "[MEM] VMM_Allocate: failed to map page at 0x%08x\n", va);
+         logfmt(LOG_ERROR, "[MEM] VMM_Allocate: failed to map page at 0x%08x\n",
+                va);
          PMM_FreePhysicalPage(paddr);
          goto fail_cleanup;
       }
@@ -148,7 +151,8 @@ bool VMM_MapInDir(void *page_dir, uint32_t vaddr, uint32_t paddr, uint32_t size,
       if (!g_HalPagingOperations->MapPage(page_dir, va, pa,
                                           flags | HAL_PAGE_PRESENT))
       {
-         logfmt(LOG_ERROR, "[MEM] VMM_Map: failed at offset 0x%x\n", i * PAGE_SIZE);
+         logfmt(LOG_ERROR, "[MEM] VMM_Map: failed at offset 0x%x\n",
+                i * PAGE_SIZE);
          goto rollback;
       }
       mapped_pages++;

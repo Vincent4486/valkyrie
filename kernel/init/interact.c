@@ -90,7 +90,8 @@ void interact(void)
       else
       {
          /* Wait for interrupt/input */
-         uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
+         uint8_t interrupts_were_enabled =
+             g_HalIoOperations->EnableInterrupts();
          g_HalIoOperations->iowait();
          if (!interrupts_were_enabled)
          {

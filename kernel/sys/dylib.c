@@ -186,7 +186,8 @@ void Dylib_PrintGlobalSymtab(void)
    {
       GlobalSymbolEntry *e = &global_symtab[i];
       const char *source = e->is_kernel ? "[KERNEL]" : e->lib_name;
-      logfmt(LOG_INFO, "[DYLIB] %-40s 0x%08x %s\n", e->name, e->address, source);
+      logfmt(LOG_INFO, "[DYLIB] %-40s 0x%08x %s\n", e->name, e->address,
+             source);
    }
    logfmt(LOG_INFO, "[DYLIB] ==========================================\n");
    logfmt(LOG_INFO, "[DYLIB] Total: %d symbols\n", global_symtab_count);
@@ -234,7 +235,9 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
       uint32_t allowed_high = base + 0x0100000; /* 1 MiB window */
       if (r_offset < allowed_low || r_offset > allowed_high)
       {
-         logfmt(LOG_ERROR, "[DYLIB] Relocation[%d] target 0x%08x outside allowed range 0x%08x-0x%08x\n",
+         logfmt(LOG_ERROR,
+                "[DYLIB] Relocation[%d] target 0x%08x outside allowed range "
+                "0x%08x-0x%08x\n",
                 i, r_offset, allowed_low, allowed_high);
          return -1;
       }
@@ -268,7 +271,9 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
          }
          else
          {
-            logfmt(LOG_WARNING, "[DYLIB] R_386_RELATIVE at 0x%08x has unexpected value 0x%08x (skipping)\n",
+            logfmt(LOG_WARNING,
+                   "[DYLIB] R_386_RELATIVE at 0x%08x has unexpected value "
+                   "0x%08x (skipping)\n",
                    r_offset, addend);
             continue;
          }
@@ -291,7 +296,9 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
                uint32_t sym_addr = Dylib_LookupGlobalSymbol(sym_name);
                if (sym_addr == 0)
                {
-                  logfmt(LOG_WARNING, "[DYLIB] Unresolved symbol in %s: %s (skipping relocation)\n",
+                  logfmt(LOG_WARNING,
+                         "[DYLIB] Unresolved symbol in %s: %s (skipping "
+                         "relocation)\n",
                          context, sym_name);
                   /* Don't abort the whole relocation pass for an unresolved
                    * symbol - warn and continue so other relocations (in
@@ -431,7 +438,8 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
    if (dylib_mem_next_free + aligned_size >
        DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Out of dylib memory! Need %d bytes, only %d available\n",
+      logfmt(LOG_ERROR,
+             "[DYLIB] Out of dylib memory! Need %d bytes, only %d available\n",
              aligned_size,
              DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE - dylib_mem_next_free);
       return 0;
@@ -488,7 +496,8 @@ int Dylib_CheckDependencies(const char *name)
    {
       if (!ext->deps[i].resolved)
       {
-         logfmt(LOG_WARNING, "[DYLIB] [UNRESOLVED] %s requires %s\n", name, ext->deps[i].name);
+         logfmt(LOG_WARNING, "[DYLIB] [UNRESOLVED] %s requires %s\n", name,
+                ext->deps[i].name);
          return 0;
       }
    }
@@ -509,12 +518,14 @@ int Dylib_ResolveDependencies(const char *name)
       if (dep)
       {
          ext->deps[i].resolved = 1;
-         logfmt(LOG_INFO, "[DYLIB] [OK] Found dependency: %s\n", ext->deps[i].name);
+         logfmt(LOG_INFO, "[DYLIB] [OK] Found dependency: %s\n",
+                ext->deps[i].name);
       }
       else
       {
          ext->deps[i].resolved = 0;
-         logfmt(LOG_ERROR, "[DYLIB] [ERROR] Missing dependency: %s\n", ext->deps[i].name);
+         logfmt(LOG_ERROR, "[DYLIB] [ERROR] Missing dependency: %s\n",
+                ext->deps[i].name);
          return -1;
       }
    }
@@ -549,7 +560,8 @@ void Dylib_List(void)
 
       ExtendedLibData *ext = &extended_data[i];
 
-      logfmt(LOG_INFO, "[DYLIB] [%d] %s @ 0x%x\n", i, reg[i].name, (unsigned int)reg[i].entry);
+      logfmt(LOG_INFO, "[DYLIB] [%d] %s @ 0x%x\n", i, reg[i].name,
+             (unsigned int)reg[i].entry);
 
       if (ext->dep_count > 0)
       {
@@ -557,7 +569,8 @@ void Dylib_List(void)
          for (int j = 0; j < ext->dep_count; j++)
          {
             char status = ext->deps[j].resolved ? '+' : '-';
-            logfmt(LOG_INFO, "[DYLIB]       [%c] %s\n", status, ext->deps[j].name);
+            logfmt(LOG_INFO, "[DYLIB]       [%c] %s\n", status,
+                   ext->deps[j].name);
          }
       }
    }
@@ -679,7 +692,8 @@ int Dylib_ParseSymbols(LibRecord *lib)
    int idx = dylib_find_index(lib->name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found in registry: %s\n", lib->name);
+      logfmt(LOG_ERROR, "[DYLIB] Library not found in registry: %s\n",
+             lib->name);
       return -1;
    }
 
@@ -790,7 +804,8 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
     * crashes. */
    if (size < 52 || elf_data == NULL)
    {
-      logfmt(LOG_ERROR, "[DYLIB] ELF image too small or invalid (size=%d, data=%p)\n",
+      logfmt(LOG_ERROR,
+             "[DYLIB] ELF image too small or invalid (size=%d, data=%p)\n",
              size, elf_data);
       return -1;
    }
@@ -940,7 +955,8 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
 
    if (symtab_addr == 0 || strtab_addr == 0 || symtab_entsize == 0)
    {
-      logfmt(LOG_ERROR,
+      logfmt(
+          LOG_ERROR,
           "[DYLIB] Symbol table, string table, or entsize not found/invalid\n");
       return 0;
    }
@@ -1089,7 +1105,8 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    uint32_t load_addr = Dylib_MemoryAllocate(name, file_size);
    if (!load_addr)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to allocate memory for %s (need %d bytes)\n", name,
+      logfmt(LOG_ERROR,
+             "[DYLIB] Failed to allocate memory for %s (need %d bytes)\n", name,
              file_size);
       VFS_Close(file);
       return -1;
@@ -1100,7 +1117,8 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    uint32_t bytes_read = VFS_Read(file, file_size, (void *)load_addr);
    if (bytes_read != file_size)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to read library: expected %d bytes, got %d\n",
+      logfmt(LOG_ERROR,
+             "[DYLIB] Failed to read library: expected %d bytes, got %d\n",
              file_size, bytes_read);
       VFS_Close(file);
       Dylib_MemoryFree(name);
@@ -1183,8 +1201,8 @@ void Dylib_MemoryStatus(void)
    logfmt(LOG_INFO, "[DYLIB] Total Memory:     %d MiB (0x%x - 0x%x)\n",
           total_available / 0x100000, DYLIB_MEMORY_ADDR,
           DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE);
-   logfmt(LOG_INFO, "[DYLIB] Allocated:        %d KiB (%d%%)\n", total_allocated / 1024,
-          percent_used);
+   logfmt(LOG_INFO, "[DYLIB] Allocated:        %d KiB (%d%%)\n",
+          total_allocated / 1024, percent_used);
    logfmt(LOG_INFO, "[DYLIB] Available:        %d KiB\n", remaining / 1024);
 
    // List loaded libraries
@@ -1197,8 +1215,8 @@ void Dylib_MemoryStatus(void)
       ExtendedLibData *ext = &extended_data[i];
       if (ext->loaded)
       {
-         logfmt(LOG_INFO, "[DYLIB]   %s: 0x%x bytes at 0x%x\n", reg[i].name, reg[i].size,
-                (uint32_t)reg[i].base);
+         logfmt(LOG_INFO, "[DYLIB]   %s: 0x%x bytes at 0x%x\n", reg[i].name,
+                reg[i].size, (uint32_t)reg[i].base);
       }
    }
    logfmt(LOG_INFO, "[DYLIB]\n");
@@ -1249,7 +1267,8 @@ static int load_libmath(void)
    int load_result = Dylib_LoadFromDisk("libmath", "/usr/lib/libmath.so");
    if (load_result != 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to load libmath.so (error=%d)\n", load_result);
+      logfmt(LOG_ERROR, "[DYLIB] Failed to load libmath.so (error=%d)\n",
+             load_result);
       return -1;
    }
 
@@ -1258,8 +1277,8 @@ static int load_libmath(void)
    if (dep_result != 0)
    {
       logfmt(LOG_WARNING,
-          "[DYLIB] Dependency resolution failed (error=%d), continuing...\n",
-          dep_result);
+             "[DYLIB] Dependency resolution failed (error=%d), continuing...\n",
+             dep_result);
    }
 
    // Dylib_ListSymbols("libmath");
@@ -1344,7 +1363,8 @@ static int load_libmath(void)
    int reloc_result = Dylib_ApplyKernelRelocations();
    if (reloc_result != 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Kernel relocation failed (error=%d)\n", reloc_result);
+      logfmt(LOG_ERROR, "[DYLIB] Kernel relocation failed (error=%d)\n",
+             reloc_result);
       return -1;
    }
 
@@ -1357,7 +1377,8 @@ bool Dylib_Initialize(void)
    int result = load_libmath();
    if (result != 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to initialize libmath (error=%d)\n", result);
+      logfmt(LOG_ERROR, "[DYLIB] Failed to initialize libmath (error=%d)\n",
+             result);
       return false;
    }
 

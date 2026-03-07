@@ -79,6 +79,9 @@ GDTEntry g_GDT[] = {
               GDT_ACCESS_PRESENT | GDT_ACCESS_RING0 | GDT_ACCESS_DATA_SEGMENT |
                   GDT_ACCESS_DATA_WRITEABLE,
               GDT_FLAG_32BIT | GDT_FLAG_GRANULARITY_4K),
+
+    // 32-bit available TSS descriptor (base/limit filled at runtime)
+    GDT_ENTRY(0, 0, 0, 0),
 };
 
 GDTDescriptor g_GDTDescriptor = {sizeof(g_GDT) - 1, g_GDT};
@@ -92,4 +95,14 @@ void i686_GDT_Initialize()
    i686_GDT_Load(&g_GDTDescriptor, i686_GDT_CODE_SEGMENT,
                  i686_GDT_DATA_SEGMENT);
    logfmt(LOG_INFO, "[GDT] initialized\n");
+}
+
+void i686_GDT_SetTSSEntry(uint32_t base, uint32_t limit)
+{
+   g_GDT[3].LimitLow = GDT_LIMIT_LOW(limit);
+   g_GDT[3].BaseLow = GDT_BASE_LOW(base);
+   g_GDT[3].BaeMiddle = GDT_BASE_MIDDLE(base);
+   g_GDT[3].access = 0x89;
+   g_GDT[3].FlagLimitHigh = GDT_FLAGS_LIMIT_HI(limit, 0x00);
+   g_GDT[3].BaseHigh = GDT_BASE_HIGH(base);
 }

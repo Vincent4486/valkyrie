@@ -90,7 +90,9 @@ void i686_ISR_RegisterHandler(int interrupt, ISRHandler handler)
 {
    if (interrupt < 0 || interrupt >= 256)
    {
-      logfmt(LOG_WARNING, "[ISR] i686_ISR_RegisterHandler: invalid interrupt %d\n", interrupt);
+      logfmt(LOG_WARNING,
+             "[ISR] i686_ISR_RegisterHandler: invalid interrupt %d\n",
+             interrupt);
       return;
    }
    g_ISRHandlers[interrupt] = handler;

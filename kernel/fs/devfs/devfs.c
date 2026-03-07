@@ -95,7 +95,8 @@ DEVFS_DeviceNode *DEVFS_RegisterDevice(const char *name, DEVFS_DeviceType type,
       if (g_DevNodes[i].in_use &&
           strncmp(g_DevNodes[i].name, name, DEVFS_PATHMAX) == 0)
       {
-         logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: '%s' already exists\n", name);
+         logfmt(LOG_ERROR, "[DEVFS] RegisterDevice: '%s' already exists\n",
+                name);
          return NULL;
       }
    }

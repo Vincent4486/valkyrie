@@ -57,7 +57,8 @@ void PMM_Initialize(uint32_t total_mem_bytes)
 
    if (bitmap_bytes > sizeof(bitmap_storage))
    {
-      logfmt(LOG_WARNING, "[MEM] WARNING: bitmap too small for %u pages\n", total_pages);
+      logfmt(LOG_WARNING, "[MEM] WARNING: bitmap too small for %u pages\n",
+             total_pages);
       total_pages = sizeof(bitmap_storage) * BITS_PER_BYTE;
       bitmap_bytes = sizeof(bitmap_storage);
    }
@@ -73,8 +74,8 @@ void PMM_Initialize(uint32_t total_mem_bytes)
       bitmap_set(i);
    }
 
-   logfmt(LOG_INFO, "[MEM] init: total=%u pages, reserved=%u, free=%u\n", total_pages,
-          reserved_pages, total_pages - allocated_count);
+   logfmt(LOG_INFO, "[MEM] init: total=%u pages, reserved=%u, free=%u\n",
+          total_pages, reserved_pages, total_pages - allocated_count);
 }
 
 int PMM_IsInitialized(void) { return pmm_initialized; }
@@ -166,9 +167,11 @@ void PMM_SelfTest(void)
    uint32_t p2_new = PMM_AllocatePhysicalPage();
    if (p2_new != p2)
    {
-      logfmt(LOG_ERROR, "[MEM] self-test: FAIL (realloc didn't get same page)\n");
+      logfmt(LOG_ERROR,
+             "[MEM] self-test: FAIL (realloc didn't get same page)\n");
       return;
    }
 
-   logfmt(LOG_INFO, "[MEM] self-test: PASS (allocated %u, freed, reallocated)\n", p1);
+   logfmt(LOG_INFO,
+          "[MEM] self-test: PASS (allocated %u, freed, reallocated)\n", p1);
 }

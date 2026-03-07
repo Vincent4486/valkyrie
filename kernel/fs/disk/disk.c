@@ -59,7 +59,8 @@ int DISK_Scan()
       DISK *disk = (DISK *)kmalloc(sizeof(DISK));
       if (!disk)
       {
-         logfmt(LOG_ERROR, "[DISK] Failed to allocate disk entry for %s\n", source->brand);
+         logfmt(LOG_ERROR, "[DISK] Failed to allocate disk entry for %s\n",
+                source->brand);
          continue;
       }
       memcpy(disk, source, sizeof(DISK));
@@ -92,12 +93,11 @@ int DISK_Scan()
 
          Partition *vol = &g_SysInfo->volume[floppy_slot];
          memset(vol, 0, sizeof(Partition));
-         vol->disk            = disk;
+         vol->disk = disk;
          vol->partitionOffset = 0;
-         vol->partitionSize   = (uint32_t)disk->cylinders *
-                                (uint32_t)disk->heads *
-                                (uint32_t)disk->sectors;
-         vol->partitionType   = 0x01; /* FAT12 */
+         vol->partitionSize = (uint32_t)disk->cylinders *
+                              (uint32_t)disk->heads * (uint32_t)disk->sectors;
+         vol->partitionType = 0x01; /* FAT12 */
 
          logfmt(LOG_INFO, "[DISK] Floppy volume[%d]: fd%u, %u sectors\n",
                 floppy_slot, disk->id, vol->partitionSize);
@@ -111,10 +111,10 @@ int DISK_Scan()
             if (fs)
             {
                memset(fs, 0, sizeof(Filesystem));
-               fs->block_size   = 512;
-               fs->type         = FAT12; /* Floppy is always FAT12 */
+               fs->block_size = 512;
+               fs->type = FAT12; /* Floppy is always FAT12 */
                fs->private_data = floppy_fat;
-               vol->fs          = fs;
+               vol->fs = fs;
             }
             else
             {
@@ -185,7 +185,8 @@ int DISK_Scan()
          // Defensive: ensure partition has a backing disk before initializing
          if (!volume->disk)
          {
-            logfmt(LOG_ERROR, "[DISK] Skipping init: volume[%d] has no disk pointer\n",
+            logfmt(LOG_ERROR,
+                   "[DISK] Skipping init: volume[%d] has no disk pointer\n",
                    volumeIndex);
             volumeIndex++;
             continue;
@@ -210,7 +211,8 @@ int DISK_Scan()
                else
                {
                   // FAT initialized but we couldn't allocate filesystem struct
-                  logfmt(LOG_ERROR, "[DISK] Warning: FAT init succeeded but Filesystem "
+                  logfmt(LOG_ERROR,
+                         "[DISK] Warning: FAT init succeeded but Filesystem "
                          "alloc failed for volume[%d]\n",
                          volumeIndex);
                   free(fat_instance);

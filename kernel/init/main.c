@@ -101,9 +101,6 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
    SYS_Finalize();
 
    ELF_LoadProcess("/usr/bin/sh", false);
-   FS_Mount(&g_SysInfo->volume[0], "/fd0");
-   FS_Mount(&g_SysInfo->volume[2], "/hd1");
-   FS_Mount(&g_SysInfo->volume[3], "/hd2");
 
    /* Start interactive line reader: on ENTER, print the entered text. */
    interact();

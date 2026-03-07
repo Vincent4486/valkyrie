@@ -415,7 +415,8 @@ int ATA_Scan(DISK *disks, int maxDisks)
             ATA_DISK *private = kmalloc(sizeof(ATA_DISK));
             if (!private)
             {
-               logfmt(LOG_ERROR, "[DISK] Failed to allocate ATA_DISK for ch%d dr%d\n", ch,
+               logfmt(LOG_ERROR,
+                      "[DISK] Failed to allocate ATA_DISK for ch%d dr%d\n", ch,
                       dr);
                continue;
             }
@@ -425,7 +426,7 @@ int ATA_Scan(DISK *disks, int maxDisks)
             /* BIOS-style drive ID: 0x80=primary-master, 0x81=primary-slave,
              * 0x82=secondary-master, 0x83=secondary-slave */
             disks[count].id = (uint8_t)(0x80 + ch * 2 + dr);
-            disks[count].type = 1;       // DISK_TYPE_ATA
+            disks[count].type = 1; // DISK_TYPE_ATA
 
             // Extract model name (words 27-46, 40 chars)
             for (int i = 0; i < 20; i++)

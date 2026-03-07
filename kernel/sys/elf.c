@@ -238,8 +238,8 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       uint32_t ph_read = VFS_Read(file, sizeof(phdr), (uint8_t *)ph_buf);
       if (ph_read != sizeof(phdr))
       {
-         logfmt(LOG_ERROR, "[ELF] LoadProcess: read phdr %u failed (got %u)\n", i,
-                ph_read);
+         logfmt(LOG_ERROR, "[ELF] LoadProcess: read phdr %u failed (got %u)\n",
+                i, ph_read);
          free(ph_buf);
          Process_Destroy(proc);
          VFS_Close(file);

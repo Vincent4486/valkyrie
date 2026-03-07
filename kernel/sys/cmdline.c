@@ -14,9 +14,9 @@
 
 #include "cmdline.h"
 #include <mem/mm_kernel.h>
+#include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
-#include <std/stdio.h>
 
 /* -------------------------------------------------------------------------
  * Module-internal state
@@ -143,10 +143,11 @@ void CmdLine_Initialize(void)
           s_params_table.count);
    for (uint32_t i = 0; i < s_params_table.count; i++)
    {
-      if (s_params_table.args[i].value && s_params_table.args[i].value[0] != '\0')
+      if (s_params_table.args[i].value &&
+          s_params_table.args[i].value[0] != '\0')
       {
-         logfmt(LOG_INFO, "[CMDLINE]   %s=%s\n",
-                s_params_table.args[i].key, s_params_table.args[i].value);
+         logfmt(LOG_INFO, "[CMDLINE]   %s=%s\n", s_params_table.args[i].key,
+                s_params_table.args[i].value);
       }
       else
       {

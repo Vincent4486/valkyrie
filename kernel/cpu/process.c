@@ -2,6 +2,7 @@
 
 #include "process.h"
 #include <hal/paging.h>
+#include <hal/tss.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
@@ -13,6 +14,50 @@
 
 static Process *current_process = NULL;
 static uint32_t next_pid = 1;
+
+#define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
+
+static int Process_MapUserExitTrampoline(Process *proc)
+{
+   if (!proc || !proc->page_directory) return -1;
+
+   uint32_t phys = PMM_AllocatePhysicalPage();
+   if (phys == 0)
+   {
+      logfmt(LOG_ERROR,
+             "[PROC] create: failed to allocate exit trampoline page\n");
+      return -1;
+   }
+
+   if (!g_HalPagingOperations->MapPage(
+           proc->page_directory, USER_EXIT_TRAMPOLINE_VA, phys,
+           HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
+   {
+      PMM_FreePhysicalPage(phys);
+      logfmt(LOG_ERROR,
+             "[PROC] create: failed to map exit trampoline at 0x%08x\n",
+             USER_EXIT_TRAMPOLINE_VA);
+      return -1;
+   }
+
+   void *kernel_pd = VMM_GetPageDirectory();
+   if (!kernel_pd)
+   {
+      g_HalPagingOperations->UnmapPage(proc->page_directory,
+                                       USER_EXIT_TRAMPOLINE_VA);
+      PMM_FreePhysicalPage(phys);
+      return -1;
+   }
+
+   g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
+
+   memset((void *)USER_EXIT_TRAMPOLINE_VA, 0, PAGE_SIZE);
+   ((uint8_t *)USER_EXIT_TRAMPOLINE_VA)[0] = 0xEB; // jmp short
+   ((uint8_t *)USER_EXIT_TRAMPOLINE_VA)[1] = 0xFE; // -2 (infinite loop)
+
+   g_HalPagingOperations->SwitchPageDirectory(kernel_pd);
+   return 0;
+}
 
 Process *Process_Create(uint32_t entry_point, bool kernel_mode)
 {
@@ -75,6 +120,16 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
          free(proc);
          return NULL;
       }
+
+      if (Process_MapUserExitTrampoline(proc) != 0)
+      {
+         logfmt(LOG_ERROR,
+                "[PROC] create: failed to setup user exit trampoline\n");
+         g_HalPagingOperations->DestroyPageDirectory(proc->page_directory);
+         free(proc);
+         return NULL;
+      }
+
       // Prepare initial stack frame using generic stack helpers.
       // We track the stack pointer arithmetically WITHOUT accessing user VA
       // from kernel context, since user VA is only mapped in
@@ -104,11 +159,10 @@ Process *Process_Create(uint32_t entry_point, bool kernel_mode)
 
       g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
 
-      // Push process exit handler address as return address directly
+      // Push mapped user-mode exit trampoline as return address directly
       // Stack grows downward: decrement ESP, then write
-      extern void _process_exit_handler(void);
       user_esp -= sizeof(uint32_t);
-      *(uint32_t *)user_esp = (uint32_t)&_process_exit_handler;
+      *(uint32_t *)user_esp = USER_EXIT_TRAMPOLINE_VA;
 
       // Switch back to kernel page directory - critical for correctness
       g_HalPagingOperations->SwitchPageDirectory(kernel_pd);
@@ -149,6 +203,19 @@ void Process_Destroy(Process *proc)
                 proc->page_directory, va);
             g_HalPagingOperations->UnmapPage(proc->page_directory, va);
             if (phys) PMM_FreePhysicalPage(phys);
+         }
+      }
+
+      // Unmap and free user-mode exit trampoline page
+      if (proc->page_directory)
+      {
+         uint32_t tramp_phys = g_HalPagingOperations->GetPhysicalAddress(
+             proc->page_directory, USER_EXIT_TRAMPOLINE_VA);
+         if (tramp_phys)
+         {
+            g_HalPagingOperations->UnmapPage(proc->page_directory,
+                                             USER_EXIT_TRAMPOLINE_VA);
+            PMM_FreePhysicalPage(tramp_phys);
          }
       }
 
@@ -195,11 +262,15 @@ void Process_SetCurrent(Process *proc)
    if (proc)
    {
       g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
+      Stack *kernel_stack = Stack_GetKernel();
+      if (kernel_stack) g_HalTssOperations->SetKernelStack(kernel_stack->base);
    }
    else
    {
       // Restore kernel page directory when no process is current
       g_HalPagingOperations->SwitchPageDirectory(VMM_GetPageDirectory());
+      Stack *kernel_stack = Stack_GetKernel();
+      if (kernel_stack) g_HalTssOperations->SetKernelStack(kernel_stack->base);
    }
 }
 
@@ -211,7 +282,8 @@ void Process_SelfTest(void)
    Process *p = Process_Create(0x08048000, false);
    if (!p)
    {
-      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (Process_Create returned NULL)\n");
+      logfmt(LOG_ERROR,
+             "[PROC] self-test: FAIL (Process_Create returned NULL)\n");
       return;
    }
 

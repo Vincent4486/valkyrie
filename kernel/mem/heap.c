@@ -36,7 +36,8 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (phys == 0)
    {
-      logfmt(LOG_ERROR, "[MEM] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
+      logfmt(LOG_ERROR,
+             "[MEM] Heap_Initialize: PMM_AllocatePhysicalPage failed\n");
       return -1;
    }
 
@@ -71,7 +72,8 @@ int Heap_ProcessBrk(Process *proc, void *addr)
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (phys == 0)
          {
-            logfmt(LOG_ERROR, "[MEM] brk: PMM_AllocatePhysicalPage failed at page "
+            logfmt(LOG_ERROR,
+                   "[MEM] brk: PMM_AllocatePhysicalPage failed at page "
                    "%u/%u\n",
                    i, pages_needed);
             return -1;
@@ -135,8 +137,8 @@ void Heap_Initialize(void)
    heap_ptr = heap_start;
 
    /* Concise banner to avoid noisy repeats */
-   logfmt(LOG_INFO, "[MEM] start=0x%08x end=0x%08x size=%u MB\n", (uint32_t)heap_start,
-          (uint32_t)heap_end,
+   logfmt(LOG_INFO, "[MEM] start=0x%08x end=0x%08x size=%u MB\n",
+          (uint32_t)heap_start, (uint32_t)heap_end,
           (uint32_t)((heap_end - heap_start) / (1024 * 1024)));
 }
 
@@ -198,7 +200,8 @@ void heap_check_integrity(void)
 
       if (h->canary_before != HEAP_CANARY || h->canary_after != HEAP_CANARY)
       {
-         logfmt(LOG_ERROR, "[MEM] CORRUPTION at 0x%08x! Block size=%u "
+         logfmt(LOG_ERROR,
+                "[MEM] CORRUPTION at 0x%08x! Block size=%u "
                 "canary_before=0x%08x canary_after=0x%08x\n",
                 (uint32_t)cur, (uint32_t)h->size, h->canary_before,
                 h->canary_after);
@@ -213,7 +216,8 @@ void heap_check_integrity(void)
       block_count++;
    }
 
-   logfmt(LOG_INFO, "[MEM] integrity check passed: %u blocks verified\n", block_count);
+   logfmt(LOG_INFO, "[MEM] integrity check passed: %u blocks verified\n",
+          block_count);
 }
 
 void free(void *ptr)
@@ -303,6 +307,7 @@ void Heap_SelfTest(void)
    int brk_ok = (brk1 != (void *)-1);
    brk(brk0);
 
-   logfmt(LOG_INFO, "[MEM] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
+   logfmt(LOG_INFO,
+          "[MEM] test kmalloc/realloc copy=%s, calloc zero=%s, sbrk=%s\n",
           ok ? "OK" : "FAIL", zeroed ? "OK" : "FAIL", brk_ok ? "OK" : "FAIL");
 }

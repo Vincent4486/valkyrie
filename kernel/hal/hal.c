@@ -7,6 +7,7 @@
 #include "scheduler.h"
 #include "stack.h"
 #include "syscall.h"
+#include "tss.h"
 #include "video.h"
 
 const HAL_IoOperations *g_HalIoOperations = &(HAL_IoOperations){
@@ -68,10 +69,17 @@ const HAL_SyscallOperations *g_HalSyscallOperations = &(HAL_SyscallOperations){
     .Handler = HAL_ARCH_Syscall_Handler,
 };
 
+const HAL_TssOperations *g_HalTssOperations = &(HAL_TssOperations){
+    .Initialize = HAL_ARCH_TSS_Initialize,
+    .SetKernelStack = HAL_ARCH_TSS_SetKernelStack,
+    .GetKernelStack = HAL_ARCH_TSS_GetKernelStack,
+};
+
 void HAL_Initialize()
 {
 #if defined(I686)
    i686_GDT_Initialize();
+   i686_TSS_Initialize();
    i686_IDT_Initialize();
    i686_ISR_Initialize();
    i686_IRQ_Initialize();

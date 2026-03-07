@@ -22,7 +22,8 @@ void i686_IRQ_Handler(Registers *regs)
    // Bounds check to prevent array out-of-bounds access
    if (irq < 0 || irq >= 16)
    {
-      logfmt(LOG_WARNING, "[IRQ] Out of bounds: interrupt=%d, irq=%d\n", regs->interrupt, irq);
+      logfmt(LOG_WARNING, "[IRQ] Out of bounds: interrupt=%d, irq=%d\n",
+             regs->interrupt, irq);
       return;
    }
 

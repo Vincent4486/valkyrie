@@ -329,16 +329,14 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
       {
          if (attempt > 0)
          {
-            logfmt(LOG_WARNING,
-                   "[FDC] Retry %d for LBA=%u (T=%u H=%u S=%u)\n",
+            logfmt(LOG_WARNING, "[FDC] Retry %d for LBA=%u (T=%u H=%u S=%u)\n",
                    attempt, (unsigned)(lba + i), track, head, sector);
             /* Recalibrate moves head back to track 0 — clears state */
             fdc_recalibrate(drive);
          }
 
          /* Seek to correct track */
-         if (!fdc_seek(drive, head, track))
-            continue;
+         if (!fdc_seek(drive, head, track)) continue;
 
          /* Set up DMA for a single-sector read */
          fdc_dma_init(true);
@@ -351,10 +349,10 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
          fdc_send_byte(track);
          fdc_send_byte(head);
          fdc_send_byte(sector);
-         fdc_send_byte(2);            /* N=2 → 512 bytes/sector */
-         fdc_send_byte(sector);       /* EOT = same sector → read 1 sector */
-         fdc_send_byte(0x1B);         /* GPL */
-         fdc_send_byte(0xFF);         /* DTL */
+         fdc_send_byte(2);      /* N=2 → 512 bytes/sector */
+         fdc_send_byte(sector); /* EOT = same sector → read 1 sector */
+         fdc_send_byte(0x1B);   /* GPL */
+         fdc_send_byte(0xFF);   /* DTL */
 
          if (!fdc_wait_irq())
          {
@@ -363,13 +361,13 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
          }
 
          /* Read all 7 result bytes (must be consumed regardless of error) */
-         uint8_t st0    = fdc_read_byte();
-         uint8_t st1    = fdc_read_byte();
-         uint8_t st2    = fdc_read_byte();
+         uint8_t st0 = fdc_read_byte();
+         uint8_t st1 = fdc_read_byte();
+         uint8_t st2 = fdc_read_byte();
          uint8_t rtrack = fdc_read_byte();
-         uint8_t rhead  = fdc_read_byte();
-         uint8_t rsect  = fdc_read_byte();
-         uint8_t bps    = fdc_read_byte();
+         uint8_t rhead = fdc_read_byte();
+         uint8_t rsect = fdc_read_byte();
+         uint8_t bps = fdc_read_byte();
 
          if ((st0 & 0xC0) != 0)
          {
@@ -382,7 +380,8 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
 
          /* Copy DMA buffer to caller's destination buffer */
          uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
-         memcpy(buffer + i * FLOPPY_SECTOR_SIZE, dma_buffer, FLOPPY_SECTOR_SIZE);
+         memcpy(buffer + i * FLOPPY_SECTOR_SIZE, dma_buffer,
+                FLOPPY_SECTOR_SIZE);
          sector_ok = true;
       }
 
@@ -424,18 +423,17 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
       {
          if (attempt > 0)
          {
-            logfmt(LOG_WARNING,
-                   "[FDC] Write retry %d for LBA=%u\n",
-                   attempt, (unsigned)(lba + i));
+            logfmt(LOG_WARNING, "[FDC] Write retry %d for LBA=%u\n", attempt,
+                   (unsigned)(lba + i));
             fdc_recalibrate(drive);
          }
 
-         if (!fdc_seek(drive, head, track))
-            continue;
+         if (!fdc_seek(drive, head, track)) continue;
 
          /* Copy data to DMA buffer before DMA init */
          uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
-         memcpy(dma_buffer, buffer + i * FLOPPY_SECTOR_SIZE, FLOPPY_SECTOR_SIZE);
+         memcpy(dma_buffer, buffer + i * FLOPPY_SECTOR_SIZE,
+                FLOPPY_SECTOR_SIZE);
 
          fdc_dma_init(false);
 
@@ -453,17 +451,18 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
 
          if (!fdc_wait_irq())
          {
-            logfmt(LOG_WARNING, "[FDC] Write IRQ timeout on attempt %d\n", attempt);
+            logfmt(LOG_WARNING, "[FDC] Write IRQ timeout on attempt %d\n",
+                   attempt);
             continue;
          }
 
-         uint8_t st0    = fdc_read_byte();
-         uint8_t st1    = fdc_read_byte();
-         uint8_t st2    = fdc_read_byte();
+         uint8_t st0 = fdc_read_byte();
+         uint8_t st1 = fdc_read_byte();
+         uint8_t st2 = fdc_read_byte();
          uint8_t rtrack = fdc_read_byte();
-         uint8_t rhead  = fdc_read_byte();
-         uint8_t rsect  = fdc_read_byte();
-         uint8_t bps    = fdc_read_byte();
+         uint8_t rhead = fdc_read_byte();
+         uint8_t rsect = fdc_read_byte();
+         uint8_t bps = fdc_read_byte();
 
          if ((st0 & 0xC0) != 0)
          {
