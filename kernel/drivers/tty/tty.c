@@ -20,10 +20,6 @@
  * - Scrollback buffer
  */
 
-/* Memory locations for display buffers */
-#define BUFFER_BASE_ADDR 0x00110000
-#define BUFFER_DISP_ADDR 0xB8000
-
 /* TTY device array */
 static TTY_Device *g_TTYDevices[TTY_MAX_DEVICES];
 static TTY_Device *g_ActiveTTY = NULL;

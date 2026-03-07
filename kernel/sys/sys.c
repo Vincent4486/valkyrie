@@ -71,6 +71,7 @@ void SYS_Finalize()
    printf("--> Total Memory: %u (%u MiB)\n", g_SysInfo->memory.total_memory,
           g_SysInfo->memory.total_memory / 1024 / 1024);
    printf("--> Detected Disks: %u\n", g_SysInfo->disk_count);
+   printf("--> Bootloader: %s\n", g_SysInfo->boot.bootLoaderName);
    /* Ensure a blank line after system info so transient status updates
     * (which may use carriage returns) don't overwrite these lines. */
    printf("\n");

@@ -108,8 +108,8 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     print(f"   STAGE {os.path.basename(core_exe)} -> /boot")
     shutil.copy2(core_exe, bootdir)
 
-    # GRUB config (single grub.cfg, content varies by format)
-    generate_grub_config(os.path.join(bootdir, 'grub'), output_format)
+    # GRUB config (single grub.cfg, content varies by format and build config)
+    generate_grub_config(os.path.join(bootdir, 'grub'), output_format, config=env['config'])
 
     # C library and runtime files
     _copy_c_library_unprivileged(staging_dir, toolchain_prefix, target_triple, arch_config)
@@ -142,47 +142,47 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
             print(f"   STAGE {file_rel}")
             os.makedirs(os.path.dirname(file_dst), exist_ok=True)
             shutil.copy2(file_src, file_dst)
+    
+    # HD: create disk image, mount it, copy staging tree, install GRUB
+    current_user = get_current_user()
 
     # -------------------------------------------------------------------------
     # Produce the final image from the staging directory
     # -------------------------------------------------------------------------
     if output_format == 'iso':
         create_bootable_iso(staging_dir, image_path, volume_label='VALKYRIE')
-        return
 
-    # HD: create disk image, mount it, copy staging tree, install GRUB
-    current_user = get_current_user()
+    else:
+        disk = DiskImage(image_path, size, sector_size=512)
+        disk.create()
 
-    disk = DiskImage(image_path, size, sector_size=512)
-    disk.create()
+        print("   PARTITIONING")
+        disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
 
-    print("   PARTITIONING")
-    disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
+        print("   FORMATTING DISK")
+        disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
 
-    print("   FORMATTING DISK")
-    disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
+        mount_dir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
+        os.makedirs(mount_dir, exist_ok=True)
 
-    mount_dir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
-    os.makedirs(mount_dir, exist_ok=True)
-
-    try:
-        disk.mount(mount_dir)
-
-        # Copy entire staging tree to the mounted disk
-        print(f"   CP {staging_dir}/* -> disk")
-        for item in os.listdir(staging_dir):
-            sh.sudo.cp('-r', os.path.join(staging_dir, item), mount_dir)
-
-        install_grub(mount_dir)
-
-    finally:
         try:
-            print(f"   UMOUNT {mount_dir}")
-            disk.unmount(mount_dir)
-            shutil.rmtree(mount_dir, ignore_errors=True)
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
-            raise
+            disk.mount(mount_dir)
+
+            # Copy entire staging tree to the mounted disk
+            print(f"   CP {staging_dir}/* -> disk")
+            for item in os.listdir(staging_dir):
+                sh.sudo.cp('-r', os.path.join(staging_dir, item), mount_dir)
+
+            install_grub(mount_dir)
+
+        finally:
+            try:
+                print(f"   UMOUNT {mount_dir}")
+                disk.unmount(mount_dir)
+                shutil.rmtree(mount_dir, ignore_errors=True)
+            except Exception as e:
+                print(f"Error during cleanup: {e}")
+                raise
 
     # Fix ownership of generated files
     print(f"   CHOWN {current_user} {image_path}")

@@ -265,41 +265,57 @@ def install_grub(mount_dir: str):
             f'--boot-directory={bootdir}', '--recheck', device)
 
 
-_GRUB_CFG_HD = textwrap.dedent("""\
-set timeout=0
-set default=0
+def _get_grub_config(config: str = 'release') -> str:
+    """Generate GRUB configuration content based on build configuration.
+    
+    Args:
+        config: 'debug' or 'release'
+    
+    Returns:
+        GRUB configuration content as string
+    """
+    timeout = '0' if config == 'debug' else '10'
+    
+    return textwrap.dedent(f"""\
+# Set a variable to prevent recursion loops
+if [ -z "$config_loaded" ]; then
+    set config_loaded=1
 
-menuentry "Valkyrie OS" {
-    search --no-floppy --file /boot/valkyrix --set=root || search --no-floppy --label VALKYRIE --set=root
-    multiboot /boot/valkyrix root=LABEL=VALKYRIE
-    boot
-}
+    # Force standard PC keyboard and console output
+    terminal_input console
+    terminal_output console
+
+    set timeout_style=menu
+    set timeout={timeout}
+    set default=0
+
+    menuentry "Valkyrie OS" {{
+        search --no-floppy --label VALKYRIE --set=root
+        multiboot /boot/valkyrix root=LABEL=VALKYRIE
+        boot
+    }}
+
+    menuentry "Reboot" {{
+        reboot
+    }}
+fi
 """)
 
-_GRUB_CFG_ISO = textwrap.dedent("""\
-set timeout=0
-set default=0
 
-menuentry "Valkyrie OS" {
-    multiboot /boot/valkyrix root=LABEL=VALKYRIE
-    boot
-}
-""")
-
-
-def generate_grub_config(grub_dir: str, output_format: str = 'hd') -> str:
-    """Generate grub.cfg for the given output format.
+def generate_grub_config(grub_dir: str, output_format: str = 'hd', config: str = 'release') -> str:
+    """Generate grub.cfg for the given output format and build configuration.
 
     Args:
         grub_dir: Directory to write grub.cfg into
-        output_format: 'hd' or 'iso'
+        output_format: 'hd' or 'iso' (currently equivalent)
+        config: 'debug' or 'release'
 
     Returns:
         Path to the generated grub.cfg
     """
     os.makedirs(grub_dir, exist_ok=True)
     cfg_path = os.path.join(grub_dir, 'grub.cfg')
-    content = _GRUB_CFG_ISO if output_format == 'iso' else _GRUB_CFG_HD
+    content = _get_grub_config(config)
     with open(cfg_path, 'w', encoding='utf-8') as f:
         f.write(content)
     return cfg_path
