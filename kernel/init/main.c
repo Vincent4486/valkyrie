@@ -13,6 +13,7 @@
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
+#include <sys/cmdline.h>
 #include <sys/dylib.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
@@ -20,6 +21,9 @@
 #include <valkyrie/system.h>
 
 #include <libmath/math.h>
+
+extern int Init_MountRoot(void);
+extern void interact();
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
@@ -46,101 +50,6 @@ void hold(int sec)
    printf("\n");
 }
 
-void interact(void)
-{
-   printf("\nInteractive Mode. Type 'exit' to stop.\n$ ");
-
-   char *buf = kmalloc(512);
-   if (!buf) return;
-
-   TTY_Device *tty_dev = TTY_GetDevice();
-
-   for (;;)
-   {
-      int n = TTY_Read(tty_dev, buf, 511);
-      if (n > 0)
-      {
-         buf[n] = '\0';
-         /* Trim trailing newline */
-         if (n > 0 && buf[n - 1] == '\n') buf[n - 1] = '\0';
-
-         if (strcmp(buf, "exit") == 0)
-         {
-            break;
-         }
-         else if (strcmp(buf, "shutdown") == 0)
-         {
-            printf("Shutting down...\n");
-            __asm__ volatile("hlt");
-            break;
-         }
-         else if (strcmp(buf, "reboot") == 0)
-         {
-            printf("Rebooting...\n");
-            /* Load invalid IDT and trigger interrupt to cause triple fault */
-            uint32_t invalid_idt[2] = {0, 0};
-            __asm__ volatile("lidt %0" : : "m"(invalid_idt));
-            __asm__ volatile("int $0");
-         }
-         else if (strncmp(buf, "read ", 5) == 0)
-         {
-            char *path = buf + 5;
-            while (*path == ' ') path++;
-
-            VFS_File *f = VFS_Open(path);
-            if (f)
-            {
-               char *read_buf = kmalloc(4096);
-               if (read_buf)
-               {
-                  uint32_t bytes;
-                  uint32_t total_read = 0;
-                  uint32_t max_read =
-                      65536; /* Limit to 4KB to prevent infinite reads */
-                  while ((bytes = VFS_Read(f, 4096, read_buf)) > 0 &&
-                         total_read < max_read)
-                  {
-                     for (uint32_t i = 0; i < bytes; i++)
-                     {
-                        printf("%c", read_buf[i]);
-                     }
-                  }
-                  free(read_buf);
-               }
-               else
-               {
-                  printf("Error: Out of memory\n");
-               }
-               VFS_Close(f);
-            }
-            else
-            {
-               printf("Error: Could not open file '%s'\n", path);
-            }
-            printf("\n");
-         }
-         else
-         {
-            printf("You typed: %s\n", buf);
-         }
-         if (buf[n - 1] != '\n') printf("\n");
-         printf("$ ");
-      }
-      else
-      {
-         /* Wait for interrupt/input */
-         __asm__ volatile("sti; hlt; cli");
-      }
-   }
-   free(buf);
-}
-
-void perform_mount(void)
-{
-   FS_Mount(&g_SysInfo->volume[0], "/");
-   VFS_SelfTest();
-}
-
 void __attribute__((section(".entry"))) start(BOOT_Info *boot)
 {
    // Init system
@@ -157,21 +66,28 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
    SYS_Initialize();
    CPU_Initialize();
    HAL_Initialize();
+   CmdLine_Initialize();
 
    TTY_Device *tty_dev = TTY_GetDevice();
    TTY_Flush(tty_dev);
 
    if (!FS_Initialize())
    {
-      printf("FS initialization failed\n");
+      TTY_Flush(tty_dev);
       goto end;
    }
-   perform_mount();
+
+   if (!Init_MountRoot())
+   {
+      TTY_Flush(tty_dev);
+      goto end;
+   }
+   VFS_SelfTest();
    Keyboard_Initialize();
 
    if (!Dylib_Initialize())
    {
-      printf("Failed to load dynamic libraries...");
+      TTY_Flush(tty_dev);
       goto end;
    }
 

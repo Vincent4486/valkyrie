@@ -8,13 +8,25 @@
 #include <stdint.h>
 #include <valkyrie/fs.h>
 #include <valkyrie/system.h>
-
 extern __attribute__((cdecl)) void get_arch(uint8_t *arch);
 extern __attribute__((cdecl)) void get_cpu_count(uint32_t *cpu_count);
 extern __attribute__((cdecl)) void get_cpu_brand(char *brand);
 extern __attribute__((cdecl)) uint32_t get_cpu_frequency(void);
 extern __attribute__((cdecl)) uint32_t get_cache_line_size(void);
 extern __attribute__((cdecl)) uint32_t get_cpu_features(void);
+
+/* Boot parameters table structures */
+typedef struct
+{
+   char *key;
+   char *value;
+} BOOT_Param;
+
+typedef struct
+{
+   BOOT_Param args[16]; /* Maximum 16 arguments */
+   uint32_t count;
+} BOOT_Params;
 
 /* Architecture/CPU information */
 typedef struct
@@ -51,6 +63,7 @@ typedef struct
    /* Bootloader and hardware */
    uint32_t boot_device; /* Device booted from (legacy, set by parser) */
    BOOT_Info boot; /* Abstracted boot parameters (populated before start()) */
+   BOOT_Params boot_params; /* Parsed kernel command-line arguments */
 
    /* Status flags */
    uint8_t initialized; /* 1 if fully initialized, 0 otherwise */

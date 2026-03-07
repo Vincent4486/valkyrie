@@ -8,8 +8,13 @@
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
+#include <sys/cmdline.h>
 #include <sys/sys.h>
 #include <valkyrie/fs.h>
+
+/* =========================================================================
+ * Public disk subsystem interface
+ * ====================================================================== */
 
 // Updated: Scan all disks and populate volumes
 int DISK_Initialize()
@@ -24,6 +29,16 @@ int DISK_Scan()
    for (int i = 0; i < MAX_DISKS; i++)
    {
       g_SysInfo->volume[i].disk = NULL;
+   }
+
+   const char *rootCmdVal = NULL;
+   for (uint32_t i = 0; i < g_SysInfo->boot_params.count; i++)
+   {
+      if (strcmp(g_SysInfo->boot_params.args[i].key, "root") == 0)
+      {
+         rootCmdVal = g_SysInfo->boot_params.args[i].value;
+         break;
+      }
    }
 
    DISK detectedDisks[32]; // Temp array for detected disks
@@ -79,6 +94,18 @@ int DISK_Scan()
              volumeIndex, g_SysInfo->volume[volumeIndex].partitionOffset,
              g_SysInfo->volume[volumeIndex].partitionSize,
              g_SysInfo->volume[volumeIndex].partitionType);
+
+         /*
+          * Step B — Read the VBR of this partition and extract FAT identity
+          * metadata (UUID and volume label), then test against root=.
+          *
+          *   AbsoluteOffset = (Partition.partitionOffset × 512) +
+          * BootRecordOffset
+          *
+          * BootRecordOffset = 0 because the VBR is the first sector of the
+          * partition, so the physical LBA is simply partitionOffset.
+          */
+         VBR_ProbeIdentity(&g_SysInfo->volume[volumeIndex], rootCmdVal);
 
          // Initialize filesystem on this partition (only for FAT types)
          Partition *volume = &g_SysInfo->volume[volumeIndex];

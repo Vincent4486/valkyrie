@@ -15,6 +15,18 @@ this file, so for external modules, include fs/fs.h instead.
 #define DISK_TYPE_FLOPPY 0
 #define DISK_TYPE_ATA 1
 
+#define FAT32_BPB_VOLID 0x43u
+#define FAT1X_BPB_VOLID 0x27u
+
+/* Offset of the 11-byte Volume Label string in the VBR */
+#define FAT32_BPB_VOLLIB 0x47u
+#define FAT1X_BPB_VOLLIB 0x2Bu
+
+/* Standard x86 boot sector signature at the end of the 512-byte sector */
+#define VBR_SIG_OFFSET 0x1FEu
+#define VBR_SIG_BYTE0 0x55u
+#define VBR_SIG_BYTE1 0xAAu
+
 typedef struct DISK_Operations
 {
 
@@ -79,5 +91,7 @@ uint32_t Partition_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
                              uint32_t size, void *buffer);
 uint32_t Partition_DevfsWrite(struct DEVFS_DeviceNode *node, uint32_t offset,
                               uint32_t size, const void *buffer);
+
+void VBR_ProbeIdentity(Partition *vol, const char *rootCmdVal);
 
 #endif
