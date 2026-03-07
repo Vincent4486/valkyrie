@@ -66,3 +66,4 @@ cscope.*
 core
 *.core
 .config
+test.*
