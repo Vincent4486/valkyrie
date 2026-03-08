@@ -55,10 +55,9 @@ set disassembly-flavor intel
     
     if kernel_symbols:
         script += f'symbol-file {kernel_symbols}\n'
-    
-    script += '''# Set a breakpoint at the bootloader entry point
-b *0x7c00
-layout asm
+        script += f'directory {os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))}\n'
+
+    script += '''layout src
 '''
     
     return script
@@ -106,13 +105,12 @@ def main():
     parser.add_argument('image_type', choices=['disk', 'cdrom', 'floppy'],
                         help='Type of disk image')
     parser.add_argument('image', help='Path to disk image file')
+    parser.add_argument('kernel', help='Path to kernel ELF with debug symbols (core)')
     parser.add_argument('-a', '--arch', default='i686',
                         choices=get_supported_archs(),
                         help='Target architecture (default: i686)')
     parser.add_argument('-m', '--memory', default=DEFAULT_MEMORY,
                         help=f'Memory size (default: {DEFAULT_MEMORY})')
-    parser.add_argument('-k', '--kernel', 
-                        help='Path to kernel ELF with debug symbols')
     parser.add_argument('--gdb', default='gdb',
                         help='GDB executable name (default: gdb)')
     
@@ -120,6 +118,10 @@ def main():
     
     if not os.path.exists(args.image):
         print(f"Error: Image file not found: {args.image}", file=sys.stderr)
+        sys.exit(1)
+    
+    if not os.path.exists(args.kernel):
+        print(f"Error: Kernel ELF not found: {args.kernel}", file=sys.stderr)
         sys.exit(1)
     
     sys.exit(run_gdb(

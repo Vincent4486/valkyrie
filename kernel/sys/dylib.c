@@ -97,7 +97,7 @@ typedef struct
 
 // Memory allocator state
 static int dylib_mem_initialized = 0;
-static uint32_t dylib_mem_next_free = DYLIB_MEMORY_ADDR;
+static uint32_t dylib_mem_next_free = K_MEM_DYLIB_START;
 static ExtendedLibData extended_data[LIB_REGISTRY_MAX];
 
 // Global symbol table - shared across all loaded libraries and kernel
@@ -129,13 +129,13 @@ int Dylib_MemoryInitialize(void)
       extended_data[i].loaded = 0;
    }
 
-   dylib_mem_next_free = DYLIB_MEMORY_ADDR;
+   dylib_mem_next_free = K_MEM_DYLIB_START;
    dylib_mem_initialized = 1;
 
    logfmt(LOG_INFO,
           "[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
-          DYLIB_MEMORY_ADDR, DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE,
-          DYLIB_MEMORY_SIZE / 0x100000);
+          K_MEM_DYLIB_START, K_MEM_DYLIB_END,
+          (K_MEM_DYLIB_END - K_MEM_DYLIB_START) / 0x100000);
 
    return 0;
 }
@@ -423,8 +423,8 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
    }
 
    // Validate allocator state
-   if (dylib_mem_next_free < DYLIB_MEMORY_ADDR ||
-       dylib_mem_next_free > DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE)
+   if (dylib_mem_next_free < K_MEM_DYLIB_START ||
+       dylib_mem_next_free > K_MEM_DYLIB_END)
    {
       logfmt(LOG_ERROR, "[DYLIB] Memory allocator corrupted: next_free=0x%x\n",
              dylib_mem_next_free);
@@ -435,13 +435,12 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
    uint32_t aligned_size = (size + 15) & ~15;
 
    // Check if we have enough space
-   if (dylib_mem_next_free + aligned_size >
-       DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE)
+   if (dylib_mem_next_free + aligned_size > K_MEM_DYLIB_END)
    {
       logfmt(LOG_ERROR,
              "[DYLIB] Out of dylib memory! Need %d bytes, only %d available\n",
              aligned_size,
-             DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE - dylib_mem_next_free);
+             K_MEM_DYLIB_END - dylib_mem_next_free);
       return 0;
    }
 
@@ -1192,15 +1191,15 @@ void Dylib_MemoryStatus(void)
       return;
    }
 
-   uint32_t total_allocated = dylib_mem_next_free - DYLIB_MEMORY_ADDR;
-   uint32_t total_available = DYLIB_MEMORY_SIZE;
+   uint32_t total_allocated = dylib_mem_next_free - K_MEM_DYLIB_START;
+   uint32_t total_available = K_MEM_DYLIB_END - K_MEM_DYLIB_START;
    uint32_t remaining = total_available - total_allocated;
    int percent_used = (total_allocated * 100) / total_available;
 
    logfmt(LOG_INFO, "[DYLIB] === Dylib Memory Statistics ===");
    logfmt(LOG_INFO, "[DYLIB] Total Memory:     %d MiB (0x%x - 0x%x)\n",
-          total_available / 0x100000, DYLIB_MEMORY_ADDR,
-          DYLIB_MEMORY_ADDR + DYLIB_MEMORY_SIZE);
+          total_available / 0x100000, K_MEM_DYLIB_START,
+          K_MEM_DYLIB_END);
    logfmt(LOG_INFO, "[DYLIB] Allocated:        %d KiB (%d%%)\n",
           total_allocated / 1024, percent_used);
    logfmt(LOG_INFO, "[DYLIB] Available:        %d KiB\n", remaining / 1024);

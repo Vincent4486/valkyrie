@@ -50,6 +50,9 @@ bool Init_MountRoot(void)
 
       Partition *part = &g_SysInfo->volume[i];
 
+      printf("[OK] Root found: LABEL=\"%s\"\n",
+             part->label[0] ? part->label : "VALKYRIE");
+
       int rc = FS_Mount(part, "/");
       if (rc != 0)
       {

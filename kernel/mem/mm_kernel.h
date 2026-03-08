@@ -194,14 +194,6 @@ int Stack_SelfTest(void);
 // 0x00000000 - 0x000003FF - interrupt vector table
 // 0x00000400 - 0x000004FF - BIOS data area
 
-#define MEMORY_MIN 0x00000500
-#define MEMORY_MAX 0x00080000
-
-#define MEMORY_LOAD_KERNEL ((void *)0x30000)
-#define MEMORY_LOAD_SIZE 0x00010000
-
-// 0x00020000 - 0x00030000 - stage2
-
 // 0x00030000 - 0x00080000 - free
 
 // 0x00080000 - 0x0009FFFF - Extended BIOS data area
@@ -210,12 +202,31 @@ int Stack_SelfTest(void);
 
 #define MEMORY_KERNEL_ADDR ((void *)0x00A00000)
 
-// Dylib memory configuration (8 MiB reserved at 1 MiB)
-#define DYLIB_MEMORY_ADDR 0x100000 // Base address for dylib memory pool (1 MiB)
-#define DYLIB_MEMORY_SIZE 0x800000 // 8 MiB reserved for dylibs
+/* ==========================================================================
+ * Canonical 1 KiB-aligned kernel memory map
+ *
+ * Every region start/end must satisfy: address % K_MEM_BLOCK_SIZE == 0.
+ * All fixed addresses are centralised here; no raw literals elsewhere.
+ *
+ * Reserved region: 0x00100000 – 0x00A00000
+ *
+ *  0x00100000 – 0x00800000  Dylib space          (7 MiB)
+ *  0x00930000               g_SysInfo (SYS_Info)
+ *  0x00931000               s_bootInfo (BOOT_Info)
+ *  0x00A00000               Kernel load address
+ * ========================================================================== */
 
-// Library registry placed in low memory (inside FAT area). Stage2 populates
-// this with loaded modules so the kernel can find them.
+#define K_MEM_BLOCK_SIZE 1024 /* 0x400 */
+
+#define K_MEM_DYLIB_START  (0x400u * K_MEM_BLOCK_SIZE)  /* 0x00100000 */
+#define K_MEM_DYLIB_END    (0x2000u * K_MEM_BLOCK_SIZE) /* 0x00800000 */
+
+#define K_MEM_SYS_INFO_START  (0x24C0u * K_MEM_BLOCK_SIZE) /* 0x00930000 */
+
+#define K_MEM_BOOT_INFO_START (K_MEM_SYS_INFO_START + 4 * K_MEM_BLOCK_SIZE) /* 0x00931000 */
+
+/* Library registry placed in low memory (inside FAT area). Stage2 populates
+ * this with loaded modules so the kernel can find them. */
 #define LIB_NAME_MAX 32
 typedef struct
 {
@@ -227,12 +238,5 @@ typedef struct
 
 #define LIB_REGISTRY_ADDR ((LibRecord *)0x00028000)
 #define LIB_REGISTRY_MAX 16
-
-#define BUFFER_LINES 1024
-#define BUFFER_BASE_ADDR 0x00900000 // Must match linker script BUFFER_START
-#define BUFFER_DISP_ADDR 0x00929000
-
-// Place SYS_INFO after kernel in high memory (kernel ends ~11 MiB)
-#define SYS_INFO_ADDR 0x00930000 // 11 MiB - safe from user processes and DYLIB
 
 #endif

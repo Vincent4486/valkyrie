@@ -27,8 +27,8 @@ struct DEVFS_DeviceNode;
 
 /* Buffer sizes */
 #define TTY_INPUT_SIZE 4096
-#define TTY_LINE_SIZE 256
-#define TTY_SCROLLBACK 1000 /* Lines of scrollback */
+#define TTY_LINE_SIZE  256
+/* TTY_SCROLLBACK is intentionally absent: 1:1 buffer mapping, no scrollback. */
 
 /* Maximum TTY instances */
 #define TTY_MAX_DEVICES 8
@@ -85,13 +85,9 @@ typedef struct TTY_Device
    bool line_ready;              /* A complete line is ready */
    bool eof_pending;             /* EOF was received */
 
-   /* Output/display - scrollback buffer */
-   uint16_t (*screen_buf)[SCREEN_WIDTH]; /* [TTY_SCROLLBACK][SCREEN_WIDTH],
-                                            packed (color<<8)|char */
-   uint16_t *display_buf;                /* VGA display buffer */
-   uint32_t buf_head;      /* First line index in circular buffer */
-   uint32_t buf_lines;     /* Number of lines used */
-   uint32_t scroll_offset; /* Lines scrolled back from bottom */
+   /* Output/display – fixed 80×25 buffer (no scrollback) */
+   uint16_t  screen_buf[SCREEN_HEIGHT][SCREEN_WIDTH]; /* packed (color<<8)|char */
+   uint16_t *display_buf;                             /* VGA shadow/display buffer */
 
    /* Cursor */
    int cursor_x;
@@ -177,6 +173,7 @@ static inline bool TTY_IsEcho(TTY_Device *tty)
 
 /* Query functions */
 int TTY_GetVisibleLineLength(int y);
+/* No scrollback: the following always return 0. */
 int TTY_GetMaxScroll(void);
 uint32_t TTY_GetVisibleStart(void);
 

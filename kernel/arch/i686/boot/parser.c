@@ -16,6 +16,7 @@
  */
 
 #include "parser.h"
+#include <mem/mm_kernel.h>
 #include <stdint.h>
 #include <valkyrie/system.h>
 
@@ -28,7 +29,7 @@ extern void start(BOOT_Info *boot);
  * Pre-heap storage for the parsed boot parameters.
  * Explicitly zeroed inside Parser_Multiboot rather than relying on BSS.
  * ------------------------------------------------------------------------- */
-static BOOT_Info *s_bootInfo = (BOOT_Info *)0x00931000;
+static BOOT_Info *s_bootInfo = (BOOT_Info *)(uintptr_t)K_MEM_BOOT_INFO_START;
 
 /* -------------------------------------------------------------------------
  * CopyString

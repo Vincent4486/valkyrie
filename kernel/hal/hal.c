@@ -89,6 +89,9 @@ void HAL_Initialize()
    i686_i8253_Initialize(1000); // Set PIT to 1kHz (reasonable for OS timer)
 
    i686_ISR_RegisterHandler(0x80, i686_Syscall_IRQ);
+
+   /* Initialise VGA cursor shape (blinking underline) */
+   i686_VGA_Initialize();
 #else
 #error "Unsupported architecture for HAL initialization"
 #endif

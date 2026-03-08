@@ -254,6 +254,7 @@ if build_type in ('full', 'kernel'):
 if build_type == 'full':
     SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
     Import('image')
+    Import('core')
     
     # Phony targets using Python scripts
     arch = TARGET_ENVIRONMENT['arch']
@@ -264,7 +265,7 @@ if build_type == 'full':
     PhonyTargets(
         HOST_ENVIRONMENT,
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path],
+        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
         toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
         fformat=['python3', './scripts/base/format.py'],
@@ -278,6 +279,7 @@ if build_type == 'full':
 elif build_type == 'image':
     SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
     Import('image')
+    Import('core')
     
     arch = TARGET_ENVIRONMENT['arch']
     target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
@@ -287,7 +289,7 @@ elif build_type == 'image':
     PhonyTargets(
         HOST_ENVIRONMENT,
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path],
+        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
         toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
         fformat=['python3', './scripts/base/format.py'],

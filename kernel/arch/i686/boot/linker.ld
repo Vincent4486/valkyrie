@@ -12,26 +12,25 @@ PHDRS
 /* Produce ELF output (default) instead of raw binary so the bootloader can
    load an ELF image. 
    
-   Memory layout:
-   - 0x00100000 - 0x00900000: Dynamic libraries (dylib) - 8 MiB
-   - 0x00900000 - 0x00914000: Display buffer (80 KiB)
-   - 0x00A00000 onwards: Kernel code and data (10 MiB)
+   Memory layout (all regions 1 KiB block-aligned):
+   - 0x00100000 - 0x00800000: Dynamic libraries (dylib) - 7 MiB
+   - 0x00930000             : g_SysInfo  (SYS_Info)
+   - 0x00931000             : s_bootInfo (BOOT_Info)  [+1 KiB block]
+   - 0x00A00000 onwards     : Kernel code and data
    
    With dynamic linking, allow undefined symbols (will be resolved at runtime
    via PLT/GOT patching after libraries are loaded).
 */
 
-/* Reserve dylib space for dynamic libraries */
-DYLIB_START = 0x00100000;
-DYLIB_SIZE = 0x800000;  /* 8 MiB */
+K_MEM_BLOCK_SIZE = 1024;
 
-/* Reserve display buffer space at fixed location */
-BUFFER_START = 0x00900000;
-BUFFER_SIZE = 0x14000;  /* 80 KiB */
+DYLIB_START = 0x400 * K_MEM_BLOCK_SIZE;      /* 0x00100000 */
+DYLIB_SIZE  = 0x1C00 * K_MEM_BLOCK_SIZE;     /* 0x700000 (7 MiB) */
 
-/* g_SysInfo */
-SYS_INFO_START = 0x00930000;
-SYS_INFO_SIZE = 0x900;
+SYS_INFO_START  = 0x24C0 * K_MEM_BLOCK_SIZE; /* 0x00930000 */
+SYS_INFO_SIZE   = 4 * K_MEM_BLOCK_SIZE;      /* 0x1000 (1 KiB block) */
+
+BOOT_INFO_START = (0x24C0 + 4) * K_MEM_BLOCK_SIZE; /* 0x00931000 - 4 blocks (0x1000 bytes) after SYS_INFO */
 
 /* Kernel starts at 10 MiB */
 phys = 0x00A00000;
@@ -80,7 +79,7 @@ SECTIONS
     
     .rel.plt            : { _kernel_rel_plt_start = .; *(.rel.plt) _kernel_rel_plt_end = .; }
     
-    .bss                : { __bss_start = .;        *(.bss .bss.*)     }
+    .bss                : ALIGN(1024) { __bss_start = .;        *(.bss .bss.*)     }
     
     __end = .;
 }
