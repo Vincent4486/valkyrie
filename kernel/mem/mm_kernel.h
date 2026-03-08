@@ -225,6 +225,10 @@ int Stack_SelfTest(void);
 
 #define K_MEM_BOOT_INFO_START (K_MEM_SYS_INFO_START + 4 * K_MEM_BLOCK_SIZE) /* 0x00931000 */
 
+/* VGA text-mode VRAM window – always mapped at this physical address.
+ * Must not be placed inside the kernel-reserved range (0x00100000+).     */
+#define K_MEM_VIDEO_START 0x000B8000u /* VGA text VRAM base (colour modes) */
+
 /* Library registry placed in low memory (inside FAT area). Stage2 populates
  * this with loaded modules so the kernel can find them. */
 #define LIB_NAME_MAX 32

@@ -32,6 +32,7 @@ def get_qemu_base_args(arch: str, memory: str = DEFAULT_MEMORY,
         '-m', memory,
         '-machine', arch_config['qemu_machine'],
         '-smp', str(smp),
+        '-device', 'VGA,vgamem_mb=64'
     ]
     
     if debug_console:

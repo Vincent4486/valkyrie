@@ -21,9 +21,17 @@ struct DEVFS_DeviceNode;
  * - Per-TTY input/output buffers
  */
 
-/* Screen dimensions */
-#define SCREEN_WIDTH 80
+/* Screen dimensions – default / minimum mode */
+#define SCREEN_WIDTH  80
 #define SCREEN_HEIGHT 25
+
+/* Maximum buffer dimensions.
+ * All TTY devices pre-allocate for the largest supported VGA text mode so
+ * that no reallocation is ever needed on a mode switch.  The live display
+ * dimensions are tracked per-device in TTY_Device::cols / TTY_Device::rows
+ * and rendering clips to those values. */
+#define TTY_MAX_COLS 160
+#define TTY_MAX_ROWS  50
 
 /* Buffer sizes */
 #define TTY_INPUT_SIZE 4096
@@ -85,9 +93,13 @@ typedef struct TTY_Device
    bool line_ready;              /* A complete line is ready */
    bool eof_pending;             /* EOF was received */
 
-   /* Output/display – fixed 80×25 buffer (no scrollback) */
-   uint16_t  screen_buf[SCREEN_HEIGHT][SCREEN_WIDTH]; /* packed (color<<8)|char */
-   uint16_t *display_buf;                             /* VGA shadow/display buffer */
+   /* Output/display – max-size buffer; active area is cols × rows */
+   uint16_t  screen_buf[TTY_MAX_ROWS][TTY_MAX_COLS]; /* packed (color<<8)|char */
+   uint16_t *display_buf;                            /* VGA shadow/display buffer */
+
+   /* Current video mode dimensions (≤ TTY_MAX_COLS × TTY_MAX_ROWS) */
+   int cols; /* Active columns */
+   int rows; /* Active rows    */
 
    /* Cursor */
    int cursor_x;
@@ -170,6 +182,13 @@ static inline bool TTY_IsEcho(TTY_Device *tty)
 {
    return (tty->flags & TTY_FLAG_ECHO) != 0;
 }
+
+/** Switch the video mode for all TTY devices.
+ * Calls g_HalVideoOperations->SetDisplaySize, updates col/row tracking on
+ * every active device, clamps out-of-bounds cursors, and forces a full
+ * repaint of the active TTY.  Returns 0 on success, -1 if the mode is not
+ * supported by the hardware backend. */
+int TTY_SetVideoMode(int cols, int rows);
 
 /* Query functions */
 int TTY_GetVisibleLineLength(int y);

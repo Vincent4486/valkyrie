@@ -7,7 +7,7 @@
 
 * [x] Virtual memory / paging (per-process address spaces)
 * [x] Heap management (brk/sbrk syscalls for malloc)
-* [ ] Stack management (per-process user stacks)
+* [x] Stack management (per-process user stacks)
 ** [x] Refactor user stack allocation (move from process.c to stack.c)
 ** [x] Implement `Stack_CreateUser` using PMM/Paging (not kmalloc)
 ** [x] Map user-mode exit trampoline (fix GPF on return)

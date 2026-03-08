@@ -29,6 +29,7 @@ const HAL_VideoOperations *g_HalVideoOperations = &(HAL_VideoOperations){
     .Clear = HAL_ARCH_Video_Clear,
     .SetCursor = HAL_ARCH_Video_SetCursor,
     .UpdateBuffer = HAL_ARCH_Video_UpdateBuffer,
+    .SetDisplaySize = HAL_ARCH_Video_SetDisplaySize,
 };
 
 const HAL_IrqOperations *g_HalIrqOperations = &(HAL_IrqOperations){

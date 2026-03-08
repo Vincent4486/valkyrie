@@ -14,9 +14,28 @@ import tempfile
 
 
 # Default Bochs settings
-DEFAULT_MEMORY_MB = 128
+DEFAULT_MEMORY_MB = 2048
 DEFAULT_BOCHS_BIOS = '/usr/share/bochs/BIOS-bochs-latest'
 DEFAULT_BOCHS_VGA = '/usr/share/bochs/VGABIOS-lgpl-latest'
+
+
+def calc_chs(image_path: str) -> tuple:
+    """Calculate CHS geometry from disk image file size.
+
+    Args:
+        image_path: Path to the disk image file
+
+    Returns:
+        Tuple of (cylinders, heads, sectors_per_track)
+    """
+    size = os.path.getsize(image_path)
+    total_sectors = size // 512
+    heads = 16
+    spt = 63
+    cylinders = total_sectors // (heads * spt)
+    # Clamp to ATA limits
+    cylinders = max(1, min(cylinders, 16383))
+    return cylinders, heads, spt
 
 
 def generate_bochs_config(image_type: str, image_path: str,
@@ -41,7 +60,8 @@ def generate_bochs_config(image_type: str, image_path: str,
         disk_cfg = f'floppya: 1_44="{image_path}", status=inserted'
         boot_cfg = 'boot: floppy'
     elif image_type == 'disk':
-        disk_cfg = f'ata0-master: type=disk, path="{image_path}", cylinders=1024, heads=4, spt=32'
+        cylinders, heads, spt = calc_chs(image_path)
+        disk_cfg = f'ata0-master: type=disk, path="{image_path}", cylinders={cylinders}, heads={heads}, spt={spt}'
         boot_cfg = 'boot: disk'
     elif image_type == 'cdrom':
         disk_cfg = f'ata0-master: type=cdrom, path="{image_path}", status=inserted'
@@ -147,7 +167,7 @@ def main():
     parser.add_argument('-m', '--memory', type=int, default=DEFAULT_MEMORY_MB,
                         help=f'Memory size in MB (default: {DEFAULT_MEMORY_MB})')
     parser.add_argument('-d', '--display', default='x',
-                        choices=['x', 'sdl2', 'nogui'],
+                        choices=['x', 'sdl2', 'sdl', 'wx', 'rfb', 'nogui'],
                         help='Display library (default: x)')
     parser.add_argument('--bochs', default='bochs',
                         help='Bochs executable name')

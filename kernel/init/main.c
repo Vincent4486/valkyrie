@@ -12,6 +12,7 @@
 #include <hal/irq.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
+#include <hal/video.h>
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
@@ -94,13 +95,14 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
    if (!Dylib_Initialize())
    {
       TTY_Flush(tty_dev);
-      goto end;
    }
 
    /* Mark system as fully initialized */
    SYS_Finalize();
 
    ELF_LoadProcess("/usr/bin/sh", false);
+   TTY_SetVideoMode(80, 43);
+   // TTY_SetVideoMode(40, 25);
 
    /* Start interactive line reader: on ENTER, print the entered text. */
    interact();

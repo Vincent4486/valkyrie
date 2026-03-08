@@ -290,7 +290,7 @@ elif build_type == 'image':
         HOST_ENVIRONMENT,
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
         debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
-        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
+        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path, '-d', 'x'],
         toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
