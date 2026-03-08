@@ -34,40 +34,32 @@ static DEVFS_DeviceOps disk_ops = {.read = DISK_DevfsRead,
 #define ATA_CMD_WRITE_PIO 0x30 // 28-bit LBA write
 #define ATA_CMD_IDENTIFY 0xEC  // Identify device
 
+/*
+ * Floating-bus sentinel: an 8-bit Status Register read returns 0xFF when no
+ * drive is connected (the pull-up resistors on the data bus are undriven).
+ * 86Box models this accurately – QEMU returns 0x00 on empty channels.
+ */
+#define ATA_FLOATING_BUS 0xFF
+
 // Driver data structure
 typedef struct
 {
-   uint32_t partition_length; // Total sectors
-   uint32_t start_lba;        // Partition start (should be 0 for absolute LBA)
-   uint16_t dcr_port;         // Alt status/DCR port
-   uint16_t tf_port;          // Task file base port
-   uint8_t slave_bits;        // Master/slave bits (0xA0 or 0xB0)
+   uint32_t partition_length; /* Total sectors – populated by ATA_Init via IDENTIFY */
+   uint32_t start_lba;        /* Partition start (absolute LBA; 0 = start of disk)   */
+   uint16_t dcr_port;         /* Alt-Status / Device Control port                    */
+   uint16_t tf_port;          /* Task-file base port                                 */
+   uint8_t  slave_bits;       /* Drive-select byte: 0xA0 (master) or 0xB0 (slave)   */
 } ata_driver_t;
 
-// Global driver instances
-static ata_driver_t primary_master = {.partition_length = 0x100000,
-                                      .start_lba = 0,
-                                      .dcr_port = 0x3F6,
-                                      .tf_port = 0x1F0,
-                                      .slave_bits = 0xA0};
-
-static ata_driver_t primary_slave = {.partition_length = 0x100000,
-                                     .start_lba = 0,
-                                     .dcr_port = 0x3F6,
-                                     .tf_port = 0x1F0,
-                                     .slave_bits = 0xB0};
-
-static ata_driver_t secondary_master = {.partition_length = 0x100000,
-                                        .start_lba = 0,
-                                        .dcr_port = 0x376,
-                                        .tf_port = 0x170,
-                                        .slave_bits = 0xA0};
-
-static ata_driver_t secondary_slave = {.partition_length = 0x100000,
-                                       .start_lba = 0,
-                                       .dcr_port = 0x376,
-                                       .tf_port = 0x170,
-                                       .slave_bits = 0xB0};
+/*
+ * Static driver descriptors.
+ * partition_length starts at 0 and is filled in by ATA_Init from the
+ * IDENTIFY device response – no hardcoded geometry or size anywhere.
+ */
+static ata_driver_t primary_master   = { .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xA0 };
+static ata_driver_t primary_slave    = { .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xB0 };
+static ata_driver_t secondary_master = { .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xA0 };
+static ata_driver_t secondary_slave  = { .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xB0 };
 
 /**
  * Get driver for channel and drive
@@ -82,6 +74,39 @@ static ata_driver_t *ata_get_driver(int channel, int drive)
 }
 
 /**
+ * ata_400ns_delay – generate an ~400 ns bus delay by issuing five reads of the
+ * Alternate Status register (DCR/Alt-Status port = tf_port + 0x206 offset, but
+ * in practice the driver passes dcr_port directly).  Each I/O read on the ISA
+ * bus takes roughly 100 ns on PIIX4/86Box, so five reads ≥ 400 ns.
+ *
+ * Must be called after writing the DEVICE register and before polling BSY, as
+ * the drive is allowed up to 400 ns to assert BSY after being selected.
+ */
+static inline void ata_400ns_delay(uint16_t dcr_port)
+{
+   /* The DCR register doubles as the Alt Status port when read. */
+   (void)g_HalIoOperations->inb(dcr_port); /* read 1 */
+   (void)g_HalIoOperations->inb(dcr_port); /* read 2 */
+   (void)g_HalIoOperations->inb(dcr_port); /* read 3 */
+   (void)g_HalIoOperations->inb(dcr_port); /* read 4 */
+   (void)g_HalIoOperations->inb(dcr_port); /* read 5 */
+}
+
+/**
+ * ata_is_floating_bus – return 1 if the channel is unpopulated.
+ *
+ * On a real ISA/PIIX4 bus (and in 86Box high-accuracy mode) an empty channel
+ * drives 0xFF on all data lines due to pull-up resistors.  Reading the Status
+ * register and finding 0xFF means there is no device attached; attempting to
+ * IDENTIFY such a channel would spin indefinitely waiting for BSY to clear.
+ */
+static inline int ata_is_floating_bus(uint16_t tf_port)
+{
+   uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
+   return (status == ATA_FLOATING_BUS);
+}
+
+/**
  * Wait for drive to be ready (not busy)
  */
 static int ata_wait_busy(uint16_t tf_port)
@@ -93,6 +118,8 @@ static int ata_wait_busy(uint16_t tf_port)
    while (timeout--)
    {
       uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
+      /* Treat a floating bus (0xFF) as a hard error to avoid spinning */
+      if (status == ATA_FLOATING_BUS) return -1;
       if (!(status & ATA_STATUS_BSY)) return 0;
 
       // Small delay to prevent bus saturation
@@ -103,27 +130,41 @@ static int ata_wait_busy(uint16_t tf_port)
 }
 
 /**
- * Wait for data ready
+ * ata_wait_drq – wait until BSY is clear AND DRQ is set.
+ *
+ * 86Box / PIIX4 strict polling order (OSDev ATA PIO guide, §4.3):
+ *  1. Spin while BSY=1.  Do NOT test DRQ while BSY is still set.
+ *  2. Once BSY=0, check ERR/DF first, then confirm DRQ=1.
+ *
+ * The previous implementation tested DRQ without checking BSY first, which
+ * could cause premature reads on high-accuracy emulators.
  */
 static int ata_wait_drq(uint16_t tf_port)
 {
-   // Timeout: similar to wait_busy
    int timeout = 10000;
 
    while (timeout--)
    {
       uint8_t status = g_HalIoOperations->inb(tf_port + ATA_REG_STATUS);
-      if (status & ATA_STATUS_DRQ) return 0;
-      if (status & ATA_STATUS_ERR)
+
+      /* Floating bus – no drive present */
+      if (status == ATA_FLOATING_BUS) return -1;
+
+      /* Step 1: BSY must clear before we trust other bits */
+      if (status & ATA_STATUS_BSY)
       {
-         return -1;
+         for (volatile int i = 0; i < 100; i++);
+         continue;
       }
 
-      // Small delay
+      /* Step 2: BSY=0 – now safe to inspect ERR and DRQ */
+      if (status & ATA_STATUS_ERR) return -1;
+      if (status & ATA_STATUS_DRQ) return 0;
+
       for (volatile int i = 0; i < 100; i++);
    }
 
-   return -1; // Timeout
+   return -1; /* Timeout */
 }
 
 /**
@@ -164,7 +205,12 @@ static void ata_soft_reset(uint16_t dcr_port)
 }
 
 /**
- * Initialize ATA driver for a specific drive
+ * ATA_Init – reset the channel and populate the driver descriptor.
+ *
+ * If partition_size is non-zero it is used as-is (caller already knows the
+ * extent, e.g. from a partition table).  If it is zero, the total sector
+ * count is read from the IDENTIFY DEVICE response so that no geometry is
+ * ever hardcoded here.
  */
 int ATA_Init(int channel, int drive, uint32_t partition_start,
              uint32_t partition_size)
@@ -172,11 +218,57 @@ int ATA_Init(int channel, int drive, uint32_t partition_start,
    ata_driver_t *drv = ata_get_driver(channel, drive);
    if (!drv) return -1;
 
-   drv->start_lba = 0; // We use absolute LBA
-   drv->partition_length = partition_size;
+   /* Bail immediately on a floating bus – no device present. */
+   if (ata_is_floating_bus(drv->tf_port)) return -1;
 
-   // Perform software reset
+   /* Software reset; then poll until BSY clears (mandatory post-reset wait). */
    ata_soft_reset(drv->dcr_port);
+   if (ata_wait_busy(drv->tf_port) != 0) return -1;
+
+   drv->start_lba = partition_start;
+
+   if (partition_size != 0)
+   {
+      /* Caller-supplied size – use it directly. */
+      drv->partition_length = partition_size;
+   }
+   else
+   {
+      /*
+       * Auto-detect total sector count from IDENTIFY DEVICE.
+       *
+       * Protocol (OSDev ATA PIO):
+       *  1. Write DEVICE register (drive select + LBA flag).
+       *  2. Wait ≥ 400 ns for the drive to assert BSY.
+       *  3. Wait for DRDY=1 / BSY=0.
+       *  4. Issue IDENTIFY (0xEC) and wait for DRQ.
+       *  5. Read 256 words.
+       */
+      uint16_t id[256];
+
+      g_HalIoOperations->outb(drv->tf_port + ATA_REG_DEVICE, drv->slave_bits);
+      ata_400ns_delay(drv->dcr_port);
+      if (ata_wait_for_ready(drv->tf_port) != 0) return -1;
+
+      g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+      if (ata_wait_drq(drv->tf_port) != 0) return -1;
+
+      for (int i = 0; i < 256; i++)
+         id[i] = g_HalIoOperations->inw(drv->tf_port + ATA_REG_DATA);
+
+      if (id[83] & (1u << 10))
+      {
+         /* LBA48: words 100–103 hold the 48-bit sector count.             */
+         drv->partition_length = (uint32_t)(
+            ((uint64_t)id[103] << 48) | ((uint64_t)id[102] << 32) |
+            ((uint64_t)id[101] << 16) |  (uint64_t)id[100]);
+      }
+      else
+      {
+         /* LBA28: words 60–61 hold the 28-bit sector count (little-endian). */
+         drv->partition_length = (uint32_t)id[60] | ((uint32_t)id[61] << 16);
+      }
+   }
 
    return 0;
 }
@@ -197,33 +289,27 @@ int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer, uint32_t count)
    if (!drv) return -1;
 
    // Limit to 255 sectors per read (8-bit sector count)
-   if (count > 255)
-   {
-      count = 255;
-   }
+   if (count > 255) count = 255;
 
-   // Wait for drive to be ready
-   if (ata_wait_busy(drv->tf_port) != 0)
-   {
-      return -1;
-   }
-
-   // Prepare device register value with master/slave bits, LBA flag, and upper
-   // LBA bits (bits 24-27) Note: must set the LBA bit (0x40) when using LBA
-   // addressing, otherwise the device may ABRT.
+   /*
+    * ATA drive-select sequence (OSDev ATA PIO, §3.2):
+    *  1. Write DEVICE first – selects master/slave and latches LBA bits 24-27.
+    *  2. Wait ≥ 400 ns for the drive to assert BSY.
+    *  3. Poll until BSY=0, DRDY=1 before writing the remaining task-file regs.
+    *  4. Write NSector, LBA_LOW/MID/HIGH, then issue the command.
+    *
+    * The LBA bit (0x40) must be set in the DEVICE byte; without it the device
+    * interprets the address as CHS and may ABRT the command.
+    */
    uint8_t device = drv->slave_bits | 0x40 | ((lba >> 24) & 0x0F);
-
-   // Write all command registers in the correct sequence
-   // This is critical - must follow ATA protocol
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,
-                           ((lba >> 16) & 0xFF));
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_DEVICE, device);
+   ata_400ns_delay(drv->dcr_port);
+   if (ata_wait_for_ready(drv->tf_port) != 0) return -1;
 
-   // Small delay to allow registers to settle
-   for (volatile int i = 0; i < 50000; i++);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR,   count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW,   lba & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID,   (lba >> 8) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,  (lba >> 16) & 0xFF);
 
    // Issue READ SECTORS command
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
@@ -267,31 +353,18 @@ int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer, uint32_t count)
    if (!drv) return -1;
 
    // Limit to 255 sectors per write (8-bit sector count)
-   if (count > 255)
-   {
-      count = 255;
-   }
+   if (count > 255) count = 255;
 
-   // Wait for drive to be ready
-   if (ata_wait_busy(drv->tf_port) != 0)
-   {
-      return -1;
-   }
-
-   // Prepare device register value with master/slave bits, LBA flag, and upper
-   // LBA bits (bits 24-27)
+   /* Same drive-select sequence as ATA_Read – DEVICE register first. */
    uint8_t device = drv->slave_bits | 0x40 | ((lba >> 24) & 0x0F);
-
-   // Write all command registers in the correct sequence
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, (lba & 0xFF));
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, ((lba >> 8) & 0xFF));
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,
-                           ((lba >> 16) & 0xFF));
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_DEVICE, device);
+   ata_400ns_delay(drv->dcr_port);
+   if (ata_wait_for_ready(drv->tf_port) != 0) return -1;
 
-   // Small delay to allow registers to settle
-   for (volatile int i = 0; i < 50000; i++);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR,   count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW,   lba & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID,   (lba >> 8) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,  (lba >> 16) & 0xFF);
 
    // Issue WRITE SECTORS command
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
@@ -355,31 +428,37 @@ void ATA_Reset(int channel)
 }
 
 /**
- * Identify ATA drive
+ * ATA_Identify – issue IDENTIFY DEVICE and return the 256-word response.
+ *
+ * Drive-select uses slave_bits directly (already encodes the master/slave
+ * bit – no need to re-OR the drive index, which would corrupt bit 4).
+ * A 400 ns delay follows the device-register write before polling DRDY.
  */
 int ATA_Identify(int channel, int drive, uint16_t *buffer)
 {
    ata_driver_t *driver = ata_get_driver(channel, drive);
    if (!driver) return -1;
 
-   // Select drive
-   g_HalIoOperations->outb(driver->tf_port + ATA_REG_DEVICE,
-                           driver->slave_bits | ((drive & 1) << 4));
+   /* Guard against empty / floating channel. */
+   if (ata_is_floating_bus(driver->tf_port)) return -1;
 
-   // Wait for drive to be ready
-   ata_wait_for_ready(driver->tf_port);
+   /* Select drive, wait for it to acknowledge the selection. */
+   g_HalIoOperations->outb(driver->tf_port + ATA_REG_DEVICE, driver->slave_bits);
+   ata_400ns_delay(driver->dcr_port);
+   if (ata_wait_for_ready(driver->tf_port) != 0) return -1;
 
-   // Send IDENTIFY command
+   /* Issue IDENTIFY and wait for the data buffer to fill. */
    g_HalIoOperations->outb(driver->tf_port + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-
-   // Wait for data
    if (ata_wait_drq(driver->tf_port) != 0) return -1;
 
-   // Read 256 words
+   /*
+    * Read 256 words.
+    * ATA IDENTIFY stores ASCII strings in word-swapped order: within each
+    * 16-bit word the high byte is the first character.  Callers that extract
+    * model/serial strings must swap accordingly (see ATA_Scan below).
+    */
    for (int i = 0; i < 256; i++)
-   {
       buffer[i] = g_HalIoOperations->inw(driver->tf_port + ATA_REG_DATA);
-   }
 
    return 0;
 }
