@@ -36,11 +36,13 @@ sudo apt-get install -y python3 scons
 === Platform-Specific Notes
 
 **Linux (Recommended):**
+
 * Full support for all architectures
 * Cross-compiler toolchain builds reliably
 * QEMU and GDB installation straightforward
 
 **macOS (Partial Support):**
+
 * i686 builds supported but may require manual setup
 * x64 and ARM64 builds not fully tested
 * Cross-compiler toolchain building may fail or require manual intervention
@@ -85,6 +87,7 @@ scons deps
 ----
 
 This automatically:
+
 * Detects your architecture and OS
 * Downloads and builds required dependencies
 * Installs QEMU and debugging tools
@@ -110,6 +113,7 @@ scons                    # Build with default settings (debug mode)
 ----
 
 This builds:
+
 * Kernel executable
 * Userspace libraries and utilities
 * Bootable disk image
@@ -208,6 +212,7 @@ scons outputFormat=iso
 === Build Modes
 
 **Debug mode** (default):
+
 * Includes debug symbols
 * No optimizations
 * Larger binaries
@@ -219,6 +224,7 @@ scons config=debug
 ----
 
 **Release mode**:
+
 * Optimized for performance
 * Smaller binaries
 * No debug information
@@ -305,6 +311,7 @@ scons debug
 ----
 
 This:
+
 * Starts QEMU in debug mode
 * Waits for GDB connection
 * Loads kernel symbols in GDB
