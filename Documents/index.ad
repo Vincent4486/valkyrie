@@ -1,0 +1,30 @@
+= Documentation for Valkyrie OS
+
+This is the documentation tree for Valkyrie OS, it contains documentations for the current operating system including the kernel, userland programs and other useful documentations. If you found any documentation miss-match between the code, you are welcomed to open an issue or pull request of GitHub about this.
+
+== Building the Project
+
+You can find all the instructions needed for you to start compiling this project for development for standard use.
+
+----
+Build the Project <root/building>
+----
+
+== Developers
+
+Contributions to this project is always welcomed, the documentation here can also help you to understand the project.
+
+----
+Developer Guide <root/devel>
+Kernel Documentation <root/kernel/index>
+Userspace Ducumentation <root/usr/index>
+Future Roadmap <root/roadmap>
+----
+
+== Using the OS
+
+If you are interested into trying this operating system, there are some usage guides that can guide you through the Valkyrie OS experience.
+
+----
+Usage Guides <root/usage/index>
+----
