@@ -14,22 +14,23 @@ INFO_DIR := $(BUILD_DIR)/info
 ADOC_FILES := $(wildcard *.ad)
 PDF_TARGETS := $(patsubst %.ad,$(PDF_DIR)/%.pdf,$(ADOC_FILES))
 HTML_TARGETS := $(patsubst %.ad,$(HTML_DIR)/%.html,$(ADOC_FILES))
+MAN_TARGETS := $(patsubst %.ad,$(MAN_DIR)/%,$(ADOC_FILES))
+INFO_TARGETS := $(patsubst %.ad,$(INFO_DIR)/%.info,$(ADOC_FILES))
 
-# AsciiDoc attributes (customize as needed)
-ASCIIDOCTOR_OPTS := -a toc=left -a icons=font -a experimental=true
-PDF_OPTS := $(ASCIIDOCTOR_OPTS) -b pdf
-HTML_OPTS := $(ASCIIDOCTOR_OPTS) -b html5
+# Pandoc options
+PANDOC_FROM := asciidoc
+PANDOC_PDF_OPTS := -f $(PANDOC_FROM) -t pdf --pdf-engine=xelatex
+PANDOC_HTML_OPTS := -f $(PANDOC_FROM) -t html5 -s --toc
+PANDOC_MAN_OPTS := -f $(PANDOC_FROM) -t man
+PANDOC_TEXINFO_OPTS := -f $(PANDOC_FROM) -t texinfo --top-level-division=chapter
 
 # Commands
-ASCIIDOCTOR := asciidoctor
-A2X := a2x
 PANDOC := pandoc
+MAKEINFO := makeinfo
 
 # Detect availability
-HAVE_ASCIIDOCTOR := $(shell command -v $(ASCIIDOCTOR) 2>/dev/null)
-HAVE_ASCIIDOCTOR_PDF := $(shell $(ASCIIDOCTOR) -v 2>/dev/null | grep -q 'asciidoctor-pdf' && echo 1 || echo 0)
-HAVE_A2X := $(shell command -v $(A2X) 2>/dev/null)
-HAVE_PANDOC := $(shell command -v $(PANDOC) 2>/dev/null)
+HAVE_PANDOC := $(shell which pandoc 2>/dev/null)
+HAVE_MAKEINFO := $(shell which makeinfo 2>/dev/null)
 
 # Colored output
 RED := \033[0;31m
@@ -44,31 +45,22 @@ help:
 	@echo "  $(YELLOW)all$(NC)          - Build PDF, HTML, man pages, and info pages"
 	@echo "  $(YELLOW)pdf$(NC)          - Build all PDF documents"
 	@echo "  $(YELLOW)html$(NC)         - Build all HTML documents"
-	@echo "  $(YELLOW)man$(NC)          - Build man pages (requires a2x)"
-	@echo "  $(YELLOW)info$(NC)         - Build info pages (requires pandoc)"
+	@echo "  $(YELLOW)man$(NC)          - Build man pages"
+	@echo "  $(YELLOW)info$(NC)         - Build info pages"
 	@echo "  $(YELLOW)clean$(NC)        - Remove all build artifacts"
 	@echo "  $(YELLOW)help$(NC)         - Show this help message"
 	@echo ""
 	@echo "Build artifacts in: $(BUILD_DIR)/"
 	@echo ""
 	@echo "Tool Status:"
-	@if [ -n "$(HAVE_ASCIIDOCTOR)" ]; then echo "  $(GREEN)✓$(NC) AsciiDoctor"; else echo "  $(RED)✗$(NC) AsciiDoctor (required)"; fi
-	@if [ "$(HAVE_ASCIIDOCTOR_PDF)" = "1" ]; then echo "  $(GREEN)✓$(NC) asciidoctor-pdf"; else echo "  $(RED)✗$(NC) asciidoctor-pdf (required for PDF)"; fi
-	@if [ -n "$(HAVE_A2X)" ]; then echo "  $(GREEN)✓$(NC) a2x"; else echo "  $(RED)✗$(NC) a2x (optional, for man pages)"; fi
-	@if [ -n "$(HAVE_PANDOC)" ]; then echo "  $(GREEN)✓$(NC) Pandoc"; else echo "  $(RED)✗$(NC) Pandoc (optional, for info pages)"; fi
+	@if [ -n "$(HAVE_PANDOC)" ]; then echo "  $(GREEN)✓$(NC) Pandoc"; else echo "  $(RED)✗$(NC) Pandoc (required)"; fi
+	@if [ -n "$(HAVE_MAKEINFO)" ]; then echo "  $(GREEN)✓$(NC) makeinfo"; else echo "  $(RED)✗$(NC) makeinfo (optional, for info pages)"; fi
 
 # Check for required tools
 check-tools:
-	@if [ -z "$(HAVE_ASCIIDOCTOR)" ]; then \
-		echo "$(RED)ERROR: asciidoctor not found$(NC)"; \
-		echo "  Install: gem install asciidoctor"; \
-		exit 1; \
-	fi
-
-check-tools-pdf: check-tools
-	@if [ "$(HAVE_ASCIIDOCTOR_PDF)" != "1" ]; then \
-		echo "$(RED)ERROR: asciidoctor-pdf converter not found$(NC)"; \
-		echo "  Install: gem install asciidoctor-pdf"; \
+	@if [ -z "$(HAVE_PANDOC)" ]; then \
+		echo "$(RED)ERROR: pandoc not found$(NC)"; \
+		echo "  Install: brew install pandoc (macOS) or apt-get install pandoc (Debian/Ubuntu)"; \
 		exit 1; \
 	fi
 
@@ -77,14 +69,14 @@ $(BUILD_DIR) $(PDF_DIR) $(HTML_DIR) $(MAN_DIR) $(INFO_DIR):
 	@mkdir -p $@
 
 # PDF targets
-$(PDF_DIR)/%.pdf: %.ad | check-tools-pdf $(PDF_DIR)
+$(PDF_DIR)/%.pdf: %.ad | check-tools $(PDF_DIR)
 	@echo "$(YELLOW)Building PDF: $@$(NC)"
-	@$(ASCIIDOCTOR) $(PDF_OPTS) -o $@ $<
+	@$(PANDOC) $(PANDOC_PDF_OPTS) -o $@ $<
 
 # HTML targets
 $(HTML_DIR)/%.html: %.ad | check-tools $(HTML_DIR)
 	@echo "$(YELLOW)Building HTML: $@$(NC)"
-	@$(ASCIIDOCTOR) $(HTML_OPTS) -o $@ $<
+	@$(PANDOC) $(PANDOC_HTML_OPTS) -o $@ $<
 
 # PDF build target
 pdf: $(PDF_TARGETS)
@@ -94,39 +86,28 @@ pdf: $(PDF_TARGETS)
 html: $(HTML_TARGETS)
 	@echo "$(GREEN)✓ HTML documents built in $(HTML_DIR)/$(NC)"
 
-# Man pages target (requires a2x and asciidoc)
+# Man pages target (using pandoc)
 man: | check-tools $(MAN_DIR)
-	@if [ -z "$(HAVE_A2X)" ]; then \
-		echo "$(RED)ERROR: a2x not found (part of asciidoc package)$(NC)"; \
-		echo "  Install: apt-get install asciidoc (Debian/Ubuntu) or brew install asciidoc (macOS)"; \
-		exit 1; \
-	fi
 	@for file in $(ADOC_FILES); do \
-		if grep -q "^:man-section:" "$$file"; then \
-			section=$$(grep "^:man-section:" "$$file" | cut -d: -f3); \
-			if [ "$$section" != "0" ]; then \
-				outname=$$(basename "$$file" .ad).$$section; \
-				echo "$(YELLOW)Building man page: $$outname$(NC)"; \
-				$(A2X) -d manpage -f manpage -o - "$$file" > $(MAN_DIR)/"$$outname" 2>/dev/null || true; \
-			fi; \
-		fi; \
+		outname=$$(basename "$$file" .ad); \
+		echo "$(YELLOW)Building man page: $$outname.1$(NC)"; \
+		$(PANDOC) $(PANDOC_MAN_OPTS) -o $(MAN_DIR)/"$$outname".1 "$$file" 2>/dev/null || true; \
 	done
 	@echo "$(GREEN)✓ Man pages built in $(MAN_DIR)/$(NC)"
 
-# Info pages target (requires pandoc)
-info: pdf | $(INFO_DIR)
-	@if [ -z "$(HAVE_PANDOC)" ]; then \
-		echo "$(RED)ERROR: pandoc not found$(NC)"; \
-		echo "  Install: brew install pandoc (macOS) or apt-get install pandoc (Debian/Ubuntu)"; \
-		exit 1; \
-	fi
-	@for pdf in $(PDF_DIR)/*.pdf; do \
-		if [ -f "$$pdf" ]; then \
-			base=$$(basename "$$pdf" .pdf); \
+# Info pages target (requires pandoc and makeinfo)
+info: html | check-tools $(INFO_DIR)
+	@for html in $(HTML_DIR)/*.html; do \
+		if [ -f "$$html" ]; then \
+			base=$$(basename "$$html" .html); \
 			echo "$(YELLOW)Building info page: vk-$$base.info$(NC)"; \
-			$(PANDOC) "$$pdf" -t texinfo -o $(INFO_DIR)/vk-$$base.texi 2>/dev/null && \
-			makeinfo $(INFO_DIR)/vk-$$base.texi -o $(INFO_DIR)/vk-$$base.info 2>/dev/null || \
-			echo "  $(YELLOW)Note: makeinfo not available; info page generation skipped$(NC)"; \
+			$(PANDOC) $(PANDOC_TEXINFO_OPTS) "$$html" -o $(INFO_DIR)/vk-$$base.texi 2>/dev/null && \
+			if [ -n "$(HAVE_MAKEINFO)" ]; then \
+				$(MAKEINFO) $(INFO_DIR)/vk-$$base.texi -o $(INFO_DIR)/vk-$$base.info 2>/dev/null || \
+				echo "  $(YELLOW)Note: makeinfo failed; skipping $(INFO_DIR)/vk-$$base.info$(NC)"; \
+			else \
+				echo "  $(YELLOW)Note: makeinfo not available; skipping $(INFO_DIR)/vk-$$base.info$(NC)"; \
+			fi || true; \
 		fi; \
 	done
 	@echo "$(GREEN)✓ Info pages built in $(INFO_DIR)/$(NC)"

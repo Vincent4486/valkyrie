@@ -1,30 +1,80 @@
-= Documentation for Valkyrie OS
+= Valkyrie OS Documentation
+:toc: left
+:icons: font
+:sectlinks:
 
-This is the documentation tree for Valkyrie OS, it contains documentations for the current operating system including the kernel, userland programs and other useful documentations. If you found any documentation miss-match between the code, you are welcomed to open an issue or pull request of GitHub about this.
+Welcome to the Valkyrie OS project! This documentation provides everything you need to understand, build, develop, and use Valkyrie OS.
 
-== Building the Project
+Valkyrie OS is a Unix-like, multi-architecture operating system kernel designed with clean architecture, modularity, and educational value in mind. Whether you're a curious learner, a systems developer, or someone interested in OS internals, this documentation will guide you through the project.
 
-You can find all the instructions needed for you to start compiling this project for development for standard use.
+== Quick Start
 
-----
-Build the Project <root/building>
-----
+* **Want to build the project?** → See *Building the Project*
+* **Want to contribute code?** → See *Developer Guide*
+* **Want to try running it?** → See *Usage Guides*
+* **Curious about the architecture?** → See *Kernel Documentation*
 
-== Developers
+== Project Overview
 
-Contributions to this project is always welcomed, the documentation here can also help you to understand the project.
+Valkyrie OS is built with the following principles:
 
-----
-Developer Guide <root/devel>
-Kernel Documentation <root/kernel/index>
-Userspace Ducumentation <root/usr/index>
-Future Roadmap <root/roadmap>
-----
+* *Multi-architecture support* — Designed from the ground up to support multiple CPU architectures (i686, x64, ARM64, etc.)
+* *Clean separation of concerns* — Hardware abstraction layer (HAL) isolates platform-specific code
+* *Modular design* — Each subsystem (memory, filesystem, drivers) is self-contained
+* *Well-documented* — Code and systems are documented for learning purposes
+* *Performance-oriented* — Practical optimizations without sacrificing clarity
 
-== Using the OS
+== Documentation Files
 
-If you are interested into trying this operating system, there are some usage guides that can guide you through the Valkyrie OS experience.
+=== For Developers and Contributors
 
-----
-Usage Guides <root/usage/index>
-----
+These documents cover everything needed to participate in Valkyrie OS development:
+
+* **devel.ad** — Coding standards, naming conventions, assembly strategy, and git workflow
+* **kernel/index.ad** — Deep dives into kernel subsystems, memory management, scheduling, and device drivers
+* **roadmap.ad** — Planned features, known limitations, and architectural goals
+
+New contributors should start with **devel.ad** to understand the project's coding standards and build system.
+
+=== For Users and Testers
+
+Want to try Valkyrie OS or understand how to use it?
+
+* **building.ad** — Step-by-step instructions for compiling the kernel and userland
+* **usage/index.ad** — How to boot, interact with, and test Valkyrie OS
+
+=== For Userspace Developers
+
+Building applications or utilities for Valkyrie OS?
+
+* **usr/index.ad** — System calls, libc functions, and standard library APIs
+
+== Quick Reference
+
+[width="100%",cols="50%,50%",options="header"]
+|===
+| Topic | Document
+| Code style & conventions | devel.ad
+| Memory management | kernel/index.ad
+| Building from source | building.ad
+| Running on QEMU | usage/index.ad
+| Contributing patches | devel.ad
+| Supported architectures | kernel/index.ad
+|===
+
+== Getting Help
+
+* **Found a bug?** → Open an issue on GitHub
+* **Have a question?** → Check devel.ad or search existing documentation
+* **Documentation out of sync with code?** → Please submit a pull request with fixes
+* **Want to contribute?** → See the Contributing section in devel.ad
+
+== Revision History
+
+=== v1.0
+
+Initial comprehensive documentation welcome and index guide
+
+=== v1.1
+
+Fixed AsciiDoc syntax and pandoc compatibility for PDF generation

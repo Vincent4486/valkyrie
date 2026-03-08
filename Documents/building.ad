@@ -1,0 +1,474 @@
+= Building Valkyrie OS
+:toc: left
+:icons: font
+:sectlinks:
+
+This guide walks you through building Valkyrie OS from source, including the kernel, userspace applications, and bootable disk images.
+
+== Prerequisites
+
+=== Minimal Requirements
+
+The absolute minimum to get started:
+
+* **Python 3+** — For SCons and build scripts
+* **SCons** — Build system
+
+That's it! Everything else can be installed and built automatically.
+
+=== Host Package Manager Setup
+
+Install only Python and SCons via your system package manager:
+
+**macOS:**
+[source,bash]
+----
+brew install python3 scons
+----
+
+**Debian/Ubuntu:**
+[source,bash]
+----
+sudo apt-get update
+sudo apt-get install -y python3 scons
+----
+
+=== Platform-Specific Notes
+
+**Linux (Recommended):**
+* Full support for all architectures
+* Cross-compiler toolchain builds reliably
+* QEMU and GDB installation straightforward
+
+**macOS (Partial Support):**
+* i686 builds supported but may require manual setup
+* x64 and ARM64 builds not fully tested
+* Cross-compiler toolchain building may fail or require manual intervention
+* Consider using Docker or a Linux VM for production builds
+* Manual toolchain installation may be necessary (see <<Troubleshooting>>)
+* Does not support disk image builds because of `parted`
+
+== Building the Project
+
+=== Configuration File (.config)
+
+Build settings are stored in `.config` at the project root. This file persists your preferences across builds, it will create itself when you run scons once.
+
+[source,bash]
+----
+cat .config
+----
+
+Example contents:
+
+[source,python]
+----
+config = 'debug'
+arch = 'i686'
+imageFS = 'fat32'
+buildType = 'full'
+imageSize = '250m'
+toolchain = '../os_toolchain'
+outputFile = 'valkyrieos'
+outputFormat = 'hd'
+kernelName = 'valkyrix'
+----
+
+=== Step 1: Install Dependencies
+
+Install all build dependencies (compilers, libraries, tools):
+
+[source,bash]
+----
+cd ~/Programming/valkyrie
+scons deps
+----
+
+This automatically:
+* Detects your architecture and OS
+* Downloads and builds required dependencies
+* Installs QEMU and debugging tools
+
+=== Step 2: Building the Toolchain
+
+Once dependencies are installed via `scons deps`, you can build the cross-compiler toolchain:
+
+[source,bash]
+----
+scons toolchain
+----
+
+This builds the cross-compiler for your target architecture based on the `arch` variable in `.config` or if you explicitly set it via arguments. The toolchain build requires dependencies to be installed first. The path that the toolchain will install to is the directory the `toolchain` variable points to (You may need root privillages if you would like to install it system wide to locations like `/opt/cross`).
+
+=== Step 3: Build
+
+Once dependencies are installed and toolchain is built, build normally (make sure that you set the toolchain path to the acctual toolchain path):
+
+[source,bash]
+----
+scons                    # Build with default settings (debug mode)
+----
+
+This builds:
+* Kernel executable
+* Userspace libraries and utilities
+* Bootable disk image
+
+Build artifacts are placed in the `build/` directory.
+
+=== Step 4: Run or Debug
+
+[source,bash]
+----
+scons run                # Boot in QEMU
+# or
+scons debug              # Start debugging session
+----
+
+=== Building for Multiple Architectures
+
+To build for multiple target architectures, build the toolchain for each architecture:
+
+[source,bash]
+----
+# Build toolchain for i686
+scons arch=i686 toolchain
+
+# Build toolchain for x64
+scons arch=x64 toolchain
+
+# Build toolchain for ARM64
+scons arch=aarch64 toolchain
+
+# Now you can switch between architectures:
+scons arch=i686 buildType=kernel      # i686 kernel
+scons arch=x64 buildType=kernel       # x64 kernel
+scons arch=aarch64 buildType=kernel   # ARM64 kernel
+----
+
+Each architecture's cross-compiler is stored separately, so switching architectures is as simple as changing the `arch` variable.
+[source, python]
+----
+outputFormat = 'hd'
+kernelName = 'valkyrix'
+----
+
+You can edit `.config` directly to persist settings, or use command-line arguments (command-line takes precedence):
+
+[source,bash]
+----
+scons config=release      # Use release for this build only (still uses .config defaults for other vars)
+scons arch=x64            # Use x64 for this build only
+----
+
+== Build Configuration
+
+=== Configuration Variables
+
+Pass variables to `scons` to customize the build. Common options:
+
+[width="100%",cols="30%,30%,40%",options="header"]
+|===
+| Variable | Values | Default
+| `config` | `debug`, `release` | `debug`
+| `arch` | `i686`, `x64`, `aarch64` | `i686`
+| `imageFS` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
+| `imageSize` | Size with k/m/g suffix | `250m`
+| `buildType` | `full`, `kernel`, `usr`, `image` | `full`
+| `outputFormat` | `hd`, `iso` | `hd`
+| `outputFile` | Base name (no extension) | `valkyrieos`
+|===
+
+=== Examples
+
+[source,bash]
+----
+# Build for release with optimizations
+scons config=release
+
+# Build for x64 architecture
+scons arch=x64 config=release
+
+# Build only the kernel (skip userspace)
+scons buildType=kernel
+
+# Build only the disk image
+scons buildType=image
+
+# Specify output image name and filesystem
+scons outputFile=vk-debug imageFS=ext2
+
+# Large image (512 MB)
+scons imageSize=512m
+
+# ISO format instead of hard disk
+scons outputFormat=iso
+----
+
+=== Build Modes
+
+**Debug mode** (default):
+* Includes debug symbols
+* No optimizations
+* Larger binaries
+* Better for development and debugging
+
+[source,bash]
+----
+scons config=debug
+----
+
+**Release mode**:
+* Optimized for performance
+* Smaller binaries
+* No debug information
+* Better for production/testing
+
+[source,bash]
+----
+scons config=release
+----
+
+== Build Targets
+
+=== Full Build
+
+Build kernel, userspace, and disk image (default):
+
+[source,bash]
+----
+scons buildType=full
+# or simply: scons
+----
+
+=== Kernel Only
+
+[source,bash]
+----
+scons buildType=kernel
+----
+
+Output: `build/kernel/valkyrix` (ELF executable with debug symbols)
+
+=== Userspace Only
+
+[source,bash]
+----
+scons buildType=usr
+----
+
+Builds system libraries and utilities without the kernel.
+
+=== Image Only
+
+[source,bash]
+----
+scons buildType=image
+----
+
+Generates bootable disk image from pre-built kernel and userspace.
+
+== Running and Testing
+
+=== Boot in QEMU
+
+Launch Valkyrie OS in the QEMU emulator:
+
+[source,bash]
+----
+scons run
+----
+
+This starts a QEMU virtual machine with:
+* 32 MB of RAM (configurable)
+* Disk image if available
+* Display output
+
+=== Boot with Custom Settings
+
+[source,bash]
+----
+# Increase memory to 64 MB
+scons run -- --memory=64M
+
+# Use specific output image
+scons run -- --image=build/valkyrieos.img
+----
+
+=== Debugging with GDB
+
+Start a debug session with kernel symbols:
+
+[source,bash]
+----
+scons debug
+----
+
+This:
+* Starts QEMU in debug mode
+* Waits for GDB connection
+* Loads kernel symbols in GDB
+* Allows breakpoints, stepping, and inspection
+
+From another terminal, you can set breakpoints and step through code:
+
+[source,bash]
+----
+# Inside GDB
+(gdb) break CPU_Initialize
+(gdb) continue
+(gdb) step
+(gdb) print variable_name
+----
+
+== Incremental Builds
+
+SCons caches build results, so subsequent builds only recompile changed files.
+
+=== macOS Toolchain Issues
+
+macOS support for automated toolchain building is limited. If `scons toolchain` fails:
+
+**Option 1: Use Homebrew (easiest, i686 only)**
+
+[source,bash]
+----
+brew install gmp mpc mpfr
+
+# include --with-gmp=... --with-mpc=... in your configure command for autoconf to find dependencies
+----
+
+**Option 2: Use Docker (recommended for reliable builds)**
+
+[source,bash]
+----
+docker run -it -v $(pwd):/valkyrie ubuntu:22.04 bash
+# Inside container:
+apt-get update && apt-get install -y scons python3
+cd /valkyrie
+scons deps && scons toolchain && scons build
+----
+
+**Option 3: Use a Linux VM (VirtualBox, Parallels)**
+
+Running Valkyrie OS builds on Linux is more reliable. Consider setting up a development VM.
+
+**Option 4: Manual toolchain installation (advanced)**
+
+Build from source following GNU toolchain documentation, then configure `.config`:
+
+[source,ini]
+----
+toolchain = '/path/to/custom/toolchain'
+----
+
+=== Cleaning Build Artifacts
+
+Remove all build artifacts:
+
+[source,bash]
+----
+scons -c              # Clean build directory
+----
+
+== Environment Variables
+
+You can also set build options via environment variables (lower precedence than command-line):
+
+[source,bash]
+----
+export VALKYRIE_ARCH=i686
+export VALKYRIE_CONFIG=release
+scons
+----
+
+== Advanced Topics
+
+=== Custom Toolchain Path
+
+If your cross-compiler is in a non-standard location:
+
+[source,bash]
+----
+scons toolchain=/opt/cross/
+----
+
+=== Verbose Build Output
+
+See detailed compiler commands:
+
+[source,bash]
+----
+scons --verbose
+----
+
+=== Parallel Builds
+
+Speed up compilation using multiple CPU cores:
+
+[source,bash]
+----
+scons -j4                   # Use 4 parallel jobs
+scons -j$(nproc)            # Use all available cores
+----
+
+=== Build for Multiple Architectures
+
+Build and test across architectures:
+
+[source,bash]
+----
+for arch in i686 x64 aarch64; do
+  scons arch=$arch config=release buildType=kernel
+done
+----
+
+== Build System Structure
+
+The SCons build system consists of:
+
+* `SConstruct` — Top-level build configuration
+* `kernel/SConscript` — Kernel build rules
+* `usr/SConscript` — Userspace build rules
+* `image/SConscript` — Disk image generation
+* `scripts/scons/` — Helper modules (toolchain, arch detection, disk utilities)
+
+See the kernel configuration files for details on architecture-specific settings.
+
+== Building Documentation
+
+Generate documentation in multiple formats (PDF, HTML, man pages, info pages):
+
+[source,bash]
+----
+cd Documents
+make pdf                 # Generate PDF documents
+make html                # Generate HTML documents
+make man                 # Generate man pages
+make info                # Generate info pages
+make all                 # Generate all formats
+make clean               # Remove all generated docs
+----
+
+Documentation is built using Pandoc and output to:
+
+* `build/pdf/` — PDF documents
+* `build/html/` — HTML documents
+* `build/man/` — Man pages
+* `build/info/` — Info pages
+
+All documentation files use AsciiDoc format (`.ad` files) and are processed through pandoc.
+
+== Revision History
+
+=== v1.0
+
+Initial comprehensive building guide with SCons quickstart, configuration options, running/debugging, and troubleshooting
+
+=== v1.1
+
+Added configuration file (`.config`) explanation, refined deps vs toolchain distinction, added macOS support warnings and Docker/VM alternatives
+
+=== v1.2
+
+Clarified toolchain built based on 'arch' variable, added multiple architecture build instructions, added documentation building section
