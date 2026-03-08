@@ -101,7 +101,7 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
    SYS_Finalize();
 
    ELF_LoadProcess("/usr/bin/sh", false);
-   TTY_SetVideoMode(80, 43);
+   // TTY_SetVideoMode(80, 43);
    // TTY_SetVideoMode(40, 25);
 
    /* Start interactive line reader: on ENTER, print the entered text. */
