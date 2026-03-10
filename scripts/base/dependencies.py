@@ -27,6 +27,8 @@ DEPENDENCIES = {
             'python3',
             'python3-pip',
             'scons',
+            'pandoc',
+            'make',
             'guestfish',
             'libguestfs-tools',
             'grub-pc-bin',

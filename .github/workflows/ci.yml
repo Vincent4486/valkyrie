@@ -29,7 +29,9 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 scons pandoc makeinfo
+          sudo apt-get install -y python3 python3-pip
+          # use the helper script to install all required packages
+          printf 'y\n' | scons deps - --distro debian
 
       - name: Build cross-toolchain
         run: |
