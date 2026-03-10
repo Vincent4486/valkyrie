@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip scons python3-sh
           # use the helper script to install all required packages
-          printf 'y\n' | scons deps - --distro debian
+          printf 'y\n' | scons deps
 
       - name: Build cross-toolchain
         run: |
