@@ -9,10 +9,10 @@ Valkyrie OS is a Unix-like, multi-architecture operating system kernel designed 
 
 == Quick Start
 
-* **Want to build the project?** → See *Building the Project*
-* **Want to contribute code?** → See *Developer Guide*
-* **Want to try running it?** → See *Usage Guides*
-* **Curious about the architecture?** → See *Kernel Documentation*
+* **Want to build the project?** → See link:building.html[Building the Project]
+* **Want to contribute code?** → See link:devel.html[Developer Guide]
+* **Want to try running it?** → See link:usage/index.html[Usage Guides]
+* **Curious about the architecture?** → See link:kernel/index.html[Kernel Documentation]
 
 == Project Overview
 
@@ -30,9 +30,9 @@ Valkyrie OS is built with the following principles:
 
 These documents cover everything needed to participate in Valkyrie OS development:
 
-* **devel.ad** — Coding standards, naming conventions, assembly strategy, and git workflow
-* **kernel/index.ad** — Deep dives into kernel subsystems, memory management, scheduling, and device drivers
-* **roadmap.ad** — Planned features, known limitations, and architectural goals
+* **link:devel.html[devel.ad]** — Coding standards, naming conventions, assembly strategy, and git workflow
+* **link:kernel/index.html[kernel/index.ad]** — Deep dives into kernel subsystems, memory management, scheduling, and device drivers
+* **link:roadmap.html[roadmap.ad]** — Planned features, known limitations, and architectural goals
 
 New contributors should start with **devel.ad** to understand the project's coding standards and build system.
 
@@ -40,14 +40,14 @@ New contributors should start with **devel.ad** to understand the project's codi
 
 Want to try Valkyrie OS or understand how to use it?
 
-* **building.ad** — Step-by-step instructions for compiling the kernel and userland
-* **usage/index.ad** — How to boot, interact with, and test Valkyrie OS
+* **link:building.html[building.ad]** — Step-by-step instructions for compiling the kernel and userland
+* **link:usage/index.html[usage/index.ad]** — How to boot, interact with, and test Valkyrie OS
 
 === For Userspace Developers
 
 Building applications or utilities for Valkyrie OS?
 
-* **usr/index.ad** — System calls, libc functions, and standard library APIs
+* **link:usr/index.html[usr/index.ad]** — System calls, libc functions, and standard library APIs
 
 == Quick Reference
 

@@ -2,17 +2,19 @@
 :toc: left
 :icons: font
 
+See also: link:index.html[Home], link:building.html[Build Guide], link:roadmap.html[Roadmap]
+
 == Contributing to Valkyrie
 
-_Guidelines for contributing code, submitting patches, and development workflow to be added._
+First, thank you all for being interested into joining the development of Valkyrie OS, we are very happy to recieve patches from all of you. Below are the basic guidelines for contributing to Valkyrie, you should always read this before you open a Pull Request for submit an issue.
 
 == Setting Up a Development Environment
 
-_Instructions for setting up build tools, dependencies, and development setup to be added._
+This part is explained in link:building.html[Building Valkyrie OS], see there for a detailed explanation of how to build Valkyrie.
 
 == Build System
 
-_For more detailed build, please see file <root/building>_
+This part is also explained in link:building.html[Building Valkyrie OS]; see that document for details of the build system.
 
 The kernel uses SCons for building. Key files:
 
@@ -53,7 +55,25 @@ void Heap_SelfTest(void);
 
 == Git Workflow and Version Control
 
-_Best practices for commits, branching strategy, and repository management to be added._
+This project use Git for version controls and file managment, below are the few requirements for submiting PRs or patches.
+
+Commit:
+
+* The commit message must describe the update
+* Cannot be just random letters and words like `update`
+
+Pull Request:
+
+* Always use a feature branch of your fork instead of the master branch
+* Describe what has changed in the PR
+* Keep 1 PR dedicated to 1 thing, if you changed multiple, add multiple PRs
+
+Patches:
+
+* Patches can be sent to me via e-mail
+* It has to be a patch generated from committed changes, not a diff
+* Explain the patch briefly in the body of the email if necessary
+* Use `git send-email` when you can
 
 == Coding Style Conventions
 
@@ -530,10 +550,6 @@ All documentation files use AsciiDoc (`.ad`) format:
 * Include `:sectlinks:` for linkable sections
 * Ensure compatibility with pandoc conversion to PDF, HTML, and man pages
 
-=== Code Comments and API Documentation
-
-_Additional guidelines for code comments and API specifications to be added._
-
 == Revision History
 
 === v1.0
@@ -547,3 +563,7 @@ Clarified HAL assembly strategy for multi-architecture support, 3-space indentat
 === v1.2
 
 Added structures for other components of this file including welcome message and Git version controls
+
+=== v1.3
+
+Added Git version control part

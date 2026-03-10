@@ -3,6 +3,8 @@
 :icons: font
 :sectlinks:
 
+See also: link:index.html[Home], link:devel.html[Developer Guide]
+
 This guide walks you through building Valkyrie OS from source, including the kernel, userspace applications, and bootable disk images.
 
 == Prerequisites
