@@ -26,7 +26,10 @@ DEPENDENCIES = {
             'make',
             'python3',
             'python3-pip',
+            'python3-sh',
             'scons',
+            'parted',
+            'dosfstools',
             'pandoc',
             'make',
             'guestfish',
@@ -226,6 +229,8 @@ def main():
                         help='Run commands without sudo')
     parser.add_argument('-l', '--list', action='store_true',
                         help='List packages for detected/specified distribution')
+    parser.add_argument('-y', '--yes', action='store_true',
+                        help='Skip confirmation prompt (for non-interactive use)')
     
     args = parser.parse_args()
     
@@ -245,7 +250,7 @@ def main():
         sys.exit(0)
     
     print()
-    if not args.dry_run:
+    if not args.dry_run and not args.yes:
         response = input("Install dependencies? [y/N] ").strip().lower()
         if response not in ('y', 'yes'):
             print("Cancelled.")
