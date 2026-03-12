@@ -20,16 +20,17 @@ INFO_TARGETS := $(patsubst %.ad,$(INFO_DIR)/%.info,$(ADOC_FILES))
 # Pandoc options
 PANDOC_FROM := asciidoc
 PANDOC_PDF_OPTS := -f $(PANDOC_FROM) -t pdf --pdf-engine=xelatex
-PANDOC_HTML_OPTS := -f $(PANDOC_FROM) -t html5 -s --toc
 PANDOC_MAN_OPTS := -f $(PANDOC_FROM) -t man
 PANDOC_TEXINFO_OPTS := -f $(PANDOC_FROM) -t texinfo --top-level-division=chapter
 
 # Commands
 PANDOC := pandoc
+ASCIIDOCTOR := asciidoctor
 MAKEINFO := makeinfo
 
 # Detect availability
 HAVE_PANDOC := $(shell which pandoc 2>/dev/null)
+HAVE_ASCIIDOCTOR := $(shell which asciidoctor 2>/dev/null)
 HAVE_MAKEINFO := $(shell which makeinfo 2>/dev/null)
 
 # Colored output
@@ -64,6 +65,13 @@ check-tools:
 		exit 1; \
 	fi
 
+check-asciidoctor:
+	@if [ -z "$(HAVE_ASCIIDOCTOR)" ]; then \
+		echo "$(RED)ERROR: asciidoctor not found$(NC)"; \
+		echo "  Install: gem install asciidoctor (or apt-get install asciidoctor)"; \
+		exit 1; \
+	fi
+
 # Create build directories
 $(BUILD_DIR) $(PDF_DIR) $(HTML_DIR) $(MAN_DIR) $(INFO_DIR):
 	@mkdir -p $@
@@ -74,9 +82,9 @@ $(PDF_DIR)/%.pdf: %.ad | check-tools $(PDF_DIR)
 	@$(PANDOC) $(PANDOC_PDF_OPTS) -o $@ $<
 
 # HTML targets
-$(HTML_DIR)/%.html: %.ad | check-tools $(HTML_DIR)
+$(HTML_DIR)/%.html: %.ad | check-asciidoctor $(HTML_DIR)
 	@echo "$(YELLOW)Building HTML: $@$(NC)"
-	@$(PANDOC) $(PANDOC_HTML_OPTS) -o $@ $<
+	@$(ASCIIDOCTOR) -a toc -o $@ $<
 
 # PDF build target
 pdf: $(PDF_TARGETS)
