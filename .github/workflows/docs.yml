@@ -18,6 +18,7 @@ jobs:
 
       - name: Build documentation
         run: |
+          sudo apt-get install -y pandoc
           make -C Documents html
 
       - name: Deploy documentation via SSH
