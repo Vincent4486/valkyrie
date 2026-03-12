@@ -23,7 +23,7 @@
 /* -------------------------------------------------------------------------
  * Forward declaration: the kernel entry point defined in main.c.
  * ------------------------------------------------------------------------- */
-extern void start(BOOT_Info *boot);
+extern __attribute__((noreturn)) void start(BOOT_Info *boot);
 
 /* -------------------------------------------------------------------------
  * Pre-heap storage for the parsed boot parameters.

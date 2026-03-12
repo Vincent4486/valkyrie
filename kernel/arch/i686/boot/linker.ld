@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 ENTRY(_start)
-/* Program headers: place the multiboot header in a small PT_LOAD (mb),
-    put executable code in PT_LOAD (txt) and writable data in PT_LOAD (dat). */
+/* Two PT_LOAD segments: executable code+rodata (txt) and writable data (dat).
+   The multiboot header lives at the very start of the txt segment so QEMU/GRUB
+   can find the magic value within the first 8 KiB of the loaded image. */
 PHDRS
 {
-   mb    PT_LOAD FLAGS(READ);
    txt   PT_LOAD FLAGS(READ | EXEC);
    dat   PT_LOAD FLAGS(READ | WRITE);
 }
@@ -40,13 +40,13 @@ phys = 0x00A00000;
 
 SECTIONS
 {
-    /* Place the multiboot header section at the start of the output file
-       so GRUB can find it within the first 8KiB. Do not place it at the
-       runtime physical address. */
-   .multiboot          : { __multiboot_start = .; KEEP(*(.multiboot)) } :mb
-
-   /* Now set the runtime origin for the kernel sections */
+   /* All kernel sections start at 10 MiB */
    . = phys;
+
+   /* Multiboot header MUST come first inside the first PT_LOAD segment so
+      QEMU/GRUB can find the magic value within the first 8 KiB of the image.
+      It is tiny (12 bytes) and harmlessly precedes the real entry point. */
+   .multiboot          : { __multiboot_start = .; KEEP(*(.multiboot)) } :txt
 
    .entry              : { __entry_start = .;      *(.entry)   } :txt
     

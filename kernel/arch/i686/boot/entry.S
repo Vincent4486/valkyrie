@@ -11,7 +11,7 @@
     .long 0x00000003
     .long (-(0x1BADB002 + 0x00000003))
 
-.section .entry
+.section .entry, "ax", @progbits
 	# Entry point symbol - linker ENTRY points here
 .global _start
 .extern Parser_Multiboot

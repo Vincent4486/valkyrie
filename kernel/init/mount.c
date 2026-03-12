@@ -50,19 +50,19 @@ bool Init_MountRoot(void)
 
       Partition *part = &g_SysInfo->volume[i];
 
-      printf("[OK] Root found: LABEL=\"%s\"\n",
+      logfmt(LOG_INFO, "[MOUNT] Root found: LABEL=\"%s\"\n",
              part->label[0] ? part->label : "VALKYRIE");
 
       int rc = FS_Mount(part, "/");
       if (rc != 0)
       {
-         printf("[MOUNT] FS_Mount failed for volume[%d] (rc=%d) — trying "
+         logfmt(LOG_WARNING, "[MOUNT] FS_Mount failed for volume[%d] (rc=%d) — trying "
                 "next candidate\n",
                 i, rc);
          continue;
       }
 
-      printf("[MOUNT] Root filesystem mounted from volume[%d] at \"/\"\n", i);
+      logfmt(LOG_INFO, "[MOUNT] Root filesystem mounted from volume[%d] at \"/\"\n", i);
 
       /* -----------------------------------------------------------------
        * Post-mount probe: verify /boot/init.sys exists so the kernel
@@ -72,13 +72,13 @@ bool Init_MountRoot(void)
       struct VFS_File *initSys = VFS_Open("/boot/init.sys");
       if (initSys)
       {
-         printf("[MOUNT] Found /boot/init.sys — userspace transition "
+         logfmt(LOG_INFO, "[MOUNT] Found /boot/init.sys — userspace transition "
                 "ready\n");
          VFS_Close(initSys);
       }
       else
       {
-         printf("[MOUNT] WARNING: /boot/init.sys not found on root "
+         logfmt(LOG_WARNING, "[MOUNT] /boot/init.sys not found on root "
                 "filesystem\n");
       }
 

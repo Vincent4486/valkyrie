@@ -57,7 +57,7 @@ void hold(int sec)
    printf("\n");
 }
 
-void __attribute__((section(".entry"))) start(BOOT_Info *boot)
+void __attribute__((noreturn)) start(BOOT_Info *boot)
 {
    // Init system
    memset(&__bss_start, 0, (&__end) - (&__bss_start));
@@ -83,7 +83,6 @@ void __attribute__((section(".entry"))) start(BOOT_Info *boot)
       TTY_Flush(tty_dev);
       goto end;
    }
-
    if (!Init_MountRoot())
    {
       TTY_Flush(tty_dev);

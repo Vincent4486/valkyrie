@@ -119,114 +119,70 @@ get_cpu_frequency:
     movl %esp, %ebp
     pushl %ebx
     pushl %esi
-    pushl %edi
-    pushl %ecx
 
-    # Try CPUID leaf 0x16 first
+    # Ask CPUID leaf 0 for the highest supported leaf.
     xorl %eax, %eax
     cpuid
     movl %eax, %esi        # esi = max leaf
+
+    # Prefer leaf 0x16 (CPU base/bus/max frequencies in MHz, Skylake+).
     cmpl $0x16, %esi
     jge .use_leaf_16
+
+    # Fall back to leaf 0x15 (TSC/core-crystal ratio, Broadwell+).
     cmpl $0x15, %esi
     jge .use_leaf_15
 
-    # Fallback: PIT+TSC measurement using mode 0 (one-shot) over one full PIT period (~55ms)
-    # Setup PIT channel 0, mode 0 (one-shot), reload = 0xFFFF
-    movb $0x30, %al        # command: channel 0, mode 0, binary
-    outb %al, $0x43
-    movb $0xFF, %al
-    outb %al, $0x40        # low byte
-    movb $0xFF, %al
-    outb %al, $0x40        # high byte
-
-    # Capture TSC start (immediately after starting PIT)
-    rdtsc
-    movl %eax, %edi        # tsc_start_low
-
-.loop:
-    call .read_pit_count    # eax = cur
-    testl %eax, %eax        # check if cur == 0
-    jnz .loop               # -if not 0, continue
-
-    # Capture TSC end (PIT has reached 0)
-    rdtsc
-    movl %eax, %esi        # tsc_end_low
-
-    # delta = tsc_end - tsc_start (32-bit; safe for ~55ms)
-    movl %esi, %eax
-    subl %edi, %eax        # eax = delta
-
-    # cpu_hz = (delta * PIT_FREQ) / 0xFFFF
-    movl %eax, %eax
-    movl $1193182, %ebx    # PIT_FREQ
-    mull %ebx              # edx:eax = delta * PIT_FREQ
-    movl $0xFFFF, %ecx     # N = 0xFFFF
-    divl %ecx              # eax = cpu_hz (Hz)
-
-    # Convert to MHz: cpu_mhz = cpu_hz / 1_000_000
-    xorl %edx, %edx
-    movl $1000000, %ecx
-    divl %ecx              # eax = cpu_mhz
-    jmp .done
+    # Neither leaf is available (e.g. QEMU i486/qemu32 default CPU).
+    # Return 0 – frequency is unknown; no PIT timing loop that could hang.
+    xorl %eax, %eax
+    jmp .freq_done
 
 .use_leaf_16:
     movl $0x16, %eax
     cpuid
-    # EAX = base frequency in MHz
-    jmp .cleanup_store
+    # EAX = base frequency in MHz (0 if not enumerated)
+    jmp .freq_done
 
 .use_leaf_15:
     movl $0x15, %eax
     cpuid
-    # EAX = denom, EBX = numer, ECX = crystal_freq (Hz)
-    movl %eax, %edi    # denom
-    movl %ebx, %esi    # numer
-    movl %ecx, %ebx    # crystal (Hz)
-    testl %edi, %edi
-    jz .no_leaf15
-    testl %esi, %esi
-    jz .no_leaf15
+    # EAX = denominator, EBX = numerator, ECX = crystal Hz
+    # freq_MHz = (ECX * EBX / EAX) / 1_000_000
+    testl %eax, %eax
+    jz .freq_unknown
     testl %ebx, %ebx
-    jz .no_leaf15
+    jz .freq_unknown
+    testl %ecx, %ecx
+    jz .freq_unknown
 
-    # crystal_MHz = crystal / 1_000_000
-    movl %ebx, %eax
+    # eax = crystal_Hz / denom * numer / 1_000_000
+    # To avoid overflow: compute (ECX / 1_000_000) * EBX / EAX first.
+    pushl %ecx             # save crystal Hz
+    pushl %eax             # save denom
+    movl %ecx, %eax        # eax = crystal Hz
     xorl %edx, %edx
     movl $1000000, %ecx
-    divl %ecx            # eax = crystal_MHz
-
-    imull %esi, %eax     # eax = crystal_MHz * numer
+    divl %ecx              # eax = crystal_MHz (edx = remainder, discarded)
+    movl %eax, %ecx        # ecx = crystal_MHz
+    imull %ebx, %ecx       # ecx = crystal_MHz * numer
+    popl %ebx              # ebx = denom (was denom, saved above)
+    movl %ecx, %eax
     xorl %edx, %edx
-    divl %edi            # eax = MHz
-    jmp .cleanup_store
+    divl %ebx              # eax = MHz
+    addl $4, %esp          # discard saved crystal Hz
+    jmp .freq_done
 
-.no_leaf15:
+.freq_unknown:
     xorl %eax, %eax
-    jmp .cleanup_store
 
-.read_pit_count:
-    # Latch and read PIT channel 0 (16-bit)
-    movb $0x00, %al
-    outb %al, $0x43
-    inb $0x40, %al
-    movzbl %al, %eax
-    inb $0x40, %al
-    movzbl %al, %ecx
-    shll $8, %ecx
-    orl %ecx, %eax
-    ret
-
-.cleanup_store:
-    # EAX contains MHz for leaf cases or 0
-.done:
-    popl %ecx
-    popl %edi
+.freq_done:
     popl %esi
     popl %ebx
     movl %ebp, %esp
     popl %ebp
     ret
+
 
 .globl get_cache_line_size
 get_cache_line_size:
