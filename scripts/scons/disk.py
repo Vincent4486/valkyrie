@@ -265,11 +265,12 @@ def install_grub(mount_dir: str):
             f'--boot-directory={bootdir}', '--recheck', device)
 
 
-def _get_grub_config(config: str = 'release') -> str:
+def _get_grub_config(config: str = 'release', kernel_name: str = 'valkyrix') -> str:
     """Generate GRUB configuration content based on build configuration.
     
     Args:
         config: 'debug' or 'release'
+        kernel_name: kernel executable name under /boot
     
     Returns:
         GRUB configuration content as string
@@ -291,7 +292,7 @@ if [ -z "$config_loaded" ]; then
 
     menuentry "Valkyrie OS" {{
         search --no-floppy --label VALKYRIE --set=root
-        multiboot /boot/valkyrix root=LABEL=VALKYRIE
+        multiboot /boot/{kernel_name} root=LABEL=VALKYRIE
         boot
     }}
 
@@ -302,20 +303,21 @@ fi
 """)
 
 
-def generate_grub_config(grub_dir: str, output_format: str = 'hd', config: str = 'release') -> str:
+def generate_grub_config(grub_dir: str, output_format: str = 'hd', config: str = 'release', kernel_name: str = 'valkyrix') -> str:
     """Generate grub.cfg for the given output format and build configuration.
 
     Args:
         grub_dir: Directory to write grub.cfg into
         output_format: 'hd' or 'iso' (currently equivalent)
         config: 'debug' or 'release'
+        kernel_name: kernel executable name under /boot
 
     Returns:
         Path to the generated grub.cfg
     """
     os.makedirs(grub_dir, exist_ok=True)
     cfg_path = os.path.join(grub_dir, 'grub.cfg')
-    content = _get_grub_config(config)
+    content = _get_grub_config(config, kernel_name)
     with open(cfg_path, 'w', encoding='utf-8') as f:
         f.write(content)
     return cfg_path

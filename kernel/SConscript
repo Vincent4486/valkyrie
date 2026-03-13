@@ -95,6 +95,6 @@ objects = [
 # Build Target
 # =============================================================================
 
-core = env.Program(env['kernelName'], objects)
+core = env.Program(env['kernelOutputName'], objects)
 
 Export('core')

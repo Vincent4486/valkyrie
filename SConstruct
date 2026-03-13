@@ -54,6 +54,8 @@ if not config_path.exists():
     default_config = {
         'config': 'debug',
         'arch': 'i686',
+        'kernelMajor': 0,
+        'kernelMinor': 26,
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
@@ -112,6 +114,16 @@ VARS.Add('kernelName',
          help='Kernel executable name',
          default='valkyrix')
 
+VARS.Add('kernelMajor',
+         help='Kernel major version',
+         default=0,
+         converter=int)
+
+VARS.Add('kernelMinor',
+         help='Kernel minor version',
+         default=26,
+         converter=int)
+
 
 # =============================================================================
 # Dependency Versions
@@ -136,6 +148,11 @@ def create_host_environment():
         CXXFLAGS=['-std=c++17'],
         STRIP='strip',
     )
+
+    # Kernel version is configured via SCons and propagated as preprocessor
+    # symbols so C code can use KERNEL_MAJOR/KERNEL_MINOR without hardcoding.
+    env['kernelVersion'] = f'{env["kernelMajor"]}.{env["kernelMinor"]}'
+    env['kernelOutputName'] = f'{env["kernelName"]}-{env["kernelVersion"]}'
     
     # Configuration-specific flags
     if env['config'] == 'debug':
@@ -145,7 +162,11 @@ def create_host_environment():
     
     # Architecture define
     arch_config = get_arch_config(env['arch'])
-    env.Append(CCFLAGS=[f'-D{arch_config["define"]}'])
+    env.Append(CCFLAGS=[
+        f'-D{arch_config["define"]}',
+        f'-DKERNEL_MAJOR={env["kernelMajor"]}',
+        f'-DKERNEL_MINOR={env["kernelMinor"]}',
+    ])
     
     return env
 

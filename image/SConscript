@@ -109,7 +109,12 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     shutil.copy2(core_exe, bootdir)
 
     # GRUB config (single grub.cfg, content varies by format and build config)
-    generate_grub_config(os.path.join(bootdir, 'grub'), output_format, config=env['config'])
+    generate_grub_config(
+        os.path.join(bootdir, 'grub'),
+        output_format,
+        config=env['config'],
+        kernel_name=env['kernelOutputName'],
+    )
 
     # C library and runtime files
     _copy_c_library_unprivileged(staging_dir, toolchain_prefix, target_triple, arch_config)
@@ -193,7 +198,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
 def build_image_action(target, source, env):
     """SCons action to build the disk image."""
     # Find kernel executable in sources
-    kernel_name = env["kernelName"]
+    kernel_name = env["kernelOutputName"]
     core_exe = None
     
     for src in source:
@@ -246,7 +251,7 @@ root_content = GlobRecursive(env, '*', root)
 inputs = [core] + user_libraries + user_applications + root_content
 
 output_fmt = env["outputFormat"]
-output = f'{env["outputFile"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
+output = f'{env["outputFile"]}-{env["kernelVersion"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
 
 image = env.Command(
     output,
