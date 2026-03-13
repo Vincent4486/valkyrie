@@ -12,10 +12,12 @@ from SCons.Script import Flatten
 
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
-    DiskImage,
+    VOLUME_LABEL,
+    copy_toolchain_runtime_to_staging,
     create_bootable_iso,
-    install_grub,
-    get_current_user,
+    format_partition_image,
+    get_grub_modules,
+    get_partition_type_id,
     generate_grub_config,
 )
 from scripts.scons.arch import get_arch_config
@@ -27,41 +29,6 @@ Import('TARGET_ENVIRONMENT')
 
 TARGET_ENVIRONMENT: Environment
 env: Environment = TARGET_ENVIRONMENT
-
-
-# =============================================================================
-# Build Functions
-# =============================================================================
-
-def _copy_c_library_unprivileged(dst_root: str, toolchain_prefix: str, target_triple: str, arch_config: dict):
-    """Copy C runtime files without requiring root permissions."""
-    import shutil
-
-    ld_name = arch_config['ld_musl_name']
-    sysroot = os.path.join(toolchain_prefix, target_triple, 'sysroot', 'usr')
-    if not os.path.exists(sysroot):
-        print(f"   WARNING: toolchain sysroot not found at {sysroot}")
-        return
-
-    print("   CP toolchain C libraries")
-    sysroot_lib = os.path.join(sysroot, 'lib')
-    target_lib = os.path.join(dst_root, 'lib')
-    os.makedirs(target_lib, exist_ok=True)
-
-    libc_src = os.path.join(sysroot_lib, 'libc.so')
-    if os.path.exists(libc_src):
-        shutil.copy2(libc_src, target_lib)
-
-    for crt_file in ['Scrt1.o', 'crt1.o', 'crti.o', 'crtn.o']:
-        crt_path = os.path.join(sysroot_lib, crt_file)
-        if os.path.exists(crt_path):
-            shutil.copy2(crt_path, target_lib)
-
-    lib_libc = os.path.join(target_lib, 'libc.so')
-    lib_ld = os.path.join(target_lib, ld_name)
-    if os.path.exists(lib_libc):
-        print(f"   CP /lib/{ld_name}")
-        shutil.copy2(lib_libc, lib_ld)
 
 
 def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
@@ -84,13 +51,25 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     size = env['imageSize']
     filesystem = env['imageFS']
     output_format = env.get('outputFormat', 'hd')
-    partition_offset = 2048
     toolchain_prefix = env.get('TOOLCHAIN_PREFIX', '')
     arch = env.get('arch', 'i686')
     config = env.get('config', 'release')
 
+    disk_label = VOLUME_LABEL
+    part_start_mb = 1
+    part_type_id = get_partition_type_id(filesystem)
+    grub_core_name = 'grub.core'
+    boot_head_name = 'boot_head.img'
+    grub_path = '/usr/lib/grub/i386-pc'
+
     arch_config = get_arch_config(arch)
     target_triple = arch_config['target_triple']
+
+    total_size_mb = max(1, (size + (1024 * 1024 - 1)) // (1024 * 1024))
+    part_size_mb = total_size_mb - part_start_mb
+    if part_size_mb <= 0:
+        raise RuntimeError('Invalid partition sizing: partSizeMB must be > 0')
+    part_start_sector = part_start_mb * 2048
 
     # -------------------------------------------------------------------------
     # Stage all files into build/{arch}_{config}/{img|iso}
@@ -114,10 +93,11 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
         output_format,
         config=env['config'],
         kernel_name=env['kernelOutputName'],
+        volume_label=disk_label,
     )
 
     # C library and runtime files
-    _copy_c_library_unprivileged(staging_dir, toolchain_prefix, target_triple, arch_config)
+    copy_toolchain_runtime_to_staging(staging_dir, toolchain_prefix, target_triple, arch_config)
 
     # User libraries
     if libraries:
@@ -147,52 +127,97 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
             print(f"   STAGE {file_rel}")
             os.makedirs(os.path.dirname(file_dst), exist_ok=True)
             shutil.copy2(file_src, file_dst)
-    
-    # HD: create disk image, mount it, copy staging tree, install GRUB
-    current_user = get_current_user()
 
     # -------------------------------------------------------------------------
     # Produce the final image from the staging directory
     # -------------------------------------------------------------------------
     if output_format == 'iso':
-        create_bootable_iso(staging_dir, image_path, volume_label='VALKYRIE')
+        create_bootable_iso(staging_dir, image_path, volume_label=disk_label)
 
     else:
-        disk = DiskImage(image_path, size, sector_size=512)
-        disk.create()
+        image_dir = os.path.dirname(image_path) or '.'
+        tmp_part = os.path.join(image_dir, 'part.tmp')
+        grub_core = os.path.join(image_dir, grub_core_name)
+        boot_head = os.path.join(image_dir, boot_head_name)
 
-        print("   PARTITIONING")
-        disk.create_partition_table(offset=partition_offset, filesystem=filesystem)
+        print("   GRUB-MKIMAGE")
+        sh.Command('grub-mkimage')(
+            '-O', 'i386-pc',
+            '-o', grub_core,
+            '-p', '(hd0,msdos1)/boot/grub',
+            *get_grub_modules(filesystem),
+        )
 
-        print("   FORMATTING DISK")
-        disk.format_partition(filesystem, partition_offset, label='VALKYRIE')
-
-        mount_dir = os.path.join(os.path.dirname(image_path), 'tmp_mount')
-        os.makedirs(mount_dir, exist_ok=True)
+        with open(os.path.join(grub_path, 'boot.img'), 'rb') as boot_img, \
+             open(grub_core, 'rb') as core_img, \
+             open(boot_head, 'wb') as out_img:
+            out_img.write(boot_img.read())
+            out_img.write(core_img.read())
 
         try:
-            disk.mount(mount_dir)
+            print(f"   CREATE PARTITION FILE {filesystem}")
+            sh.truncate('-s', f'{part_size_mb}M', tmp_part)
+            format_partition_image(tmp_part, filesystem, volume_label=disk_label)
 
-            # Copy entire staging tree to the mounted disk
-            print(f"   CP {staging_dir}/* -> disk")
-            for item in os.listdir(staging_dir):
-                sh.sudo.cp('-r', os.path.join(staging_dir, item), mount_dir)
+            print("   CREATE MBR")
+            sh.truncate('-s', f'{total_size_mb}M', image_path)
+            guestfish_mbr = '\n'.join([
+                'run',
+                'part-init /dev/sda mbr',
+                f'part-add /dev/sda p {part_start_sector} -1',
+                f'part-set-mbr-id /dev/sda 1 {part_type_id}',
+                'quit',
+                '',
+            ])
+            sh.Command('guestfish')('-a', image_path, _in=guestfish_mbr)
 
-            install_grub(mount_dir)
+            print("   SPLICE PARTITION")
+            sh.dd(
+                f'if={tmp_part}',
+                f'of={image_path}',
+                'bs=512',
+                f'seek={part_start_sector}',
+                'conv=notrunc',
+                'status=none',
+            )
+
+            print("   WRITE BOOTLOADER")
+            sh.dd(
+                f'if={boot_head}',
+                f'of={image_path}',
+                'bs=446',
+                'count=1',
+                'conv=notrunc',
+                'status=none',
+            )
+            sh.dd(
+                f'if={boot_head}',
+                f'of={image_path}',
+                'bs=512',
+                'skip=1',
+                'seek=1',
+                'conv=notrunc',
+                'status=none',
+            )
+
+            with open(image_path, 'r+b') as disk_file:
+                disk_file.seek(92)
+                disk_file.write(b'\x01\x00\x00\x00')
+
+            print(f"   INJECT FILES {staging_dir}")
+            guestfish_copy = '\n'.join([
+                'run',
+                'mount /dev/sda1 /',
+                f'copy-in {staging_dir}/. /',
+                'quit',
+                '',
+            ])
+            sh.Command('guestfish')('-a', image_path, _in=guestfish_copy)
 
         finally:
-            try:
-                print(f"   UMOUNT {mount_dir}")
-                disk.unmount(mount_dir)
-                shutil.rmtree(mount_dir, ignore_errors=True)
-            except Exception as e:
-                print(f"Error during cleanup: {e}")
-                raise
-
-    # Fix ownership of generated files
-    print(f"   CHOWN {current_user} {image_path}")
-    sh.sudo.chown(f'{current_user}:{current_user}', image_path)
-    sh.sudo.chown('-R', f'{current_user}:{current_user}', 'build/')
+            for tmp_file in (tmp_part, boot_head, grub_core):
+                if os.path.exists(tmp_file):
+                    os.remove(tmp_file)
 
 
 def build_image_action(target, source, env):
