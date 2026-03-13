@@ -22,9 +22,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.TOOLCHAIN_DIR }}
-          key: ${{ runner.os }}-toolchain-${{ hashFiles('**/.config') }}
+          key: build-toolchain
           restore-keys: |
-            ${{ runner.os }}-toolchain-
+            build-toolchain
 
       - name: Install build dependencies
         run: |
@@ -37,6 +37,7 @@ jobs:
         run: |
           # exit immediately if cached toolchain exists, build only if missing
           python3 scripts/base/toolchain.py ${TOOLCHAIN_DIR} --ensure
+          rm -rf ${TOOLCHAIN_DIR}/src ${TOOLCHAIN_DIR}/build
 
       - name: Build full project
         run: |
