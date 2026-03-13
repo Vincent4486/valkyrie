@@ -67,7 +67,7 @@ def _copy_c_library_unprivileged(dst_root: str, toolchain_prefix: str, target_tr
 def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     """Build the complete disk image with all components.
 
-    All files are first collected into a staging directory at build/{arch}_{config}/{hd|iso},
+    All files are first collected into a staging directory at build/{arch}_{config}/{img|iso},
     then that tree is used to produce the final image.
 
     Args:
@@ -93,7 +93,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     target_triple = arch_config['target_triple']
 
     # -------------------------------------------------------------------------
-    # Stage all files into build/{arch}_{config}/{hd|iso}
+    # Stage all files into build/{arch}_{config}/{img|iso}
     # -------------------------------------------------------------------------
     build_type = f'{arch}_{config}'
     staging_dir = os.path.join('build', build_type, output_format)

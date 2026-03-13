@@ -57,10 +57,10 @@ Common build options passed to `scons` (set as ARGUMENTS or environment variable
 
 - `config=debug|release` - build configuration (default: `debug`)
 - `arch=i686|x64` - target architecture (default: `i686`)
-- `imageFS=fat12|fat16|fat32|ext2` - filesystem for generated HD image (default: `fat32`)
+- `imageFS=fat12|fat16|fat32|ext2` - filesystem for generated hard disk (`.img`) image (default: `fat32`)
 - `imageSize=250m` - image size (supports `k/m/g` suffixes)
 - `outputFile=<name>` - base name for output image (default: `valkyrieos`)
-- `outputFormat=hd|iso` - output image format (default: `hd`)
+- `outputFormat=img|iso` - output image format (default: `img`)
 - `buildType=full|kernel|usr|image` - what to build (default: `full`)
 
 Examples:

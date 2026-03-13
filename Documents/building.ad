@@ -74,7 +74,7 @@ buildType = 'full'
 imageSize = '250m'
 toolchain = '../os_toolchain'
 outputFile = 'valkyrieos'
-outputFormat = 'hd'
+outputFormat = 'img'
 kernelName = 'valkyrix'
 ----
 
@@ -155,7 +155,7 @@ scons arch=aarch64 buildType=kernel   # ARM64 kernel
 Each architecture's cross-compiler is stored separately, so switching architectures is as simple as changing the `arch` variable.
 [source, python]
 ----
-outputFormat = 'hd'
+outputFormat = 'img'
 kernelName = 'valkyrix'
 ----
 
@@ -181,7 +181,7 @@ Pass variables to `scons` to customize the build. Common options:
 | `imageFS` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
 | `imageSize` | Size with k/m/g suffix | `250m`
 | `buildType` | `full`, `kernel`, `usr`, `image` | `full`
-| `outputFormat` | `hd`, `iso` | `hd`
+| `outputFormat` | `img`, `iso` | `img`
 | `outputFile` | Base name (no extension) | `valkyrieos`
 |===
 

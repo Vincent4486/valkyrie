@@ -59,9 +59,9 @@ if not config_path.exists():
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
-        'toolchain': '/opt/cross/',
+        'toolchain': 'toolchain/',
         'outputFile': 'valkyrieos',
-        'outputFormat': 'hd',
+        'outputFormat': 'img',
         'kernelName': 'valkyrix',
     }
     with open(config_path, 'w') as cf:
@@ -93,8 +93,8 @@ VARS.AddVariables(
 
     EnumVariable('outputFormat',
                  help='Output image format',
-                 default='hd',
-                 allowed_values=('hd', 'iso')),
+                 default='img',
+                 allowed_values=('img', 'iso')),
 )
 
 VARS.Add('imageSize',

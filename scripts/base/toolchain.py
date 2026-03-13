@@ -160,7 +160,14 @@ class ToolchainBuilder:
                 print(f"Already extracted: {src_name}")
                 continue
             
-            extract_archive(str(archive), str(self.src_dir))
+            try:
+                extract_archive(str(archive), str(self.src_dir))
+            except (EOFError, Exception) as e:
+                # If extraction fails, remove the corrupted archive
+                print(f"Error extracting {filename}: {e}")
+                print(f"Removing corrupted archive: {archive}")
+                archive.unlink()
+                raise
     
     def _get_configure_opts(self, pkg: str) -> list:
         """Get platform-specific configure options."""
@@ -309,11 +316,15 @@ class ToolchainBuilder:
         src_path = self.src_dir / f"gcc-{version}"
         build_path = self.build_dir / f"gcc-stage2-{self.target}"
         
-        # Check if already complete
-        if (self.bin_dir / f"{self.target}-g++").exists():
-            # Check if C++ support works
+        # Check if already complete. Stage 2 is considered installed when the
+        # target compiler is runnable and stage-2 target runtime libraries are
+        # present. Do not require g++ here because this toolchain is configured
+        # as C-only (`--enable-languages=c`).
+        gcc_bin = self.bin_dir / f"{self.target}-gcc"
+        stage2_marker = self.prefix / self.target / 'lib' / 'libatomic.a'
+        if gcc_bin.exists() and stage2_marker.exists():
             result = subprocess.run(
-                [str(self.bin_dir / f"{self.target}-g++"), '--version'],
+                [str(gcc_bin), '--version'],
                 capture_output=True,
             )
             if result.returncode == 0:
@@ -388,6 +399,10 @@ class ToolchainBuilder:
         print("Toolchain build complete!")
         print("=" * 60)
         print(f"\nAdd to PATH: export PATH=\"{self.bin_dir}:$PATH\"")
+        
+        # Clean up build and source directories
+        print("\nCleaning up build and source directories...")
+        self.clean_all()
     
     def clean(self):
         """Remove build directories (keep sources)."""
@@ -413,7 +428,6 @@ class ToolchainBuilder:
         required_tools = [
             self.bin_dir / f"{self.target}-as",
             self.bin_dir / f"{self.target}-gcc",
-            self.bin_dir / f"{self.target}-g++",
         ]
         
         # Check sysroot libraries
@@ -421,9 +435,16 @@ class ToolchainBuilder:
             self.sysroot / 'usr' / 'lib' / 'libc.so',
             self.sysroot / 'usr' / 'lib' / 'crt1.o',
         ]
+
+        # Stage-2 marker (built by full GCC stage 2 even for C-only toolchain).
+        stage2_markers = [
+            self.prefix / self.target / 'lib' / 'libatomic.a',
+            self.prefix / 'lib' / 'gcc' / self.target / VERSIONS['gcc'] / 'libgcc.a',
+        ]
         
-        all_exist = all(path.exists() for path in required_tools + required_libs)
-        return all_exist
+        base_ok = all(path.exists() for path in required_tools + required_libs)
+        stage2_ok = any(path.exists() for path in stage2_markers)
+        return base_ok and stage2_ok
 
 
 # =============================================================================

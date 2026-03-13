@@ -303,12 +303,12 @@ fi
 """)
 
 
-def generate_grub_config(grub_dir: str, output_format: str = 'hd', config: str = 'release', kernel_name: str = 'valkyrix') -> str:
+def generate_grub_config(grub_dir: str, output_format: str = 'img', config: str = 'release', kernel_name: str = 'valkyrix') -> str:
     """Generate grub.cfg for the given output format and build configuration.
 
     Args:
         grub_dir: Directory to write grub.cfg into
-        output_format: 'hd' or 'iso' (currently equivalent)
+        output_format: 'img' or 'iso' (currently equivalent)
         config: 'debug' or 'release'
         kernel_name: kernel executable name under /boot
 
