@@ -8,6 +8,7 @@ Main build configuration file using SCons.
 import os
 from pathlib import Path
 import platform
+import subprocess
 
 from SCons.Variables import Variables, EnumVariable
 from SCons.Environment import Environment
@@ -149,6 +150,33 @@ def create_host_environment():
     return env
 
 
+def ensure_toolchain_if_needed(host_env):
+    """Ensure cross-toolchain is available for build targets."""
+    if GetOption('clean'):
+        return
+
+    command_targets = set(COMMAND_LINE_TARGETS)
+    non_build_targets = {'deps', 'fformat'}
+    if command_targets and command_targets.issubset(non_build_targets):
+        return
+
+    arch_config = get_arch_config(host_env['arch'])
+    target = arch_config['target_triple']
+    toolchain_dir = host_env['toolchain']
+
+    cmd = [
+        'python3',
+        './scripts/base/toolchain.py',
+        toolchain_dir,
+        '-t',
+        target,
+        '--ensure',
+    ]
+
+    print(f"Ensuring toolchain for {target} in {toolchain_dir}")
+    subprocess.run(cmd, check=True)
+
+
 # =============================================================================
 # Target Environment
 # =============================================================================
@@ -227,6 +255,7 @@ def create_target_environment(host_env):
 # =============================================================================
 
 HOST_ENVIRONMENT = create_host_environment()
+ensure_toolchain_if_needed(HOST_ENVIRONMENT)
 TARGET_ENVIRONMENT = create_target_environment(HOST_ENVIRONMENT)
 
 # Generate help text
@@ -267,7 +296,7 @@ if build_type == 'full':
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
         debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
+        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )
@@ -291,7 +320,7 @@ elif build_type == 'image':
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
         debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path, '-d', 'x'],
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
+        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )
@@ -307,7 +336,7 @@ else:
     
     PhonyTargets(
         HOST_ENVIRONMENT,
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target],
+        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )

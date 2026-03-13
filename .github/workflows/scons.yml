@@ -33,16 +33,10 @@ jobs:
           # use the helper script to install all required packages
           python3 scripts/base/dependencies.py --yes
 
-      - name: Check toolchain
-        id: toolchain_check
+      - name: Ensure cross-toolchain
         run: |
-          python3 scripts/base/toolchain.py ${TOOLCHAIN_DIR} --check && echo "installed=true" >> $GITHUB_OUTPUT || echo "installed=false" >> $GITHUB_OUTPUT
-
-      - name: Build cross-toolchain
-        if: steps.toolchain_check.outputs.installed == 'false'
-        run: |
-          # build the toolchain into the cached directory
-          scons toolchain toolchain=${TOOLCHAIN_DIR}
+          # exit immediately if cached toolchain exists, build only if missing
+          python3 scripts/base/toolchain.py ${TOOLCHAIN_DIR} --ensure
 
       - name: Build full project
         run: |

@@ -439,7 +439,9 @@ Examples:
   %(prog)s toolchain/                    # Build for default target (i686-linux-musl)
   %(prog)s toolchain/ -a x64             # Build for x86_64
   %(prog)s toolchain/ -t x86_64-elf      # Build for custom target
-  %(prog)s toolchain/ --check            # Check if toolchain is installed
+    %(prog)s toolchain/ --check            # Exit if installed, build if missing
+    %(prog)s toolchain/ --check-only       # Check only (exit 0/1)
+    %(prog)s toolchain/ --ensure           # Ensure installed (skip/build)
   %(prog)s toolchain/ --clean            # Remove build files
   %(prog)s toolchain/ --clean-all        # Remove everything
 ''',
@@ -466,7 +468,11 @@ Examples:
     parser.add_argument('--gcc-stage2-only', action='store_true',
                         help='Build only GCC stage 2')
     parser.add_argument('--check', action='store_true',
-                        help='Check if toolchain is already installed')
+                        help='Check toolchain: exit if installed, build if missing')
+    parser.add_argument('--check-only', action='store_true',
+                        help='Only check if toolchain is installed (exit 0/1)')
+    parser.add_argument('--ensure', action='store_true',
+                        help='Ensure toolchain is installed (skip if present, build if missing)')
     
     args = parser.parse_args()
     
@@ -489,7 +495,7 @@ Examples:
             builder.clean_all()
         elif args.clean:
             builder.clean()
-        elif args.check:
+        elif args.check_only:
             if builder.is_installed():
                 print(f"✓ Toolchain installed for {builder.target}")
                 print(f"  Location: {builder.prefix}")
@@ -498,6 +504,15 @@ Examples:
                 print(f"✗ Toolchain not installed for {builder.target}")
                 print(f"  Expected location: {builder.prefix}")
                 sys.exit(1)
+        elif args.check or args.ensure:
+            if builder.is_installed():
+                print(f"✓ Toolchain already installed for {builder.target}")
+                print(f"  Location: {builder.prefix}")
+                sys.exit(0)
+
+            print(f"✗ Toolchain not installed for {builder.target}")
+            print("  Building toolchain...")
+            builder.build_all()
         elif args.binutils_only:
             builder.setup_directories()
             builder.download_sources()
