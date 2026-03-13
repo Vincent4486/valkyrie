@@ -67,3 +67,5 @@ core
 *.core
 .config
 test.*
+
+isrs_gen.*

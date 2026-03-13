@@ -65,12 +65,27 @@ env.Append(
 
 
 # =============================================================================
+# Generated Source Files
+# =============================================================================
+
+import subprocess
+
+mkisrs_path = os.path.join(arch_dir, 'cpu', 'mkisrs.sh')
+if os.path.exists(mkisrs_path):
+    isrs_gen_c = os.path.join(arch_dir, 'cpu', 'isrs_gen.c')
+    isrs_gen_inc = os.path.join(arch_dir, 'cpu', 'isrs_gen.inc')
+    
+    # Run mkisrs.sh to generate the ISRs before GlobSources if they don't exist
+    if not os.path.exists(isrs_gen_c) or not os.path.exists(isrs_gen_inc):
+        subprocess.run(['bash', mkisrs_path, isrs_gen_c, isrs_gen_inc], check=True)
+
+# =============================================================================
 # Source Files
 # =============================================================================
 
 sources = GlobSources(src_dir)
-objects = env.Object(sources)
 
+objects = env.Object(sources)
 
 # =============================================================================
 # C Runtime Objects
