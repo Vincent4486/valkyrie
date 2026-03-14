@@ -11,7 +11,7 @@ MAN_DIR := $(BUILD_DIR)/man
 INFO_DIR := $(BUILD_DIR)/info
 
 # Source files
-ADOC_FILES := $(wildcard *.ad)
+ADOC_FILES := $(shell find . -type f -name "*.ad")
 PDF_TARGETS := $(patsubst %.ad,$(PDF_DIR)/%.pdf,$(ADOC_FILES))
 HTML_TARGETS := $(patsubst %.ad,$(HTML_DIR)/%.html,$(ADOC_FILES))
 MAN_TARGETS := $(patsubst %.ad,$(MAN_DIR)/%,$(ADOC_FILES))
