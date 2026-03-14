@@ -21,7 +21,7 @@ void i686_Syscall_IRQ(Registers *regs)
           syscall_num, args[0], args[1], args[2]);
 
    // Call generic dispatcher
-   intptr_t result = syscall(syscall_num, args);
+   intptr_t result = syscall_dispatch(syscall_num, args, regs);
 
    // Store result in EAX for return to user
    regs->eax = (uint32_t)result;

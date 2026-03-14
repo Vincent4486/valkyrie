@@ -10,6 +10,7 @@
 #include <hal/hal.h>
 #include <hal/io.h>
 #include <hal/irq.h>
+#include <hal/scheduler.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <hal/video.h>
@@ -99,11 +100,12 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    /* Mark system as fully initialized */
    SYS_Finalize();
 
-   ELF_LoadProcess("/usr/bin/sh", false);
+   logfmt(LOG_WARNING,
+          "[INIT] scheduler returned to kernel after launching /usr/bin/sh\n");
    // TTY_SetVideoMode(80, 43);
    // TTY_SetVideoMode(40, 25);
 
-   /* Start interactive line reader: on ENTER, print the entered text. */
+   /* Fallback interactive mode if shell handoff returns unexpectedly. */
    interact();
 
    hold(-1);

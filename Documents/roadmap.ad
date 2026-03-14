@@ -21,18 +21,18 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 
 * [x] Process Control Block (PCB) structure
 * [ ] Process creation & destroy (fork/execve syscalls)
-** [ ] Add Kernel Stack to Process Struct
-** [ ] Allocate Kernel Stack in Process_Create
-** [ ] Free Kernel Stack in Process_Destroy
-** [ ] Set Parent PID
+** [x] Add Kernel Stack to Process Struct
+** [x] Allocate Kernel Stack in Process_Create
+** [x] Free Kernel Stack in Process_Destroy
+** [x] Set Parent PID
 ** [ ] Initialize Standard File Descriptors (stdin, stdout, stderr)
-** [ ] Handle Arguments (argv/envp)
-** [ ] Scheduler Registration
-* [ ] Process scheduling & context switching
-* [ ] Process termination (exit syscall)
+** [x] Handle Arguments (argv/envp)
+** [x] Scheduler Registration
+* [x] Process scheduling & context switching (basic round-robin)
+* [x] Process termination (exit syscall)
 * [ ] Signal handling (signal syscalls)
 * [ ] User-mode ring 3 execution
-* [ ] Kernel-mode execution
+* [x] Kernel-mode execution
 * [ ] User/kernel mode switching
 
 === Filesystem
@@ -76,10 +76,11 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 
 === Process Syscalls
 
-* [ ] `exit`, `exit_group` - process termination
-* [ ] `fork` - process creation
+* [x] `exit` - process termination
+* [ ] `exit_group` - process termination group
+* [x] `fork` - process creation
 * [ ] `clone` - thread/process creation
-* [ ] `execve` - execute program
+* [x] `execve` - execute program
 * [ ] `wait4`, `waitpid` - wait for child process
 * [ ] `getpid`, `getppid` - process IDs
 * [ ] `getuid`, `setuid` - user IDs

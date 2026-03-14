@@ -46,8 +46,7 @@ typedef struct
    Registers *saved_regs;
 
    // File descriptors
-   FileDescriptor
-       *fd_table[FD_TABLE_SIZE]; // Open file descriptors (per-process)
+   FileDescriptor *fd_table[16]; // Open file descriptors (per-process)
 
    // Scheduling
    uint32_t priority;        // Priority level
@@ -58,13 +57,28 @@ typedef struct
 
    // Exit status
    int exit_code; // Exit status when terminated
+
+    // Per-process kernel stack (used for ring transitions, TSS esp0)
+    void *kernel_stack;
+    uint32_t kernel_stack_size;
 } Process;
 
 /* Process lifecycle */
 Process *Process_Create(uint32_t entry_point, bool kernel_mode);
+Process *Process_CreateUser(uint32_t entry_point);
+Process *Process_CreateKernel(uint32_t entry_point);
+Process *Process_Clone(Process *parent, const Registers *parent_regs);
+int Process_Execute(Process *proc, const char *path, const char *const argv[],
+                          const char *const envp[]);
+void Process_Exit(Process *proc, int exit_code);
 void Process_Destroy(Process *proc);
 Process *Process_GetCurrent(void);
 void Process_SetCurrent(Process *proc);
 void Process_SelfTest(void);
+
+/* Core process state */
+uint32_t Process_AllocatePid(void);
+void Process_SetKernelPageDirectory(void *page_directory);
+void *Process_GetKernelPageDirectory(void);
 
 #endif
