@@ -12,125 +12,227 @@ import shutil
 import subprocess
 import sys
 
-
-# Package dependencies by distribution family
 DEPENDENCIES = {
     'debian': {
         'packages': [
+            # === Core Build Tools ===
             'build-essential',
-            'libmpfr-dev',
-            'libgmp-dev',
-            'libmpc-dev',
             'gcc',
             'g++',
             'make',
+            
+            # === Development Libraries (Required for Toolchain Build) ===
+            'libmpfr-dev',
+            'libgmp-dev',
+            'libmpc-dev',
+            
+            # === Python & Scripting ===
             'python3',
             'python3-pip',
             'python3-sh',
             'scons',
-            'parted',
+            'bash',
+            'grep',
+            'coreutils',
+            
+            # === Filesystem & Disk Tools ===
             'dosfstools',
-            'pandoc',
-            'make',
-            'guestfish',
-            'libguestfs-tools',
+            'e2fsprogs',
+            
+            # === Boot & Image Creation ===
             'grub-pc-bin',
-            'grub-common',
-            'grub2-common',
-            'xorriso',
-            'mtools',
-            'clang-format',
+            'guestfish',
+            
+            # === Emulation & Debugging ===
             'qemu-system-x86',
+            'qemu-system-aarch64',
+            'gdb',
+            
+            # === Code Quality ===
+            'clang-format',
+            
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
         ],
         'update_cmd': ['apt-get', 'update'],
         'install_cmd': ['apt-get', 'install', '-y'],
     },
     'fedora': {
         'packages': [
-            'mpfr-devel',
-            'gmp-devel',
-            'libmpc-devel',
+            # === Core Build Tools ===
             'gcc',
             'gcc-c++',
             'make',
+            
+            # === Development Libraries (Required for Toolchain Build) ===
+            'mpfr-devel',
+            'gmp-devel',
+            'libmpc-devel',
+            
+            # === Python & Scripting ===
             'python3',
             'python3-pip',
             'scons',
-            'guestfs-tools',
-            'libguestfs-tools-c',
+            'bash',
+            'grep',
+            'coreutils',
+            
+            # === Filesystem & Disk Tools ===
+            'dosfstools',
+            'e2fsprogs',
+            
+            # === Boot & Image Creation ===
             'grub2-tools',
-            'grub2-pc-modules',
             'grub2-tools-extra',
-            'xorriso',
-            'mtools',
-            'clang-tools-extra',
+            'guestfs-tools',
+            
+            # === Emulation & Debugging ===
             'qemu-system-x86',
+            'qemu-system-aarch64',
+            'gdb',
+            
+            # === Code Quality ===
+            'clang-tools-extra',
+            
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
         ],
         'update_cmd': None,
         'install_cmd': ['dnf', 'install', '-y'],
     },
     'arch': {
         'packages': [
+            # === Core Build Tools ===
             'base-devel',
+            'gcc',
+            'make',
+            
+            # === Development Libraries (Required for Toolchain Build) ===
             'mpfr',
             'gmp',
             'libmpc',
-            'gcc',
-            'make',
+            
+            # === Python & Scripting ===
             'python',
             'python-pip',
             'scons',
-            'libguestfs',
-            'libguestfs-tools',
+            'bash',
+            'grep',
+            'coreutils',
+            
+            # === Filesystem & Disk Tools ===
+            'dosfstools',
+            'e2fsprogs',
+            
+            # === Boot & Image Creation ===
             'grub',
-            'libisoburn',
-            'mtools',
-            'clang',
+            'libguestfs',
+            
+            # === Emulation & Debugging ===
             'qemu-system-x86',
+            'qemu-system-aarch64',
+            'gdb',
+            
+            # === Code Quality ===
+            'clang',
+            
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
         ],
         'update_cmd': ['pacman', '-Syu', '--noconfirm'],
         'install_cmd': ['pacman', '-S', '--noconfirm'],
     },
     'suse': {
         'packages': [
-            'mpfr-devel',
-            'gmp-devel',
-            'libmpc-devel',
+            # === Core Build Tools ===
             'gcc',
             'gcc-c++',
             'make',
+            
+            # === Development Libraries (Required for Toolchain Build) ===
+            'mpfr-devel',
+            'gmp-devel',
+            'libmpc-devel',
+            
+            # === Python & Scripting ===
             'python3',
             'python3-pip',
             'scons',
-            'guestfs-tools',
+            'bash',
+            'grep',
+            'coreutils',
+            
+            # === Filesystem & Disk Tools ===
+            'dosfstools',
+            'e2fsprogs',
+            
+            # === Boot & Image Creation ===
             'grub2',
             'grub2-i386-pc',
-            'xorriso',
-            'mtools',
-            'clang',
+            'guestfs-tools',
+            
+            # === Emulation & Debugging ===
             'qemu-x86',
+            'qemu-system-aarch64',
+            'gdb',
+            
+            # === Code Quality ===
+            'clang',
+            
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
         ],
         'update_cmd': None,
         'install_cmd': ['zypper', 'install', '-y'],
     },
     'alpine': {
         'packages': [
+            # === Core Build Tools ===
             'build-base',
+            'gcc',
+            'make',
+            
+            # === Development Libraries (Required for Toolchain Build) ===
             'mpfr-dev',
             'mpc1-dev',
             'gmp-dev',
-            'gcc',
-            'g++',
-            'make',
+            
+            # === Python & Scripting ===
             'python3',
             'py3-pip',
             'scons',
-            'libguestfs-tools',
+            'bash',
+            'grep',
+            'coreutils',
+            
+            # === Filesystem & Disk Tools ===
+            'dosfstools',
+            'e2fsprogs',
+            
+            # === Boot & Image Creation ===
             'grub',
-            'xorriso',
-            'mtools',
-            'clang',
+            'libguestfs-tools',
+            
+            # === Emulation & Debugging ===
             'qemu-system-x86_64',
+            'qemu-system-aarch64',
+            'gdb',
+            
+            # === Code Quality ===
+            'clang',
+            
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
         ],
         'update_cmd': ['apk', 'update'],
         'install_cmd': ['apk', 'add'],

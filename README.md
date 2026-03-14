@@ -26,10 +26,10 @@ Published docs are available at [docs.vyang.org/valkyrie](https://docs.vyang.org
 
 You need Python 3 and SCons.
 
-macOS example:
+Ubuntu example:
 
 ```bash
-brew install python3 scons
+sudo apt install python3 scons
 ```
 
 ### 2. Install dependencies
