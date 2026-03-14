@@ -69,3 +69,6 @@ core
 test.*
 
 isrs_gen.*
+*.map
+sh
+valkyrix-*

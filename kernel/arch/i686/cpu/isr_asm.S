@@ -22,7 +22,7 @@ i686_ISR\num:
     jmp isr_common
 .endm
 
-.include "kernel/arch/i686/cpu/isrs_gen.inc"
+.include "arch/i686/cpu/isrs_gen.inc"
 
 
 isr_common:
