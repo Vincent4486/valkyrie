@@ -1,0 +1,26 @@
+= Kernel Initialization (`kernel/init`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:cpu.html[CPU], link:sys.html[System Services]
+
+This directory owns boot-time initialization flow after architecture entry: memory, devices, filesystems, userspace launch, and fallback control paths.
+
+== Summary
+
+* Coordinates subsystem initialization ordering.
+* Mounts and validates root and core runtime services.
+* Launches initial userspace process and handles fallback behavior.
+
+== Typical Work in This Area
+
+* Adjust startup sequence dependencies.
+* Add boot diagnostics and self-test triggers.
+* Refine init process handoff and recovery logic.
+
+== Revision History
+
+=== v1.0
+
+Initial init subsystem summary

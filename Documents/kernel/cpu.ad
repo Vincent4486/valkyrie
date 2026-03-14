@@ -1,0 +1,26 @@
+= Process and CPU Core (`kernel/cpu`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:init.html[Init], link:syscall.html[Syscall]
+
+This directory implements core process lifecycle and scheduling abstractions: creation, exec/fork behavior, state transitions, and scheduler orchestration.
+
+== Summary
+
+* Defines and manages `Process` state and ownership.
+* Implements scheduler process queues and state machine.
+* Coordinates process address-space switching with HAL paging/TSS operations.
+
+== Typical Work in This Area
+
+* Add scheduling policies or process states.
+* Improve process creation and teardown behavior.
+* Integrate process self-tests and runtime validation hooks.
+
+== Revision History
+
+=== v1.0
+
+Initial cpu subsystem summary

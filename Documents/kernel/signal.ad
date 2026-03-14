@@ -1,0 +1,26 @@
+= Signal Handling (`kernel/signal`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:syscall.html[Syscall], link:cpu.html[CPU]
+
+This directory provides signal-related syscall handlers and internal signal state management.
+
+== Summary
+
+* Handles signal registration and dispatch semantics.
+* Integrates per-process signal masks and action tables.
+* Provides kernel-side implementations for signal syscalls.
+
+== Typical Work in This Area
+
+* Extend POSIX-like signal behavior.
+* Add pending queue and delivery edge-case handling.
+* Improve interaction with process lifecycle and scheduler.
+
+== Revision History
+
+=== v1.0
+
+Initial signal subsystem summary

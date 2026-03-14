@@ -1,0 +1,27 @@
+= Userspace Documentation
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:../index.html[Home], link:../building.html[Build Guide], link:../kernel/index.html[Kernel Documentation]
+
+This section documents Valkyrie userspace components by source directory. Each page below maps to a directory under `usr/` and summarizes its purpose and role in runtime testing.
+
+== Userspace Components
+
+* link:libmath.html[libmath.ad] — Minimal shared math library for userspace
+* link:sh.html[sh.ad] — Interactive shell userspace program
+* link:selftest.html[selftest.ad] — Syscall-based userspace self-test program
+* link:test.html[test.ad] — Legacy test directory (compatibility/transition)
+
+== Navigation Notes
+
+* Start with link:selftest.html[selftest.ad] if you are validating syscall and context-switch behavior.
+* See link:../kernel/syscall.html[kernel/syscall.ad] for kernel-side syscall handling details.
+* For build integration, see link:../building.html[building.ad] and `usr/SConscript`.
+
+== Revision History
+
+=== v1.0
+
+Initial userspace index and component map

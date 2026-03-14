@@ -1,0 +1,20 @@
+= Userspace Shell (`usr/sh`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Userspace Index], link:../kernel/syscall.html[Kernel Syscall]
+
+`usr/sh` contains the shell executable used for interactive command execution and userspace process launching.
+
+== Summary
+
+* Provides command parsing and simple execution flow.
+* Exercises key process and file syscall paths from userspace.
+* Acts as the default interactive userspace application in typical boots.
+
+== Revision History
+
+=== v1.0
+
+Initial shell summary

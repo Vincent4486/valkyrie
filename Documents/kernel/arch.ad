@@ -1,0 +1,26 @@
+= Kernel Architecture Layer (`kernel/arch`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:hal.html[HAL], link:init.html[Init]
+
+This directory contains architecture-specific implementations (currently i686-focused), including early boot, CPU descriptor tables, interrupt entry stubs, and paging/stack internals.
+
+== Summary
+
+* Boot entry and platform bring-up live here.
+* Low-level assembly interfaces for interrupts, context transitions, and descriptor loading are implemented here.
+* Architecture memory primitives back the generic memory and HAL layers.
+
+== Typical Work in This Area
+
+* Bring up a new CPU architecture target.
+* Adjust interrupt, syscall, and context-switch assembly paths.
+* Tune paging and trap behavior for architecture-specific semantics.
+
+== Revision History
+
+=== v1.0
+
+Initial arch subsystem summary

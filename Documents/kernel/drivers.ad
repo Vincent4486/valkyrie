@@ -1,0 +1,26 @@
+= Device Drivers (`kernel/drivers`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:fs.html[Filesystem], link:sys.html[System Services]
+
+This directory contains device drivers for storage, input, and terminal output, including ATA/FDC disk access, keyboard handling, and TTY rendering.
+
+== Summary
+
+* Hardware-facing implementations for block and character devices.
+* TTY subsystem handles kernel/user text output to VGA-backed console.
+* Keyboard path provides input events into terminal line discipline.
+
+== Typical Work in This Area
+
+* Add or improve hardware support.
+* Debug IRQ-driven input/output behavior.
+* Extend terminal and console capabilities.
+
+== Revision History
+
+=== v1.0
+
+Initial drivers subsystem summary

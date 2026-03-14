@@ -1,0 +1,26 @@
+= Memory Subsystem (`kernel/mem`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:arch.html[Arch], link:cpu.html[CPU]
+
+This directory contains kernel and process memory management primitives: PMM frame allocation, VMM mappings, heap behavior, and stack management.
+
+== Summary
+
+* PMM and VMM provide physical and virtual memory foundation.
+* Heap and stack layers expose allocation and process memory setup.
+* Shared headers define memory layout and subsystem contracts.
+
+== Typical Work in This Area
+
+* Improve allocation policies and fragmentation behavior.
+* Debug mapping/permission issues and page faults.
+* Expand memory safety and protection features.
+
+== Revision History
+
+=== v1.0
+
+Initial memory subsystem summary

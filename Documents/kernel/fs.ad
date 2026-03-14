@@ -1,0 +1,26 @@
+= Filesystem Stack (`kernel/fs`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:drivers.html[Drivers], link:syscall.html[Syscall]
+
+This directory provides the filesystem and file-descriptor pipeline, including VFS routing, FAT support, devfs device nodes, and disk partition metadata handling.
+
+== Summary
+
+* VFS dispatches file operations to concrete filesystems.
+* FAT and disk layers provide persistent storage access.
+* devfs exposes runtime devices like `/dev/tty0` through a filesystem interface.
+
+== Typical Work in This Area
+
+* Add filesystem operations and metadata support.
+* Improve mount and partition probing logic.
+* Fix descriptor and seek/read/write semantics.
+
+== Revision History
+
+=== v1.0
+
+Initial filesystem subsystem summary

@@ -1,0 +1,26 @@
+= Hardware Abstraction Layer (`kernel/hal`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:arch.html[Arch], link:cpu.html[CPU]
+
+This directory defines architecture-neutral operation tables and binds them to architecture-specific implementations.
+
+== Summary
+
+* Central API surface for IO, paging, scheduler, stack, video, syscall, and TSS operations.
+* Keeps high-level kernel code portable by avoiding direct architecture calls.
+* Initializes architecture backends during boot.
+
+== Typical Work in This Area
+
+* Add new cross-arch operation interfaces.
+* Wire arch-specific functions into HAL tables.
+* Verify kernel modules use HAL calls consistently.
+
+== Revision History
+
+=== v1.0
+
+Initial HAL subsystem summary

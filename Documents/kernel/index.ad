@@ -1,0 +1,34 @@
+= Kernel Documentation
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:../index.html[Home], link:../devel.html[Developer Guide], link:../roadmap.html[Roadmap]
+
+This section documents the Valkyrie kernel implementation by subsystem. Each page below corresponds to a directory under `kernel/` in the source tree and provides a brief overview of responsibilities and key components.
+
+== Kernel Subsystems
+
+* link:arch.html[arch.ad] — Architecture-specific boot, CPU, and memory implementations
+* link:cpu.html[cpu.ad] — Process model and scheduling core
+* link:drivers.html[drivers.ad] — Hardware device drivers (storage, keyboard, tty)
+* link:fs.html[fs.ad] — Filesystem stack (VFS, FAT, devfs, disk abstractions)
+* link:hal.html[hal.ad] — Hardware abstraction layer interface and bindings
+* link:init.html[init.ad] — Kernel startup flow and handoff logic
+* link:mem.html[mem.ad] — Heap, PMM, VMM, process memory primitives
+* link:signal.html[signal.ad] — Signal delivery and signal syscall support
+* link:std.html[std.ad] — Kernel-local libc-style utility implementations
+* link:sys.html[sys.ad] — System services, ELF loader, command line, dylib support
+* link:syscall.html[syscall.ad] — Syscall dispatch and handlers
+
+== Navigation Notes
+
+* Start with link:init.html[init.ad] for boot order and subsystem initialization sequence.
+* Read link:hal.html[hal.ad] and link:arch.html[arch.ad] together to understand portability boundaries.
+* Link this section with link:../usr/index.html[Userspace Documentation] to follow kernel ↔ userspace interactions.
+
+== Revision History
+
+=== v1.0
+
+Initial kernel index and subsystem link map

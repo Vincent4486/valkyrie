@@ -1,0 +1,26 @@
+= Kernel Standard Utilities (`kernel/std`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:mem.html[Memory], link:sys.html[System Services]
+
+This directory contains lightweight libc-style helpers used inside the kernel (string, stdio, ctype, and basic utility headers).
+
+== Summary
+
+* Supplies core utility functions without relying on host libc.
+* Provides formatting and basic type helpers used broadly across subsystems.
+* Supports deterministic behavior for low-level kernel use.
+
+== Typical Work in This Area
+
+* Add missing utility routines needed by kernel modules.
+* Optimize frequently used primitives.
+* Keep behavior stable and minimal for kernel constraints.
+
+== Revision History
+
+=== v1.0
+
+Initial std subsystem summary

@@ -1,0 +1,26 @@
+= Syscall Layer (`kernel/syscall`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:cpu.html[CPU], link:../usr/selftest.html[Userspace Selftest]
+
+This directory implements syscall dispatch and handler entry points that bridge userspace ABI requests to kernel subsystems.
+
+== Summary
+
+* Defines syscall numbers and dispatch tables.
+* Implements handlers for process, memory, and file-descriptor operations.
+* Connects architecture syscall traps to generic kernel services.
+
+== Typical Work in This Area
+
+* Add new syscall handlers.
+* Improve ABI compatibility and argument validation.
+* Harden return/error behavior and scheduler interactions.
+
+== Revision History
+
+=== v1.0
+
+Initial syscall subsystem summary

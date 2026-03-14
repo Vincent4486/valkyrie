@@ -1,0 +1,20 @@
+= Userspace `libmath` (`usr/libmath`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Userspace Index], link:../kernel/sys.html[Kernel System Services]
+
+`usr/libmath` contains the userspace math support library used by userspace programs for baseline arithmetic and helper routines.
+
+== Summary
+
+* Builds the userspace math library artifact.
+* Exposes simple numeric helpers for program-level use.
+* Serves as an example userspace library integrated into the image.
+
+== Revision History
+
+=== v1.0
+
+Initial libmath summary

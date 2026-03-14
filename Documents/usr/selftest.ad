@@ -1,0 +1,20 @@
+= Userspace Selftest (`usr/selftest`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Userspace Index], link:../kernel/syscall.html[Kernel Syscall], link:../kernel/init.html[Kernel Init]
+
+`usr/selftest` is a minimal freestanding userspace binary used to validate context switching and syscall handling.
+
+== Summary
+
+* Performs a syscall write to stdout to verify userspace → kernel trap path.
+* Performs syscall exit to verify process termination and scheduler handoff.
+* Used by kernel init and process self-test flows for runtime validation.
+
+== Revision History
+
+=== v1.0
+
+Initial selftest summary

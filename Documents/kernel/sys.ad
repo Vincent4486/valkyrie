@@ -1,0 +1,26 @@
+= System Services (`kernel/sys`)
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Kernel Index], link:syscall.html[Syscall], link:init.html[Init]
+
+This directory groups high-level system services including kernel system info, command line parsing, ELF/dylib loading, and related runtime facilities.
+
+== Summary
+
+* Maintains global system state structures.
+* Implements executable and dynamic library loading support.
+* Provides utility services used during initialization and runtime.
+
+== Typical Work in This Area
+
+* Extend loader behavior and relocation support.
+* Add system metadata and runtime inspection APIs.
+* Improve initialization robustness and diagnostics.
+
+== Revision History
+
+=== v1.0
+
+Initial sys subsystem summary
