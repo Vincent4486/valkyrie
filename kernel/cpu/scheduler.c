@@ -8,7 +8,8 @@
 #define PROCESS_STATE_READY 0u
 #define PROCESS_STATE_RUNNING 1u
 #define PROCESS_STATE_BLOCKED 2u
-#define PROCESS_STATE_TERMINATED 3u
+#define PROCESS_STATE_ZOMBIE 3u
+#define PROCESS_STATE_WAITING 4u
 
 static Process *g_SchedulerProcesses[SCHED_MAX_PROCESSES];
 static uint32_t g_SchedulerProcessCount = 0;
@@ -90,7 +91,8 @@ void Scheduler_GetNextRunnableProcess()
 
       if (!candidate) continue;
       if (candidate->state == PROCESS_STATE_BLOCKED) continue;
-      if (candidate->state == PROCESS_STATE_TERMINATED) continue;
+      if (candidate->state == PROCESS_STATE_ZOMBIE) continue;
+      if (candidate->state == PROCESS_STATE_WAITING) continue;
 
       g_SchedulerNextRunnable = candidate;
       g_SchedulerLastIndex = (idx + 1) % g_SchedulerProcessCount;
@@ -119,4 +121,12 @@ void Scheduler_Schedule()
 
    next->state = PROCESS_STATE_RUNNING;
    Process_SetCurrent(next);
+}
+
+uint32_t Scheduler_GetProcessCount(void) { return g_SchedulerProcessCount; }
+
+Process *Scheduler_GetProcessAt(uint32_t index)
+{
+   if (index >= g_SchedulerProcessCount) return NULL;
+   return g_SchedulerProcesses[index];
 }

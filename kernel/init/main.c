@@ -100,6 +100,22 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    /* Mark system as fully initialized */
    SYS_Finalize();
 
+   Process *shell_proc = ELF_LoadProcess("/usr/bin/sh", false);
+   if (!shell_proc)
+   {
+      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/sh\n");
+      TTY_Flush(tty_dev);
+      goto end;
+   }
+
+   logfmt(LOG_INFO, "[INIT] loaded /usr/bin/sh (pid=%u), switching scheduler\n",
+          shell_proc->pid);
+
+   if (g_HalSchedulerOperations && g_HalSchedulerOperations->ContextSwitch)
+   {
+      g_HalSchedulerOperations->ContextSwitch();
+   }
+
    logfmt(LOG_WARNING,
           "[INIT] scheduler returned to kernel after launching /usr/bin/sh\n");
    // TTY_SetVideoMode(80, 43);

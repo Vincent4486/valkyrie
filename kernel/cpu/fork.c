@@ -48,8 +48,12 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
 
    child->pid = Process_AllocatePid();
    child->ppid = parent->pid;
-   child->state = 0; // READY
+   child->state = STATE_READY;
    child->kernel_mode = parent->kernel_mode;
+   child->uid = parent->uid;
+   child->gid = parent->gid;
+   child->euid = parent->euid;
+   child->egid = parent->egid;
    child->priority = parent->priority;
    child->ticks_remaining = parent->ticks_remaining;
    child->signal_mask = parent->signal_mask;
@@ -157,7 +161,8 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
 
    for (int i = 0; i < 16; ++i)
    {
-      child->fd_table[i] = NULL;
+      child->fd_table[i] = parent->fd_table[i];
+      if (child->fd_table[i]) FD_Retain(child->fd_table[i]);
    }
 
    logfmt(LOG_INFO, "[PROC] fork: parent=%u child=%u\n", parent->pid,

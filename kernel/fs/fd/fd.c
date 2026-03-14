@@ -10,6 +10,12 @@
 
 #include <drivers/tty/tty.h>
 
+void FD_Retain(FileDescriptor *file)
+{
+   if (!file) return;
+   ++file->ref_count;
+}
+
 // Helper: Get file descriptor from process
 FileDescriptor *FD_Get(void *proc_ptr, int fd)
 {
@@ -81,6 +87,8 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
       return -1; // ENOENT
    }
 
+   file->ref_count = 1;
+
    // Store in process FD table
    proc->fd_table[fd] = file;
    logfmt(LOG_INFO, "[fd] opened: fd=%d, path=%s\n", fd, path);
@@ -98,14 +106,14 @@ int FD_Close(void *proc_ptr, int fd)
    FileDescriptor *file = FD_Get(proc, fd);
    if (!file) return -1; // EBADF (bad file descriptor)
 
-   // Don't allow closing stdin, stdout, stderr
-   if (fd < 3) return 0; // Silently succeed
-
-   // Close in filesystem
-   if (file->inode) VFS_Close((VFS_File *)file->inode);
-
-   free(file);
    proc->fd_table[fd] = NULL;
+
+   if (file->ref_count > 0) --file->ref_count;
+   if (file->ref_count == 0)
+   {
+      if (file->inode) VFS_Close((VFS_File *)file->inode);
+      free(file);
+   }
 
    logfmt(LOG_INFO, "[fd] closed: fd=%d\n", fd);
    return 0;
@@ -203,7 +211,7 @@ void FD_CloseAll(void *proc_ptr)
 
    if (!proc) return;
 
-   for (int i = 3; i < FD_TABLE_SIZE; i++)
+   for (int i = 0; i < FD_TABLE_SIZE; i++)
    {
       if (proc->fd_table[i] != NULL) FD_Close(proc, i);
    }

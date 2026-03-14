@@ -26,6 +26,27 @@
 #ifndef SYS_EXECVE
 #define SYS_EXECVE 11
 #endif
+#ifndef SYS_GETPID
+#define SYS_GETPID 20
+#endif
+#ifndef SYS_GETPPID
+#define SYS_GETPPID 64
+#endif
+#ifndef SYS_SETUID
+#define SYS_SETUID 23
+#endif
+#ifndef SYS_GETUID
+#define SYS_GETUID 24
+#endif
+#ifndef SYS_SETGID
+#define SYS_SETGID 46
+#endif
+#ifndef SYS_GETGID
+#define SYS_GETGID 47
+#endif
+#ifndef SYS_WAIT4
+#define SYS_WAIT4 114
+#endif
 #ifndef SYS_READ
 #define SYS_READ 3
 #endif

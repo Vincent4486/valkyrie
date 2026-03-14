@@ -21,6 +21,10 @@
 #define ENOENT 2
 #endif
 
+#ifndef EINVAL
+#define EINVAL 22
+#endif
+
 static inline Process *get_current_process(void)
 {
    return Process_GetCurrent();
@@ -143,6 +147,59 @@ intptr_t sys_exit(int status)
    return 0;
 }
 
+intptr_t Syscall_GetPid(void)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return (intptr_t)Process_GetPid(proc);
+}
+
+intptr_t Syscall_GetPPid(void)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return (intptr_t)Process_GetPPid(proc);
+}
+
+intptr_t Syscall_GetUid(void)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return (intptr_t)Process_GetUid(proc);
+}
+
+intptr_t Syscall_GetGid(void)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return (intptr_t)Process_GetGid(proc);
+}
+
+intptr_t Syscall_SetUid(uint32_t uid)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return Process_SetUid(proc, uid);
+}
+
+intptr_t Syscall_SetGid(uint32_t gid)
+{
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+   return Process_SetGid(proc, gid);
+}
+
+intptr_t Syscall_Wait4(int32_t pid, int *status, int options, void *rusage)
+{
+   (void)rusage;
+
+   Process *proc = get_current_process();
+   if (!proc) return -1;
+
+   if (options != 0) return -EINVAL;
+   return Process_Wait(proc, pid, status, options);
+}
+
 /* Generic syscall dispatcher
  *
  * Called by arch-specific handler after extracting parameters from registers.
@@ -166,6 +223,28 @@ intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args, Registers *regs)
    case SYS_EXECVE:
       return sys_execve((const char *)args[0], (const char *const *)args[1],
                         (const char *const *)args[2], regs);
+
+   case SYS_WAIT4:
+      return Syscall_Wait4((int32_t)args[0], (int *)args[1], (int)args[2],
+                           (void *)args[3]);
+
+   case SYS_GETPID:
+      return Syscall_GetPid();
+
+   case SYS_GETPPID:
+      return Syscall_GetPPid();
+
+   case SYS_SETUID:
+      return Syscall_SetUid(args[0]);
+
+   case SYS_GETUID:
+      return Syscall_GetUid();
+
+   case SYS_SETGID:
+      return Syscall_SetGid(args[0]);
+
+   case SYS_GETGID:
+      return Syscall_GetGid();
 
    case SYS_BRK:
       return sys_brk((void *)args[0]);

@@ -27,6 +27,7 @@ typedef struct
    bool writable;
    void *inode;
    uint32_t flags;
+   uint32_t ref_count;
 } FileDescriptor;
 
 // Core FD operations
@@ -40,5 +41,6 @@ int FD_Lseek(void *proc, int fd, int32_t offset, int whence);
 FileDescriptor *FD_Get(void *proc, int fd);
 int FD_FindFree(void *proc);
 void FD_CloseAll(void *proc);
+void FD_Retain(FileDescriptor *file);
 
 #endif

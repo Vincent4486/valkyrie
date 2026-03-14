@@ -13,6 +13,8 @@
 #define USER_STACK_SIZE (64u * 1024u)
 #define USER_HEAP_START 0x10000000u
 #define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
+#define USER_CODE_SELECTOR 0x1Bu
+#define USER_DATA_SELECTOR 0x23u
 
 static int allocate_kernel_stack(Process *proc)
 {
@@ -65,8 +67,12 @@ Process *Process_CreateUser(uint32_t entry_point)
 
    proc->pid = Process_AllocatePid();
    proc->ppid = 0;
-   proc->state = 0; // READY
+   proc->state = STATE_READY;
    proc->kernel_mode = false;
+   proc->uid = 0;
+   proc->gid = 0;
+   proc->euid = 0;
+   proc->egid = 0;
    proc->priority = 10;
    proc->ticks_remaining = 0;
    proc->signal_mask = 0;
@@ -126,6 +132,23 @@ Process *Process_CreateUser(uint32_t entry_point)
    proc->esi = proc->edi = 0;
    proc->eflags = 0x202u;
    proc->saved_regs = NULL;
+
+   if (proc->kernel_stack && proc->kernel_stack_size >= sizeof(Registers))
+   {
+      uint8_t *kstack_top =
+          (uint8_t *)proc->kernel_stack + proc->kernel_stack_size;
+      Registers *frame = (Registers *)(kstack_top - sizeof(Registers));
+
+      memset(frame, 0, sizeof(*frame));
+      frame->eip = entry_point;
+      frame->cs = USER_CODE_SELECTOR;
+      frame->eflags = 0x202u; // IF=1 so timer/IRQ delivery works in user mode.
+      frame->esp = user_esp;
+      frame->ss = USER_DATA_SELECTOR;
+      frame->ds = USER_DATA_SELECTOR;
+
+      proc->saved_regs = frame;
+   }
 
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
 

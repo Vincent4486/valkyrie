@@ -60,6 +60,36 @@ typedef struct
 #define EXEC_MAX_ENVP 64
 #define EXEC_MAX_STR 4096
 
+static int ensure_standard_io(Process *proc)
+{
+   if (!proc) return -1;
+
+   for (int fd = 0; fd < 3; ++fd)
+   {
+      if (proc->fd_table[fd]) continue;
+
+      FileDescriptor *tty_fd = (FileDescriptor *)kmalloc(sizeof(FileDescriptor));
+      if (!tty_fd) return -1;
+
+      memset(tty_fd, 0, sizeof(*tty_fd));
+      strncpy(tty_fd->path, "/dev/tty0", sizeof(tty_fd->path) - 1);
+      tty_fd->readable = true;
+      tty_fd->writable = true;
+      tty_fd->flags = O_RDWR;
+      tty_fd->ref_count = 1;
+      tty_fd->inode = VFS_Open("/dev/tty0");
+      if (!tty_fd->inode)
+      {
+         free(tty_fd);
+         return -1;
+      }
+
+      proc->fd_table[fd] = tty_fd;
+   }
+
+   return 0;
+}
+
 static int map_user_trampoline(Process *proc)
 {
    uint32_t phys = PMM_AllocatePhysicalPage();
@@ -368,6 +398,12 @@ int Process_Execute(Process *proc, const char *path, const char *const argv[],
    VFS_Close(file);
 
    if (build_initial_user_stack(&staged, argv, envp) != 0)
+   {
+      g_HalPagingOperations->DestroyPageDirectory(new_pd);
+      return -1;
+   }
+
+   if (ensure_standard_io(proc) != 0)
    {
       g_HalPagingOperations->DestroyPageDirectory(new_pd);
       return -1;

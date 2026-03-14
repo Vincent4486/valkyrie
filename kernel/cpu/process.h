@@ -12,12 +12,27 @@
 
 #define HEAP_MAX 0xC0000000u // Don't allow heap
 
+typedef enum
+{
+   STATE_READY = 0u,
+   STATE_RUNNING = 1u,
+   STATE_BLOCKED = 2u,
+   STATE_ZOMBIE = 3u,
+   STATE_WAITING = 4u,
+} ProcessState;
+
 typedef struct
 {
    uint32_t pid;     // Process ID
    uint32_t ppid;    // Parent process ID
-   uint32_t state;   // RUNNING, READY, BLOCKED, TERMINATED
+   uint32_t state;   // ProcessState
    bool kernel_mode; // true if running in kernel mode
+
+   // Identity and credentials
+   uint32_t uid;
+   uint32_t gid;
+   uint32_t euid;
+   uint32_t egid;
 
    // Memory management
    void *page_directory; // Points to process's page directory
@@ -72,9 +87,20 @@ int Process_Execute(Process *proc, const char *path, const char *const argv[],
                     const char *const envp[]);
 void Process_Exit(Process *proc, int exit_code);
 void Process_Destroy(Process *proc);
+int Process_Wait(Process *parent, int32_t pid, int *status, int options);
 Process *Process_GetCurrent(void);
 void Process_SetCurrent(Process *proc);
 void Process_SelfTest(void);
+
+/* Identity helpers */
+uint32_t Process_GetPid(const Process *proc);
+uint32_t Process_GetPPid(const Process *proc);
+uint32_t Process_GetUid(const Process *proc);
+uint32_t Process_GetGid(const Process *proc);
+uint32_t Process_GetEUid(const Process *proc);
+uint32_t Process_GetEGid(const Process *proc);
+int Process_SetUid(Process *proc, uint32_t uid);
+int Process_SetGid(Process *proc, uint32_t gid);
 
 /* Core process state */
 uint32_t Process_AllocatePid(void);

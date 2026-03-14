@@ -31,8 +31,12 @@ Process *Process_CreateKernel(uint32_t entry_point)
 
    proc->pid = Process_AllocatePid();
    proc->ppid = 0;
-   proc->state = 0; // READY
+   proc->state = STATE_READY;
    proc->kernel_mode = true;
+   proc->uid = 0;
+   proc->gid = 0;
+   proc->euid = 0;
+   proc->egid = 0;
    proc->priority = 10;
    proc->ticks_remaining = 0;
    proc->signal_mask = 0;

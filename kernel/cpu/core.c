@@ -3,16 +3,46 @@
 #include "process.h"
 #include "scheduler.h"
 #include <hal/paging.h>
+#include <hal/scheduler.h>
 #include <hal/tss.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
+
+#ifndef ECHILD
+#define ECHILD 10
+#endif
+
+#ifndef EINVAL
+#define EINVAL 22
+#endif
 
 #define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
 
 static Process *g_CurrentProcess = NULL;
 static uint32_t g_NextPid = 1;
 static void *g_KernelPageDirectory = NULL;
+
+static Process *find_process_by_pid(uint32_t pid)
+{
+   uint32_t count = Scheduler_GetProcessCount();
+   for (uint32_t i = 0; i < count; ++i)
+   {
+      Process *candidate = Scheduler_GetProcessAt(i);
+      if (candidate && candidate->pid == pid) return candidate;
+   }
+
+   return NULL;
+}
+
+static bool process_matches_wait_target(const Process *child, uint32_t parent_pid,
+                                        int32_t pid)
+{
+   if (!child) return false;
+   if (child->ppid != parent_pid) return false;
+   if (pid > 0 && child->pid != (uint32_t)pid) return false;
+   return true;
+}
 
 static void free_kernel_stack(Process *proc)
 {
@@ -117,8 +147,56 @@ void Process_Exit(Process *proc, int exit_code)
    if (!proc) return;
 
    proc->exit_code = exit_code;
-   proc->state = 3; // TERMINATED
-   Process_Destroy(proc);
+   proc->state = STATE_ZOMBIE;
+
+   Process *parent = find_process_by_pid(proc->ppid);
+   if (parent && parent->state == STATE_WAITING)
+   {
+      parent->state = STATE_READY;
+   }
+}
+
+int Process_Wait(Process *parent, int32_t pid, int *status, int options)
+{
+   (void)options;
+
+   if (!parent) return -EINVAL;
+
+   for (;;)
+   {
+      bool has_child = false;
+      uint32_t count = Scheduler_GetProcessCount();
+
+      for (uint32_t i = 0; i < count; ++i)
+      {
+         Process *child = Scheduler_GetProcessAt(i);
+         if (!process_matches_wait_target(child, parent->pid, pid)) continue;
+
+         has_child = true;
+         if (child->state != STATE_ZOMBIE) continue;
+
+         int child_status = child->exit_code;
+         uint32_t child_pid = child->pid;
+
+         Process_Destroy(child);
+
+         if (status) *status = child_status;
+         parent->state = STATE_RUNNING;
+         return (int)child_pid;
+      }
+
+      if (!has_child)
+      {
+         parent->state = STATE_RUNNING;
+         return -ECHILD;
+      }
+
+      parent->state = STATE_WAITING;
+      if (g_HalSchedulerOperations && g_HalSchedulerOperations->ContextSwitch)
+      {
+         g_HalSchedulerOperations->ContextSwitch();
+      }
+   }
 }
 
 Process *Process_GetCurrent(void) { return g_CurrentProcess; }
@@ -201,4 +279,58 @@ void Process_SelfTest(void)
 
    logfmt(LOG_INFO, "[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
    Process_Destroy(p);
+}
+
+uint32_t Process_GetPid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->pid;
+}
+
+uint32_t Process_GetPPid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->ppid;
+}
+
+uint32_t Process_GetUid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->uid;
+}
+
+uint32_t Process_GetGid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->gid;
+}
+
+uint32_t Process_GetEUid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->euid;
+}
+
+uint32_t Process_GetEGid(const Process *proc)
+{
+   if (!proc) return 0;
+   return proc->egid;
+}
+
+int Process_SetUid(Process *proc, uint32_t uid)
+{
+   if (!proc) return -EINVAL;
+
+   proc->uid = uid;
+   proc->euid = uid;
+   return 0;
+}
+
+int Process_SetGid(Process *proc, uint32_t gid)
+{
+   if (!proc) return -EINVAL;
+
+   proc->gid = gid;
+   proc->egid = gid;
+   return 0;
 }

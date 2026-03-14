@@ -14,5 +14,7 @@ void Scheduler_Schedule();
 
 void Scheduler_SetProcessState();
 void Scheduler_GetNextRunnableProcess();
+uint32_t Scheduler_GetProcessCount(void);
+Process *Scheduler_GetProcessAt(uint32_t index);
 
 #endif
