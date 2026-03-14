@@ -1,15 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""
-Architecture configuration for the Valkyrie OS build system.
 
-This module defines architecture-specific settings including:
-- Compiler flags
-- Target triples
-- Dynamic linker paths
-- Assembly flags
-"""
-
-# Architecture configurations
 ARCH_CONFIG = {
     'i686': {
         'target_triple': 'i686-linux-musl',

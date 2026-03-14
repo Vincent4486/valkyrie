@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
-"""
-QEMU emulator launcher for Valkyrie OS.
-
-Supports running disk, cdrom, and floppy images with configurable options.
-"""
 
 import argparse
 import os
@@ -16,15 +11,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from scripts.scons.arch import get_arch_config, get_supported_archs
 
-
-# Default QEMU settings
 DEFAULT_MEMORY = '4G'
 DEFAULT_SMP = 1
 
-
 def get_qemu_base_args(arch: str, memory: str = DEFAULT_MEMORY, 
                        smp: int = DEFAULT_SMP, debug_console: bool = True) -> list:
-    """Get base QEMU arguments for the given architecture."""
     arch_config = get_arch_config(arch)
     
     args = [
@@ -83,6 +74,10 @@ def run_qemu(arch: str, image_type: str, image_path: str,
     print(f"Running: {' '.join(args)}")
     return subprocess.call(args)
 
+
+# =============================================================================
+# Main Entry Point
+# =============================================================================
 
 def main():
     parser = argparse.ArgumentParser(

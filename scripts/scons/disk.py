@@ -1,14 +1,4 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""
-Disk image creation utilities for the Valkyrie OS build system.
-
-This module handles:
-- Shared filesystem metadata
-- Partition image formatting
-- Toolchain runtime staging
-- GRUB config/module helpers
-- ISO image creation
-"""
 
 import os
 import textwrap
@@ -18,7 +8,6 @@ import sh
 
 VOLUME_LABEL = 'VALKYRIE'
 
-# Filesystem configurations shared by SConstruct/image builders.
 FS_CONFIG = {
     'fat12': {
         'parted_type': 'fat12',
