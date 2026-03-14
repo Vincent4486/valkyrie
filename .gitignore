@@ -70,5 +70,5 @@ test.*
 
 isrs_gen.*
 *.map
-sh
+usr/sh/sh
 valkyrix-*
