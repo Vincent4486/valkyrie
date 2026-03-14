@@ -2,12 +2,15 @@
 
 #include "process.h"
 #include "scheduler.h"
+#include <fs/vfs/vfs.h>
 #include <hal/paging.h>
 #include <hal/scheduler.h>
 #include <hal/tss.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
+#include <std/string.h>
+#include <sys/elf.h>
 
 #ifndef ECHILD
 #define ECHILD 10
@@ -23,6 +26,37 @@ static Process *g_CurrentProcess = NULL;
 static uint32_t g_NextPid = 1;
 static void *g_KernelPageDirectory = NULL;
 
+int Process_InitializeStandardIO(Process *proc)
+{
+   if (!proc) return -1;
+
+   for (int fd = 0; fd < 3; ++fd)
+   {
+      if (proc->fd_table[fd]) continue;
+
+      FileDescriptor *tty_fd =
+          (FileDescriptor *)kmalloc(sizeof(FileDescriptor));
+      if (!tty_fd) return -1;
+
+      memset(tty_fd, 0, sizeof(*tty_fd));
+      strncpy(tty_fd->path, "/dev/tty0", sizeof(tty_fd->path) - 1);
+      tty_fd->readable = true;
+      tty_fd->writable = true;
+      tty_fd->flags = O_RDWR;
+      tty_fd->ref_count = 1;
+      tty_fd->inode = VFS_Open("/dev/tty0");
+      if (!tty_fd->inode)
+      {
+         free(tty_fd);
+         return -1;
+      }
+
+      proc->fd_table[fd] = tty_fd;
+   }
+
+   return 0;
+}
+
 static Process *find_process_by_pid(uint32_t pid)
 {
    uint32_t count = Scheduler_GetProcessCount();
@@ -35,8 +69,8 @@ static Process *find_process_by_pid(uint32_t pid)
    return NULL;
 }
 
-static bool process_matches_wait_target(const Process *child, uint32_t parent_pid,
-                                        int32_t pid)
+static bool process_matches_wait_target(const Process *child,
+                                        uint32_t parent_pid, int32_t pid)
 {
    if (!child) return false;
    if (child->ppid != parent_pid) return false;
@@ -242,42 +276,18 @@ void Process_SelfTest(void)
 {
    logfmt(LOG_INFO, "[PROC] self-test: starting\n");
 
-   Process *p = Process_CreateUser(0x08048000u);
+   Process *p = ELF_LoadProcess("/usr/bin/selftest", false);
    if (!p)
    {
       logfmt(LOG_ERROR,
-             "[PROC] self-test: FAIL (Process_CreateUser returned NULL)\n");
+             "[PROC] self-test: FAIL (ELF_LoadProcess /usr/bin/selftest)\n");
       return;
    }
 
-   if (Heap_ProcessSbrk(p, 4096) == (void *)-1)
-   {
-      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (sbrk failed)\n");
-      Process_Destroy(p);
-      return;
-   }
-
-   Process_SetCurrent(p);
-   volatile uint32_t *heap_test = (volatile uint32_t *)p->heap_start;
-   *heap_test = 0xCAFEBABEu;
-   if (*heap_test != 0xCAFEBABEu)
-   {
-      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (heap write/read)\n");
-      Process_Destroy(p);
-      return;
-   }
-
-   volatile uint32_t *stack_test =
-       (volatile uint32_t *)(p->stack_end - sizeof(uint32_t));
-   *stack_test = 0x11223344u;
-   if (*stack_test != 0x11223344u)
-   {
-      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (stack write/read)\n");
-      Process_Destroy(p);
-      return;
-   }
-
-   logfmt(LOG_INFO, "[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
+   logfmt(LOG_INFO,
+          "[PROC] self-test: PASS (loaded /usr/bin/selftest pid=%u "
+          "entry=0x%08x)\n",
+          p->pid, p->eip);
    Process_Destroy(p);
 }
 

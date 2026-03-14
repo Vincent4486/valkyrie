@@ -203,6 +203,16 @@ bool i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
    uint32_t *pt = get_page_table(pd, vaddr, true);
    if (!pt) return false;
 
+   uint32_t pd_idx = vaddr >> 22;
+   if (flags & PAGE_USER)
+   {
+      pd[pd_idx] |= PAGE_USER;
+   }
+   if (flags & PAGE_RW)
+   {
+      pd[pd_idx] |= PAGE_RW;
+   }
+
    uint32_t pt_idx = (vaddr >> 12) & 0x3FF;
    pt[pt_idx] = (paddr & 0xFFFFF000u) | (flags & 0xFFF) | PAGE_PRESENT;
    invlpg(vaddr);

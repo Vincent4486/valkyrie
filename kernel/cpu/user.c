@@ -152,6 +152,14 @@ Process *Process_CreateUser(uint32_t entry_point)
 
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
 
+   if (Process_InitializeStandardIO(proc) != 0)
+   {
+      g_HalPagingOperations->DestroyPageDirectory(proc->page_directory);
+      free(proc->kernel_stack);
+      free(proc);
+      return NULL;
+   }
+
    logfmt(LOG_INFO, "[PROC] created user pid=%u entry=0x%08x\n", proc->pid,
           entry_point);
 

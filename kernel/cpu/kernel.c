@@ -68,6 +68,13 @@ Process *Process_CreateKernel(uint32_t entry_point)
 
    for (int i = 0; i < 16; ++i) proc->fd_table[i] = NULL;
 
+   if (Process_InitializeStandardIO(proc) != 0)
+   {
+      free(proc->kernel_stack);
+      free(proc);
+      return NULL;
+   }
+
    logfmt(LOG_INFO, "[PROC] created kernel pid=%u entry=0x%08x\n", proc->pid,
           entry_point);
 

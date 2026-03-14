@@ -319,7 +319,7 @@ bool VFS_Delete(const char *path)
       return NULL;
    }
 
-   bool result = part->fs->ops->delete(part, relative);
+   bool result = part->fs->ops->delete (part, relative);
    free(relative);
    return result;
 }

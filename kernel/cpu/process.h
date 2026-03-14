@@ -90,6 +90,7 @@ void Process_Destroy(Process *proc);
 int Process_Wait(Process *parent, int32_t pid, int *status, int options);
 Process *Process_GetCurrent(void);
 void Process_SetCurrent(Process *proc);
+int Process_InitializeStandardIO(Process *proc);
 void Process_SelfTest(void);
 
 /* Identity helpers */

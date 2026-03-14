@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""
+selftest - Freestanding user-mode syscall test application build configuration.
+"""
+
+from SCons.Script import Dir, Export
+
+from scripts.scons.utility import GlobSources
+
+Import('usermode_env')
+
+env = usermode_env.Clone()
+
+src_dir = Dir('#usr/selftest').abspath
+
+env.Append(
+    CPATH=[src_dir],
+    CPPPATH=[src_dir],
+    CCFLAGS=['-ffreestanding', '-fno-builtin', '-fno-pie', '-fno-stack-protector'],
+    LINKFLAGS=['-nostdlib', '-nostartfiles', '-nodefaultlibs', '-static', '-Wl,-e,_start', '-no-pie'],
+)
+
+sources = GlobSources(src_dir)
+objects = env.Object(sources)
+
+selftest_executable = env.Program('selftest', objects)
+
+selftest_module = selftest_executable
+Export('selftest_module')

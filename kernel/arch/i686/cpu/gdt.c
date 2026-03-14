@@ -61,12 +61,10 @@ typedef enum
 #define GDT_BASE_HIGH(base) ((base >> 24) & 0xFF)
 
 #define GDT_ENTRY(base, limit, access, flags)                                  \
-   {GDT_LIMIT_LOW(limit),                                                      \
-    GDT_BASE_LOW(base),                                                        \
-    GDT_BASE_MIDDLE(base),                                                     \
-    access,                                                                    \
-    GDT_FLAGS_LIMIT_HI(limit, flags),                                          \
-    GDT_BASE_HIGH(base)}
+   {                                                                           \
+      GDT_LIMIT_LOW(limit), GDT_BASE_LOW(base), GDT_BASE_MIDDLE(base), access, \
+          GDT_FLAGS_LIMIT_HI(limit, flags), GDT_BASE_HIGH(base)                \
+   }
 
 GDTEntry g_GDT[] = {
     GDT_ENTRY(0, 0, 0, 0),
@@ -79,6 +77,18 @@ GDTEntry g_GDT[] = {
     // Kernel 32-bit data segment
     GDT_ENTRY(0, 0xFFFFF,
               GDT_ACCESS_PRESENT | GDT_ACCESS_RING0 | GDT_ACCESS_DATA_SEGMENT |
+                  GDT_ACCESS_DATA_WRITEABLE,
+              GDT_FLAG_32BIT | GDT_FLAG_GRANULARITY_4K),
+
+    // User 32-bit code segment
+    GDT_ENTRY(0, 0xFFFFF,
+              GDT_ACCESS_PRESENT | GDT_ACCESS_RING3 | GDT_ACCESS_CODE_SEGMENT |
+                  GDT_ACCESS_CODE_READABLE,
+              GDT_FLAG_32BIT | GDT_FLAG_GRANULARITY_4K),
+
+    // User 32-bit data segment
+    GDT_ENTRY(0, 0xFFFFF,
+              GDT_ACCESS_PRESENT | GDT_ACCESS_RING3 | GDT_ACCESS_DATA_SEGMENT |
                   GDT_ACCESS_DATA_WRITEABLE,
               GDT_FLAG_32BIT | GDT_FLAG_GRANULARITY_4K),
 
@@ -101,10 +111,10 @@ void i686_GDT_Initialize()
 
 void i686_GDT_SetTSSEntry(uint32_t base, uint32_t limit)
 {
-   g_GDT[3].LimitLow = GDT_LIMIT_LOW(limit);
-   g_GDT[3].BaseLow = GDT_BASE_LOW(base);
-   g_GDT[3].BaeMiddle = GDT_BASE_MIDDLE(base);
-   g_GDT[3].access = 0x89;
-   g_GDT[3].FlagLimitHigh = GDT_FLAGS_LIMIT_HI(limit, 0x00);
-   g_GDT[3].BaseHigh = GDT_BASE_HIGH(base);
+   g_GDT[5].LimitLow = GDT_LIMIT_LOW(limit);
+   g_GDT[5].BaseLow = GDT_BASE_LOW(base);
+   g_GDT[5].BaeMiddle = GDT_BASE_MIDDLE(base);
+   g_GDT[5].access = 0x89;
+   g_GDT[5].FlagLimitHigh = GDT_FLAGS_LIMIT_HI(limit, 0x00);
+   g_GDT[5].BaseHigh = GDT_BASE_HIGH(base);
 }

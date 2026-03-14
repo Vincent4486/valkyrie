@@ -32,13 +32,14 @@
 #define VGA_GFX_DATA 0x3CF
 
 /* Miscellaneous Output / Input Status ports */
-#define VGA_MISC_OUT 0x3C2 /* write: clock select, sync polarity, RAM enable   \
-                            */
-#define VGA_ISTAT1 0x3DA   /* read:  resets Attribute Controller flip-flop   */
+#define VGA_MISC_OUT                                                           \
+   0x3C2                 /* write: clock select, sync polarity, RAM enable     \
+                          */
+#define VGA_ISTAT1 0x3DA /* read:  resets Attribute Controller flip-flop   */
 
 /* Attribute Controller address/data port and Palette Address Source bit */
 #define VGA_AC_ADDR 0x3C0 /* write index then data; read: index register    */
-#define VGA_AC_PAS 0x20   /* Palette Address Source – set to re-enable video */
+#define VGA_AC_PAS 0x20 /* Palette Address Source – set to re-enable video */
 
 /* CRTC register indices – horizontal */
 #define VGA_CRTC_HTOTAL 0x00  /* Horizontal Total                          */

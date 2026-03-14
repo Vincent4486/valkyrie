@@ -60,6 +60,7 @@ Export('musl_lib')
 
 SConscript('libmath/SConscript', variant_dir='libmath_build', duplicate=0)
 SConscript('sh/SConscript', variant_dir='sh_build', duplicate=0)
+SConscript('selftest/SConscript', variant_dir='selftest_build', duplicate=0)
 
 
 # =============================================================================
@@ -68,9 +69,10 @@ SConscript('sh/SConscript', variant_dir='sh_build', duplicate=0)
 
 Import('libmath_module')
 Import('sh_module')
+Import('selftest_module')
 
 user_libraries = [libmath_module]
-user_applications = [sh_module]
+user_applications = [sh_module, selftest_module]
 
 Export('user_libraries')
 Export('user_applications')

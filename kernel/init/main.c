@@ -27,6 +27,7 @@
 
 extern int Init_MountRoot(void);
 extern void interact();
+static void fallback(void);
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
@@ -100,27 +101,37 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    /* Mark system as fully initialized */
    SYS_Finalize();
 
-   Process *shell_proc = ELF_LoadProcess("/usr/bin/sh", false);
+   Process_SelfTest();
+
+   Process *shell_proc = ELF_LoadProcess("/usr/bin/selftest", false);
    if (!shell_proc)
    {
-      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/sh\n");
+      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/selftest\n");
       TTY_Flush(tty_dev);
-      goto end;
+      goto backup;
    }
 
-   logfmt(LOG_INFO, "[INIT] loaded /usr/bin/sh (pid=%u), switching scheduler\n",
+   logfmt(LOG_INFO,
+          "[INIT] loaded /usr/bin/selftest (pid=%u), switching scheduler\n",
           shell_proc->pid);
+
+   Process *kernel_fallback_proc =
+       Process_CreateKernel((uint32_t)fallback);
+   if (!kernel_fallback_proc)
+   {
+      logfmt(LOG_ERROR, "[INIT] failed to create kernel fallback process\n");
+      TTY_Flush(tty_dev);
+      goto backup;
+   }
 
    if (g_HalSchedulerOperations && g_HalSchedulerOperations->ContextSwitch)
    {
       g_HalSchedulerOperations->ContextSwitch();
    }
 
-   logfmt(LOG_WARNING,
-          "[INIT] scheduler returned to kernel after launching /usr/bin/sh\n");
    // TTY_SetVideoMode(80, 43);
    // TTY_SetVideoMode(40, 25);
-
+backup:
    /* Fallback interactive mode if shell handoff returns unexpectedly. */
    interact();
 
@@ -128,4 +139,14 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
 
 end:
    for (;;);
+}
+
+static void __attribute__((noreturn)) fallback(void)
+{
+   interact();
+   hold(-1);
+
+   for (;;)
+   {
+   }
 }

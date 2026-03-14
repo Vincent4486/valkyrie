@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 ISRHandler g_ISRHandlers[256];
+extern void __attribute__((cdecl)) i686_ISR128(void);
 
 static const char *const g_Exceptions[] = {"Divide by zero error",
                                            "Debug",
@@ -47,6 +48,8 @@ void i686_ISR_InitializeGates();
 void i686_ISR_Initialize()
 {
    i686_ISR_InitializeGates();
+   i686_IDT_SetGate(0x80, i686_ISR128, i686_GDT_CODE_SEGMENT,
+                    IDT_FLAG_RING3 | IDT_FLAG_GATE_32BIT_INT);
    for (int i = 0; i < 256; i++) i686_IDT_EnableGate(i);
    logfmt(LOG_INFO, "[ISR] initialized\n");
 }
