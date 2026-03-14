@@ -22,7 +22,7 @@ struct DEVFS_DeviceNode;
  */
 
 /* Screen dimensions – default / minimum mode */
-#define SCREEN_WIDTH  80
+#define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 25
 
 /* Maximum buffer dimensions.
@@ -31,11 +31,11 @@ struct DEVFS_DeviceNode;
  * dimensions are tracked per-device in TTY_Device::cols / TTY_Device::rows
  * and rendering clips to those values. */
 #define TTY_MAX_COLS 160
-#define TTY_MAX_ROWS  50
+#define TTY_MAX_ROWS 50
 
 /* Buffer sizes */
 #define TTY_INPUT_SIZE 4096
-#define TTY_LINE_SIZE  256
+#define TTY_LINE_SIZE 256
 /* TTY_SCROLLBACK is intentionally absent: 1:1 buffer mapping, no scrollback. */
 
 /* Maximum TTY instances */
@@ -94,8 +94,8 @@ typedef struct TTY_Device
    bool eof_pending;             /* EOF was received */
 
    /* Output/display – max-size buffer; active area is cols × rows */
-   uint16_t  screen_buf[TTY_MAX_ROWS][TTY_MAX_COLS]; /* packed (color<<8)|char */
-   uint16_t *display_buf;                            /* VGA shadow/display buffer */
+   uint16_t screen_buf[TTY_MAX_ROWS][TTY_MAX_COLS]; /* packed (color<<8)|char */
+   uint16_t *display_buf; /* VGA shadow/display buffer */
 
    /* Current video mode dimensions (≤ TTY_MAX_COLS × TTY_MAX_ROWS) */
    int cols; /* Active columns */

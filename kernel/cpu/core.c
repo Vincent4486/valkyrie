@@ -100,7 +100,8 @@ void Process_Destroy(Process *proc)
       g_CurrentProcess = NULL;
       if (!g_KernelPageDirectory)
       {
-         g_KernelPageDirectory = g_HalPagingOperations->GetCurrentPageDirectory();
+         g_KernelPageDirectory =
+             g_HalPagingOperations->GetCurrentPageDirectory();
       }
       if (g_KernelPageDirectory)
       {
@@ -166,7 +167,8 @@ void Process_SelfTest(void)
    Process *p = Process_CreateUser(0x08048000u);
    if (!p)
    {
-      logfmt(LOG_ERROR, "[PROC] self-test: FAIL (Process_CreateUser returned NULL)\n");
+      logfmt(LOG_ERROR,
+             "[PROC] self-test: FAIL (Process_CreateUser returned NULL)\n");
       return;
    }
 
@@ -200,4 +202,3 @@ void Process_SelfTest(void)
    logfmt(LOG_INFO, "[PROC] self-test: PASS (pid=%u, heap+stack ok)\n", p->pid);
    Process_Destroy(p);
 }
-

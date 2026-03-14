@@ -17,106 +17,106 @@ static Process *g_SchedulerNextRunnable = NULL;
 
 void Scheduler_Initialize()
 {
-	for (uint32_t i = 0; i < SCHED_MAX_PROCESSES; ++i)
-	{
-		g_SchedulerProcesses[i] = NULL;
-	}
+   for (uint32_t i = 0; i < SCHED_MAX_PROCESSES; ++i)
+   {
+      g_SchedulerProcesses[i] = NULL;
+   }
 
-	g_SchedulerProcessCount = 0;
-	g_SchedulerLastIndex = 0;
-	g_SchedulerNextRunnable = NULL;
+   g_SchedulerProcessCount = 0;
+   g_SchedulerLastIndex = 0;
+   g_SchedulerNextRunnable = NULL;
 }
 
 void Scheduler_RegisterProcess(Process *process)
 {
-	if (!process) return;
+   if (!process) return;
 
-	for (uint32_t i = 0; i < g_SchedulerProcessCount; ++i)
-	{
-		if (g_SchedulerProcesses[i] == process)
-		{
-			return;
-		}
-	}
+   for (uint32_t i = 0; i < g_SchedulerProcessCount; ++i)
+   {
+      if (g_SchedulerProcesses[i] == process)
+      {
+         return;
+      }
+   }
 
-	if (g_SchedulerProcessCount >= SCHED_MAX_PROCESSES)
-	{
-		logfmt(LOG_WARNING, "[SCHED] process list full, pid=%u not queued\n",
-				 process->pid);
-		return;
-	}
+   if (g_SchedulerProcessCount >= SCHED_MAX_PROCESSES)
+   {
+      logfmt(LOG_WARNING, "[SCHED] process list full, pid=%u not queued\n",
+             process->pid);
+      return;
+   }
 
-	g_SchedulerProcesses[g_SchedulerProcessCount++] = process;
+   g_SchedulerProcesses[g_SchedulerProcessCount++] = process;
 }
 
 void Scheduler_UnregisterProcess(Process *process)
 {
-	if (!process || g_SchedulerProcessCount == 0) return;
+   if (!process || g_SchedulerProcessCount == 0) return;
 
-	for (uint32_t i = 0; i < g_SchedulerProcessCount; ++i)
-	{
-		if (g_SchedulerProcesses[i] != process) continue;
+   for (uint32_t i = 0; i < g_SchedulerProcessCount; ++i)
+   {
+      if (g_SchedulerProcesses[i] != process) continue;
 
-		for (uint32_t j = i; j + 1 < g_SchedulerProcessCount; ++j)
-		{
-			g_SchedulerProcesses[j] = g_SchedulerProcesses[j + 1];
-		}
+      for (uint32_t j = i; j + 1 < g_SchedulerProcessCount; ++j)
+      {
+         g_SchedulerProcesses[j] = g_SchedulerProcesses[j + 1];
+      }
 
-		g_SchedulerProcesses[g_SchedulerProcessCount - 1] = NULL;
-		--g_SchedulerProcessCount;
+      g_SchedulerProcesses[g_SchedulerProcessCount - 1] = NULL;
+      --g_SchedulerProcessCount;
 
-		if (g_SchedulerProcessCount == 0)
-		{
-			g_SchedulerLastIndex = 0;
-		}
-		else if (g_SchedulerLastIndex >= g_SchedulerProcessCount)
-		{
-			g_SchedulerLastIndex = 0;
-		}
+      if (g_SchedulerProcessCount == 0)
+      {
+         g_SchedulerLastIndex = 0;
+      }
+      else if (g_SchedulerLastIndex >= g_SchedulerProcessCount)
+      {
+         g_SchedulerLastIndex = 0;
+      }
 
-		return;
-	}
+      return;
+   }
 }
 
 void Scheduler_GetNextRunnableProcess()
 {
-	g_SchedulerNextRunnable = NULL;
-	if (g_SchedulerProcessCount == 0) return;
+   g_SchedulerNextRunnable = NULL;
+   if (g_SchedulerProcessCount == 0) return;
 
-	for (uint32_t n = 0; n < g_SchedulerProcessCount; ++n)
-	{
-		uint32_t idx = (g_SchedulerLastIndex + n) % g_SchedulerProcessCount;
-		Process *candidate = g_SchedulerProcesses[idx];
+   for (uint32_t n = 0; n < g_SchedulerProcessCount; ++n)
+   {
+      uint32_t idx = (g_SchedulerLastIndex + n) % g_SchedulerProcessCount;
+      Process *candidate = g_SchedulerProcesses[idx];
 
-		if (!candidate) continue;
-		if (candidate->state == PROCESS_STATE_BLOCKED) continue;
-		if (candidate->state == PROCESS_STATE_TERMINATED) continue;
+      if (!candidate) continue;
+      if (candidate->state == PROCESS_STATE_BLOCKED) continue;
+      if (candidate->state == PROCESS_STATE_TERMINATED) continue;
 
-		g_SchedulerNextRunnable = candidate;
-		g_SchedulerLastIndex = (idx + 1) % g_SchedulerProcessCount;
-		return;
-	}
+      g_SchedulerNextRunnable = candidate;
+      g_SchedulerLastIndex = (idx + 1) % g_SchedulerProcessCount;
+      return;
+   }
 }
 
 void Scheduler_SetProcessState()
 {
-	Process *current = Process_GetCurrent();
-	if (!current) return;
+   Process *current = Process_GetCurrent();
+   if (!current) return;
 
-	if (current->state == PROCESS_STATE_RUNNING)
-	{
-		current->state = PROCESS_STATE_READY;
-	}
+   if (current->state == PROCESS_STATE_RUNNING)
+   {
+      current->state = PROCESS_STATE_READY;
+   }
 }
 
 void Scheduler_Schedule()
 {
-	Scheduler_SetProcessState();
-	Scheduler_GetNextRunnableProcess();
+   Scheduler_SetProcessState();
+   Scheduler_GetNextRunnableProcess();
 
-	Process *next = g_SchedulerNextRunnable;
-	if (!next) return;
+   Process *next = g_SchedulerNextRunnable;
+   if (!next) return;
 
-	next->state = PROCESS_STATE_RUNNING;
-	Process_SetCurrent(next);
+   next->state = PROCESS_STATE_RUNNING;
+   Process_SetCurrent(next);
 }

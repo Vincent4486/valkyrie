@@ -439,8 +439,7 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
    {
       logfmt(LOG_ERROR,
              "[DYLIB] Out of dylib memory! Need %d bytes, only %d available\n",
-             aligned_size,
-             K_MEM_DYLIB_END - dylib_mem_next_free);
+             aligned_size, K_MEM_DYLIB_END - dylib_mem_next_free);
       return 0;
    }
 
@@ -1198,8 +1197,7 @@ void Dylib_MemoryStatus(void)
 
    logfmt(LOG_INFO, "[DYLIB] === Dylib Memory Statistics ===");
    logfmt(LOG_INFO, "[DYLIB] Total Memory:     %d MiB (0x%x - 0x%x)\n",
-          total_available / 0x100000, K_MEM_DYLIB_START,
-          K_MEM_DYLIB_END);
+          total_available / 0x100000, K_MEM_DYLIB_START, K_MEM_DYLIB_END);
    logfmt(LOG_INFO, "[DYLIB] Allocated:        %d KiB (%d%%)\n",
           total_allocated / 1024, percent_used);
    logfmt(LOG_INFO, "[DYLIB] Available:        %d KiB\n", remaining / 1024);

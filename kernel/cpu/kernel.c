@@ -6,7 +6,6 @@
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <sys/sys.h>
-#include <sys/sys.h>
 
 static int allocate_kernel_stack(Process *proc)
 {

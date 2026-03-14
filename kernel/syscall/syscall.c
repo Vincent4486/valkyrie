@@ -109,7 +109,7 @@ intptr_t sys_fork(const Registers *regs)
 }
 
 intptr_t sys_execve(const char *path, const char *const argv[],
-                   const char *const envp[], Registers *regs)
+                    const char *const envp[], Registers *regs)
 {
    Process *proc = get_current_process();
    if (!proc || !path || !regs) return -1;
@@ -153,8 +153,7 @@ intptr_t syscall(uint32_t syscall_num, uint32_t *args)
    return syscall_dispatch(syscall_num, args, NULL);
 }
 
-intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args,
-                         Registers *regs)
+intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args, Registers *regs)
 {
    switch (syscall_num)
    {

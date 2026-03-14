@@ -5,6 +5,6 @@
 
 void CPU_Initialize()
 {
-	Scheduler_Initialize();
-	Process_SelfTest();
+   Scheduler_Initialize();
+   Process_SelfTest();
 }

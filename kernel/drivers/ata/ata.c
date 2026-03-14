@@ -44,11 +44,12 @@ static DEVFS_DeviceOps disk_ops = {.read = DISK_DevfsRead,
 // Driver data structure
 typedef struct
 {
-   uint32_t partition_length; /* Total sectors – populated by ATA_Init via IDENTIFY */
-   uint32_t start_lba;        /* Partition start (absolute LBA; 0 = start of disk)   */
-   uint16_t dcr_port;         /* Alt-Status / Device Control port                    */
-   uint16_t tf_port;          /* Task-file base port                                 */
-   uint8_t  slave_bits;       /* Drive-select byte: 0xA0 (master) or 0xB0 (slave)   */
+   uint32_t partition_length; /* Total sectors – populated by ATA_Init via
+                                 IDENTIFY */
+   uint32_t start_lba; /* Partition start (absolute LBA; 0 = start of disk)   */
+   uint16_t dcr_port;  /* Alt-Status / Device Control port                    */
+   uint16_t tf_port;   /* Task-file base port                                 */
+   uint8_t slave_bits; /* Drive-select byte: 0xA0 (master) or 0xB0 (slave)   */
 } ata_driver_t;
 
 /*
@@ -56,10 +57,14 @@ typedef struct
  * partition_length starts at 0 and is filled in by ATA_Init from the
  * IDENTIFY device response – no hardcoded geometry or size anywhere.
  */
-static ata_driver_t primary_master   = { .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xA0 };
-static ata_driver_t primary_slave    = { .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xB0 };
-static ata_driver_t secondary_master = { .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xA0 };
-static ata_driver_t secondary_slave  = { .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xB0 };
+static ata_driver_t primary_master = {
+    .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xA0};
+static ata_driver_t primary_slave = {
+    .dcr_port = 0x3F6, .tf_port = 0x1F0, .slave_bits = 0xB0};
+static ata_driver_t secondary_master = {
+    .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xA0};
+static ata_driver_t secondary_slave = {
+    .dcr_port = 0x376, .tf_port = 0x170, .slave_bits = 0xB0};
 
 /**
  * Get driver for channel and drive
@@ -259,9 +264,9 @@ int ATA_Init(int channel, int drive, uint32_t partition_start,
       if (id[83] & (1u << 10))
       {
          /* LBA48: words 100–103 hold the 48-bit sector count.             */
-         drv->partition_length = (uint32_t)(
-            ((uint64_t)id[103] << 48) | ((uint64_t)id[102] << 32) |
-            ((uint64_t)id[101] << 16) |  (uint64_t)id[100]);
+         drv->partition_length =
+             (uint32_t)(((uint64_t)id[103] << 48) | ((uint64_t)id[102] << 32) |
+                        ((uint64_t)id[101] << 16) | (uint64_t)id[100]);
       }
       else
       {
@@ -306,10 +311,10 @@ int ATA_Read(DISK *disk, uint32_t lba, uint8_t *buffer, uint32_t count)
    ata_400ns_delay(drv->dcr_port);
    if (ata_wait_for_ready(drv->tf_port) != 0) return -1;
 
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR,   count & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW,   lba & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID,   (lba >> 8) & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,  (lba >> 16) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, lba & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, (lba >> 8) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH, (lba >> 16) & 0xFF);
 
    // Issue READ SECTORS command
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
@@ -361,10 +366,10 @@ int ATA_Write(DISK *disk, uint32_t lba, const uint8_t *buffer, uint32_t count)
    ata_400ns_delay(drv->dcr_port);
    if (ata_wait_for_ready(drv->tf_port) != 0) return -1;
 
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR,   count & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW,   lba & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID,   (lba >> 8) & 0xFF);
-   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH,  (lba >> 16) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_NSECTOR, count & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_LOW, lba & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_MID, (lba >> 8) & 0xFF);
+   g_HalIoOperations->outb(drv->tf_port + ATA_REG_LBA_HIGH, (lba >> 16) & 0xFF);
 
    // Issue WRITE SECTORS command
    g_HalIoOperations->outb(drv->tf_port + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
@@ -443,7 +448,8 @@ int ATA_Identify(int channel, int drive, uint16_t *buffer)
    if (ata_is_floating_bus(driver->tf_port)) return -1;
 
    /* Select drive, wait for it to acknowledge the selection. */
-   g_HalIoOperations->outb(driver->tf_port + ATA_REG_DEVICE, driver->slave_bits);
+   g_HalIoOperations->outb(driver->tf_port + ATA_REG_DEVICE,
+                           driver->slave_bits);
    ata_400ns_delay(driver->dcr_port);
    if (ata_wait_for_ready(driver->tf_port) != 0) return -1;
 

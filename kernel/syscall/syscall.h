@@ -50,7 +50,7 @@ intptr_t sys_write(int fd, const void *buf, uint32_t count);
 intptr_t sys_lseek(int fd, int32_t offset, int whence);
 intptr_t sys_fork(const Registers *regs);
 intptr_t sys_execve(const char *path, const char *const argv[],
-					const char *const envp[], Registers *regs);
+                    const char *const envp[], Registers *regs);
 intptr_t sys_exit(int status);
 
 /* Generic syscall dispatcher (arch code calls this)
@@ -59,6 +59,6 @@ intptr_t sys_exit(int status);
  */
 intptr_t syscall(uint32_t syscall_num, uint32_t *args);
 intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args,
-						 Registers *regs);
+                          Registers *regs);
 
 #endif

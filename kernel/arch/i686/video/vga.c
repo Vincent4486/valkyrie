@@ -26,49 +26,50 @@
 #define VGA_CRTC_DATA 0x3D5
 
 /* Sequencer and Graphics Controller ports */
-#define VGA_SEQ_ADDR  0x3C4
-#define VGA_SEQ_DATA  0x3C5
-#define VGA_GFX_ADDR  0x3CE
-#define VGA_GFX_DATA  0x3CF
+#define VGA_SEQ_ADDR 0x3C4
+#define VGA_SEQ_DATA 0x3C5
+#define VGA_GFX_ADDR 0x3CE
+#define VGA_GFX_DATA 0x3CF
 
 /* Miscellaneous Output / Input Status ports */
-#define VGA_MISC_OUT  0x3C2 /* write: clock select, sync polarity, RAM enable */
-#define VGA_ISTAT1    0x3DA /* read:  resets Attribute Controller flip-flop   */
+#define VGA_MISC_OUT 0x3C2 /* write: clock select, sync polarity, RAM enable   \
+                            */
+#define VGA_ISTAT1 0x3DA   /* read:  resets Attribute Controller flip-flop   */
 
 /* Attribute Controller address/data port and Palette Address Source bit */
-#define VGA_AC_ADDR   0x3C0 /* write index then data; read: index register    */
-#define VGA_AC_PAS    0x20  /* Palette Address Source – set to re-enable video */
+#define VGA_AC_ADDR 0x3C0 /* write index then data; read: index register    */
+#define VGA_AC_PAS 0x20   /* Palette Address Source – set to re-enable video */
 
 /* CRTC register indices – horizontal */
-#define VGA_CRTC_HTOTAL   0x00 /* Horizontal Total                          */
-#define VGA_CRTC_HDEND    0x01 /* Horizontal Display Enable End             */
-#define VGA_CRTC_HBSTART  0x02 /* Start Horizontal Blanking                 */
-#define VGA_CRTC_HBEND    0x03 /* End   Horizontal Blanking                 */
-#define VGA_CRTC_HRSTART  0x04 /* Start Horizontal Retrace Pulse            */
-#define VGA_CRTC_HREND    0x05 /* End   Horizontal Retrace Pulse            */
+#define VGA_CRTC_HTOTAL 0x00  /* Horizontal Total                          */
+#define VGA_CRTC_HDEND 0x01   /* Horizontal Display Enable End             */
+#define VGA_CRTC_HBSTART 0x02 /* Start Horizontal Blanking                 */
+#define VGA_CRTC_HBEND 0x03   /* End   Horizontal Blanking                 */
+#define VGA_CRTC_HRSTART 0x04 /* Start Horizontal Retrace Pulse            */
+#define VGA_CRTC_HREND 0x05   /* End   Horizontal Retrace Pulse            */
 /* CRTC register indices – vertical */
-#define VGA_CRTC_VTOTAL   0x06 /* Vertical Total (low 8 bits)               */
+#define VGA_CRTC_VTOTAL 0x06   /* Vertical Total (low 8 bits)               */
 #define VGA_CRTC_OVERFLOW 0x07 /* Overflow (high bits of VT/VDE/VRS/VBS)   */
-#define VGA_CRTC_MAXSCAN  0x09 /* Maximum Scan Line (font height − 1)       */
+#define VGA_CRTC_MAXSCAN 0x09  /* Maximum Scan Line (font height − 1)       */
 #define VGA_CRTC_CURSOR_START 0x0A /* Cursor Scan Line Start               */
-#define VGA_CRTC_CURSOR_END   0x0B /* Cursor Scan Line End                 */
-#define VGA_CRTC_CURSOR_HI    0x0E /* Cursor Location High byte            */
-#define VGA_CRTC_CURSOR_LO    0x0F /* Cursor Location Low  byte            */
-#define VGA_CRTC_VRSTART  0x10 /* Vertical Retrace Start (low 8 bits)       */
-#define VGA_CRTC_VREND    0x11 /* Vertical Retrace End   (holds protect bit) */
-#define VGA_CRTC_VDEND    0x12 /* Vertical Display Enable End (low 8 bits)  */
-#define VGA_CRTC_OFFSET   0x13 /* Logical Screen Width in words            */
-#define VGA_CRTC_VBSTART  0x15 /* Vertical Blank Start (low 8 bits)         */
-#define VGA_CRTC_VBEND    0x16 /* Vertical Blank End                        */
+#define VGA_CRTC_CURSOR_END 0x0B   /* Cursor Scan Line End                 */
+#define VGA_CRTC_CURSOR_HI 0x0E    /* Cursor Location High byte            */
+#define VGA_CRTC_CURSOR_LO 0x0F    /* Cursor Location Low  byte            */
+#define VGA_CRTC_VRSTART 0x10 /* Vertical Retrace Start (low 8 bits)       */
+#define VGA_CRTC_VREND 0x11   /* Vertical Retrace End   (holds protect bit) */
+#define VGA_CRTC_VDEND 0x12   /* Vertical Display Enable End (low 8 bits)  */
+#define VGA_CRTC_OFFSET 0x13  /* Logical Screen Width in words            */
+#define VGA_CRTC_VBSTART 0x15 /* Vertical Blank Start (low 8 bits)         */
+#define VGA_CRTC_VBEND 0x16   /* Vertical Blank End                        */
 
 /* VGA character-generator plane constants */
-#define VGA_FONT_PLANE      ((volatile uint8_t *)0xA0000)
-#define VGA_GLYPH_SLOT      32     /* bytes reserved per glyph in plane 2  */
+#define VGA_FONT_PLANE ((volatile uint8_t *)0xA0000)
+#define VGA_GLYPH_SLOT 32 /* bytes reserved per glyph in plane 2  */
 
 /* ── Current display dimensions (updated by i686_VGA_SetDisplaySize) ─────── */
 
-static int  s_VGA_Cols        = 80;
-static int  s_VGA_Rows        = 25;
+static int s_VGA_Cols = 80;
+static int s_VGA_Rows = 25;
 static bool s_font_cache_ready = false;
 static uint8_t s_font16[256 * 16];
 static uint8_t s_font8[256 * 8];
@@ -76,20 +77,24 @@ static uint8_t s_font8[256 * 8];
 /* ── Text-mode descriptor table ─────────────────────────────────────────── */
 
 /** One CRTC (index, value) write; sentinel has index == 0xFF. */
-typedef struct { uint8_t reg; uint8_t val; } VGA_RegVal;
+typedef struct
+{
+   uint8_t reg;
+   uint8_t val;
+} VGA_RegVal;
 
 /** Complete CRTC programming for a supported text mode. */
 typedef struct
 {
-   int        cols;
-   int        rows;
-   int        char_height;   /* scan lines per character: 8 or 16          */
-   uint8_t    misc_output;   /* Miscellaneous Output Register (port 0x3C2)  */
-   uint8_t    overflow;      /* CRTC Overflow Register (0x07): high bits of
-                              *   VT[8], VDE[8], VRS[8], VBS[8], LC[8].
-                              * Written explicitly inside the CRTC-protect
-                              * unlock window before the crtc[] table loop.  */
-   VGA_RegVal crtc[17];      /* sentinel-terminated; up to 16 CRTC writes   */
+   int cols;
+   int rows;
+   int char_height;     /* scan lines per character: 8 or 16          */
+   uint8_t misc_output; /* Miscellaneous Output Register (port 0x3C2)  */
+   uint8_t overflow;    /* CRTC Overflow Register (0x07): high bits of
+                         *   VT[8], VDE[8], VRS[8], VBS[8], LC[8].
+                         * Written explicitly inside the CRTC-protect
+                         * unlock window before the crtc[] table loop.  */
+   VGA_RegVal crtc[17]; /* sentinel-terminated; up to 16 CRTC writes   */
 } VGA_ModeDesc;
 
 /*
@@ -130,116 +135,119 @@ typedef struct
  * Register 0x11 (VRE / protect) is handled separately in the switch
  * function and is therefore NOT listed in any crtc[] array.
  */
-static const VGA_ModeDesc s_VGA_Modes[] =
-{
-   /* ── 40×25 (400-scanline, 16-line font) ────────────────── */
-   {
-      .cols = 40, .rows = 25, .char_height = 16,
-      .misc_output = 0x63, /* 25 MHz clock, colour, RAM enable        */
-      /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
-      .overflow    = 0x1F,
-      .crtc = {
-         /* Horizontal */
-         { VGA_CRTC_HTOTAL,  0x37 }, /* Horizontal Total                */
-         { VGA_CRTC_HDEND,   0x27 }, /* Horizontal Display End          */
-         { VGA_CRTC_HBSTART, 0x2D }, /* Start Horizontal Blank          */
-         { VGA_CRTC_HBEND,   0x37 }, /* End   Horizontal Blank          */
-         { VGA_CRTC_HRSTART, 0x31 }, /* Start Horizontal Retrace        */
-         { VGA_CRTC_HREND,   0xB2 }, /* End   Horizontal Retrace        */
-         /* Vertical (400 scanlines, 16-line font: 25 rows × 16 px = 400) */
-         { VGA_CRTC_VTOTAL,  0xBF }, /* Vertical Total     lo (447)     */
-         { VGA_CRTC_MAXSCAN, 0x4F }, /* Max Scan Line 15 + LC[9]=1      */
-         { VGA_CRTC_CURSOR_START, 0x0E }, /* Cursor Start             */
-         { VGA_CRTC_CURSOR_END,   0x0F }, /* Cursor End               */
-         { VGA_CRTC_VRSTART, 0x9C }, /* Vertical Retrace   Start lo     */
-         { VGA_CRTC_VDEND,   0x8F }, /* Vertical Display   End   lo (399)*/
-         { VGA_CRTC_OFFSET,  0x14 }, /* Offset (40-col = 20 words)      */
-         { VGA_CRTC_VBSTART, 0x96 }, /* Vertical Blank     Start lo     */
-         { VGA_CRTC_VBEND,   0xB9 }, /* Vertical Blank     End          */
-         { 0xFF, 0x00 }  /* sentinel                                    */
-      }
-   },
-   /* ── 80×25 (400-scanline, 16-line font, standard mode 3) ── */
-   {
-      .cols = 80, .rows = 25, .char_height = 16,
-      .misc_output = 0x67, /* 28 MHz clock, colour, RAM enable        */
-      /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
-      .overflow    = 0x1F,
-      .crtc = {
-         /* Horizontal */
-         { VGA_CRTC_HTOTAL,  0x5F }, /* Horizontal Total                */
-         { VGA_CRTC_HDEND,   0x4F }, /* Horizontal Display End          */
-         { VGA_CRTC_HBSTART, 0x50 }, /* Start Horizontal Blank          */
-         { VGA_CRTC_HBEND,   0x82 }, /* End   Horizontal Blank          */
-         { VGA_CRTC_HRSTART, 0x55 }, /* Start Horizontal Retrace        */
-         { VGA_CRTC_HREND,   0x81 }, /* End   Horizontal Retrace        */
-         /* Vertical (400 scanlines, 16-line font: 25 rows × 16 px = 400) */
-         { VGA_CRTC_VTOTAL,  0xBF }, /* Vertical Total     lo (447)     */
-         { VGA_CRTC_MAXSCAN, 0x4F }, /* Max Scan Line 15 + LC[9]=1      */
-         { VGA_CRTC_CURSOR_START, 0x0E }, /* Cursor Start             */
-         { VGA_CRTC_CURSOR_END,   0x0F }, /* Cursor End               */
-         { VGA_CRTC_VRSTART, 0x9C }, /* Vertical Retrace   Start lo     */
-         { VGA_CRTC_VDEND,   0x8F }, /* Vertical Display   End   lo (399)*/
-         { VGA_CRTC_OFFSET,  0x28 }, /* Offset (80-col = 40 words)      */
-         { VGA_CRTC_VBSTART, 0x96 }, /* Vertical Blank     Start lo     */
-         { VGA_CRTC_VBEND,   0xB9 }, /* Vertical Blank     End          */
-         { 0xFF, 0x00 }  /* sentinel                                    */
-      }
-   },
-   /* ── 80×43 (350-scanline EGA-compat, 8-line font) ──────── */
-   {
-      .cols = 80, .rows = 43, .char_height = 8,
-      .misc_output = 0xA3, /* 25 MHz clock, +V/+H polarity for 350 lines */
-      /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
-      .overflow    = 0x1F,
-      .crtc = {
-         /* Horizontal */
-         { VGA_CRTC_HTOTAL,  0x5F }, /* Horizontal Total                */
-         { VGA_CRTC_HDEND,   0x4F }, /* Horizontal Display End          */
-         { VGA_CRTC_HBSTART, 0x50 }, /* Start Horizontal Blank          */
-         { VGA_CRTC_HBEND,   0x82 }, /* End   Horizontal Blank          */
-         { VGA_CRTC_HRSTART, 0x55 }, /* Start Horizontal Retrace        */
-         { VGA_CRTC_HREND,   0x81 }, /* End   Horizontal Retrace        */
-         /* Vertical (350-scanline EGA: 43 rows × 8 px = 344 visible)    */
-         { VGA_CRTC_VTOTAL,  0x6B }, /* Vertical Total     lo (363)     */
-         { VGA_CRTC_MAXSCAN, 0x07 }, /* Max Scan Line 7   (8-line font)  */
-         { VGA_CRTC_CURSOR_START, 0x06 }, /* Cursor Start             */
-         { VGA_CRTC_CURSOR_END,   0x07 }, /* Cursor End               */
-         { VGA_CRTC_VRSTART, 0x5E }, /* Vertical Retrace   Start lo (350)*/
-         { VGA_CRTC_VDEND,   0x57 }, /* Vertical Display   End   lo (343)*/
-         { VGA_CRTC_OFFSET,  0x28 }, /* Offset (80-col = 40 words)      */
-         { VGA_CRTC_VBSTART, 0x58 }, /* Vertical Blank     Start lo (344)*/
-         { VGA_CRTC_VBEND,   0x6B }, /* Vertical Blank     End          */
-         { 0xFF, 0x00 }  /* sentinel                                    */
-      }
-   },
-   /* ── 80×50 (400-scanline, 8-line font) ─────────────────── */
-   {
-      .cols = 80, .rows = 50, .char_height = 8,
-      .misc_output = 0x67, /* 28 MHz clock, colour, RAM enable        */
-      /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
-      .overflow    = 0x1F,
-      .crtc = {
-         /* Horizontal (identical to 80×25) */
-         { VGA_CRTC_HTOTAL,  0x5F }, /* Horizontal Total                */
-         { VGA_CRTC_HDEND,   0x4F }, /* Horizontal Display End          */
-         { VGA_CRTC_HBSTART, 0x50 }, /* Start Horizontal Blank          */
-         { VGA_CRTC_HBEND,   0x82 }, /* End   Horizontal Blank          */
-         { VGA_CRTC_HRSTART, 0x55 }, /* Start Horizontal Retrace        */
-         { VGA_CRTC_HREND,   0x81 }, /* End   Horizontal Retrace        */
-         /* Vertical (same 400-scanline base as 80×25, 8-line font)      */
-         { VGA_CRTC_VTOTAL,  0xBF }, /* Vertical Total     lo (447)     */
-         { VGA_CRTC_MAXSCAN, 0x07 }, /* Max Scan Line 7   (8-line font)  */
-         { VGA_CRTC_CURSOR_START, 0x06 }, /* Cursor Start             */
-         { VGA_CRTC_CURSOR_END,   0x07 }, /* Cursor End               */
-         { VGA_CRTC_VRSTART, 0x9C }, /* Vertical Retrace   Start lo     */
-         { VGA_CRTC_VDEND,   0x8F }, /* Vertical Display   End   lo (399)*/
-         { VGA_CRTC_OFFSET,  0x28 }, /* Offset (80-col = 40 words)      */
-         { VGA_CRTC_VBSTART, 0x96 }, /* Vertical Blank     Start lo     */
-         { VGA_CRTC_VBEND,   0xB9 }, /* Vertical Blank     End          */
-         { 0xFF, 0x00 }  /* sentinel                                    */
-      }
-   },
+static const VGA_ModeDesc s_VGA_Modes[] = {
+    /* ── 40×25 (400-scanline, 16-line font) ────────────────── */
+    {.cols = 40,
+     .rows = 25,
+     .char_height = 16,
+     .misc_output = 0x63, /* 25 MHz clock, colour, RAM enable        */
+     /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
+     .overflow = 0x1F,
+     .crtc =
+         {
+             /* Horizontal */
+             {VGA_CRTC_HTOTAL, 0x37},  /* Horizontal Total                */
+             {VGA_CRTC_HDEND, 0x27},   /* Horizontal Display End          */
+             {VGA_CRTC_HBSTART, 0x2D}, /* Start Horizontal Blank          */
+             {VGA_CRTC_HBEND, 0x37},   /* End   Horizontal Blank          */
+             {VGA_CRTC_HRSTART, 0x31}, /* Start Horizontal Retrace        */
+             {VGA_CRTC_HREND, 0xB2},   /* End   Horizontal Retrace        */
+             /* Vertical (400 scanlines, 16-line font: 25 rows × 16 px = 400) */
+             {VGA_CRTC_VTOTAL, 0xBF},  /* Vertical Total     lo (447)     */
+             {VGA_CRTC_MAXSCAN, 0x4F}, /* Max Scan Line 15 + LC[9]=1      */
+             {VGA_CRTC_CURSOR_START, 0x0E}, /* Cursor Start             */
+             {VGA_CRTC_CURSOR_END, 0x0F},   /* Cursor End               */
+             {VGA_CRTC_VRSTART, 0x9C}, /* Vertical Retrace   Start lo     */
+             {VGA_CRTC_VDEND, 0x8F},   /* Vertical Display   End   lo (399)*/
+             {VGA_CRTC_OFFSET, 0x14},  /* Offset (40-col = 20 words)      */
+             {VGA_CRTC_VBSTART, 0x96}, /* Vertical Blank     Start lo     */
+             {VGA_CRTC_VBEND, 0xB9},   /* Vertical Blank     End          */
+             {0xFF, 0x00} /* sentinel                                    */
+         }},
+    /* ── 80×25 (400-scanline, 16-line font, standard mode 3) ── */
+    {.cols = 80,
+     .rows = 25,
+     .char_height = 16,
+     .misc_output = 0x67, /* 28 MHz clock, colour, RAM enable        */
+     /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
+     .overflow = 0x1F,
+     .crtc =
+         {
+             /* Horizontal */
+             {VGA_CRTC_HTOTAL, 0x5F},  /* Horizontal Total                */
+             {VGA_CRTC_HDEND, 0x4F},   /* Horizontal Display End          */
+             {VGA_CRTC_HBSTART, 0x50}, /* Start Horizontal Blank          */
+             {VGA_CRTC_HBEND, 0x82},   /* End   Horizontal Blank          */
+             {VGA_CRTC_HRSTART, 0x55}, /* Start Horizontal Retrace        */
+             {VGA_CRTC_HREND, 0x81},   /* End   Horizontal Retrace        */
+             /* Vertical (400 scanlines, 16-line font: 25 rows × 16 px = 400) */
+             {VGA_CRTC_VTOTAL, 0xBF},  /* Vertical Total     lo (447)     */
+             {VGA_CRTC_MAXSCAN, 0x4F}, /* Max Scan Line 15 + LC[9]=1      */
+             {VGA_CRTC_CURSOR_START, 0x0E}, /* Cursor Start             */
+             {VGA_CRTC_CURSOR_END, 0x0F},   /* Cursor End               */
+             {VGA_CRTC_VRSTART, 0x9C}, /* Vertical Retrace   Start lo     */
+             {VGA_CRTC_VDEND, 0x8F},   /* Vertical Display   End   lo (399)*/
+             {VGA_CRTC_OFFSET, 0x28},  /* Offset (80-col = 40 words)      */
+             {VGA_CRTC_VBSTART, 0x96}, /* Vertical Blank     Start lo     */
+             {VGA_CRTC_VBEND, 0xB9},   /* Vertical Blank     End          */
+             {0xFF, 0x00} /* sentinel                                    */
+         }},
+    /* ── 80×43 (350-scanline EGA-compat, 8-line font) ──────── */
+    {.cols = 80,
+     .rows = 43,
+     .char_height = 8,
+     .misc_output = 0xA3, /* 25 MHz clock, +V/+H polarity for 350 lines */
+     /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
+     .overflow = 0x1F,
+     .crtc =
+         {
+             /* Horizontal */
+             {VGA_CRTC_HTOTAL, 0x5F},  /* Horizontal Total                */
+             {VGA_CRTC_HDEND, 0x4F},   /* Horizontal Display End          */
+             {VGA_CRTC_HBSTART, 0x50}, /* Start Horizontal Blank          */
+             {VGA_CRTC_HBEND, 0x82},   /* End   Horizontal Blank          */
+             {VGA_CRTC_HRSTART, 0x55}, /* Start Horizontal Retrace        */
+             {VGA_CRTC_HREND, 0x81},   /* End   Horizontal Retrace        */
+             /* Vertical (350-scanline EGA: 43 rows × 8 px = 344 visible)    */
+             {VGA_CRTC_VTOTAL, 0x6B},  /* Vertical Total     lo (363)     */
+             {VGA_CRTC_MAXSCAN, 0x07}, /* Max Scan Line 7   (8-line font)  */
+             {VGA_CRTC_CURSOR_START, 0x06}, /* Cursor Start             */
+             {VGA_CRTC_CURSOR_END, 0x07},   /* Cursor End               */
+             {VGA_CRTC_VRSTART, 0x5E}, /* Vertical Retrace   Start lo (350)*/
+             {VGA_CRTC_VDEND, 0x57},   /* Vertical Display   End   lo (343)*/
+             {VGA_CRTC_OFFSET, 0x28},  /* Offset (80-col = 40 words)      */
+             {VGA_CRTC_VBSTART, 0x58}, /* Vertical Blank     Start lo (344)*/
+             {VGA_CRTC_VBEND, 0x6B},   /* Vertical Blank     End          */
+             {0xFF, 0x00} /* sentinel                                    */
+         }},
+    /* ── 80×50 (400-scanline, 8-line font) ─────────────────── */
+    {.cols = 80,
+     .rows = 50,
+     .char_height = 8,
+     .misc_output = 0x67, /* 28 MHz clock, colour, RAM enable        */
+     /* Overflow 0x1F: VT[8]=1 VDE[8]=1 VRS[8]=1 VBS[8]=1 LC[8]=1  */
+     .overflow = 0x1F,
+     .crtc =
+         {
+             /* Horizontal (identical to 80×25) */
+             {VGA_CRTC_HTOTAL, 0x5F},  /* Horizontal Total                */
+             {VGA_CRTC_HDEND, 0x4F},   /* Horizontal Display End          */
+             {VGA_CRTC_HBSTART, 0x50}, /* Start Horizontal Blank          */
+             {VGA_CRTC_HBEND, 0x82},   /* End   Horizontal Blank          */
+             {VGA_CRTC_HRSTART, 0x55}, /* Start Horizontal Retrace        */
+             {VGA_CRTC_HREND, 0x81},   /* End   Horizontal Retrace        */
+             /* Vertical (same 400-scanline base as 80×25, 8-line font)      */
+             {VGA_CRTC_VTOTAL, 0xBF},  /* Vertical Total     lo (447)     */
+             {VGA_CRTC_MAXSCAN, 0x07}, /* Max Scan Line 7   (8-line font)  */
+             {VGA_CRTC_CURSOR_START, 0x06}, /* Cursor Start             */
+             {VGA_CRTC_CURSOR_END, 0x07},   /* Cursor End               */
+             {VGA_CRTC_VRSTART, 0x9C}, /* Vertical Retrace   Start lo     */
+             {VGA_CRTC_VDEND, 0x8F},   /* Vertical Display   End   lo (399)*/
+             {VGA_CRTC_OFFSET, 0x28},  /* Offset (80-col = 40 words)      */
+             {VGA_CRTC_VBSTART, 0x96}, /* Vertical Blank     Start lo     */
+             {VGA_CRTC_VBEND, 0xB9},   /* Vertical Blank     End          */
+             {0xFF, 0x00} /* sentinel                                    */
+         }},
 };
 
 #define VGA_MODE_COUNT ((int)(sizeof(s_VGA_Modes) / sizeof(s_VGA_Modes[0])))
@@ -531,5 +539,6 @@ void i686_VGA_SetCursor(int x, int y)
  */
 void i686_VGA_UpdateBuffer(void *buffer)
 {
-   memcpy((void *)VGA_BUFFER, buffer, (size_t)(s_VGA_Cols * s_VGA_Rows) * sizeof(uint16_t));
+   memcpy((void *)VGA_BUFFER, buffer,
+          (size_t)(s_VGA_Cols * s_VGA_Rows) * sizeof(uint16_t));
 }

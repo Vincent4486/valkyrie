@@ -218,12 +218,13 @@ int Stack_SelfTest(void);
 
 #define K_MEM_BLOCK_SIZE 1024 /* 0x400 */
 
-#define K_MEM_DYLIB_START  (0x400u * K_MEM_BLOCK_SIZE)  /* 0x00100000 */
-#define K_MEM_DYLIB_END    (0x2000u * K_MEM_BLOCK_SIZE) /* 0x00800000 */
+#define K_MEM_DYLIB_START (0x400u * K_MEM_BLOCK_SIZE) /* 0x00100000 */
+#define K_MEM_DYLIB_END (0x2000u * K_MEM_BLOCK_SIZE)  /* 0x00800000 */
 
-#define K_MEM_SYS_INFO_START  (0x24C0u * K_MEM_BLOCK_SIZE) /* 0x00930000 */
+#define K_MEM_SYS_INFO_START (0x24C0u * K_MEM_BLOCK_SIZE) /* 0x00930000 */
 
-#define K_MEM_BOOT_INFO_START (K_MEM_SYS_INFO_START + 4 * K_MEM_BLOCK_SIZE) /* 0x00931000 */
+#define K_MEM_BOOT_INFO_START                                                  \
+   (K_MEM_SYS_INFO_START + 4 * K_MEM_BLOCK_SIZE) /* 0x00931000 */
 
 /* VGA text-mode VRAM window – always mapped at this physical address.
  * Must not be placed inside the kernel-reserved range (0x00100000+).     */

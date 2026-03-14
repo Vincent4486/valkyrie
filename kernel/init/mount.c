@@ -56,13 +56,15 @@ bool Init_MountRoot(void)
       int rc = FS_Mount(part, "/");
       if (rc != 0)
       {
-         logfmt(LOG_WARNING, "[MOUNT] FS_Mount failed for volume[%d] (rc=%d) — trying "
+         logfmt(LOG_WARNING,
+                "[MOUNT] FS_Mount failed for volume[%d] (rc=%d) — trying "
                 "next candidate\n",
                 i, rc);
          continue;
       }
 
-      logfmt(LOG_INFO, "[MOUNT] Root filesystem mounted from volume[%d] at \"/\"\n", i);
+      logfmt(LOG_INFO,
+             "[MOUNT] Root filesystem mounted from volume[%d] at \"/\"\n", i);
 
       /* -----------------------------------------------------------------
        * Post-mount probe: verify /boot/init.sys exists so the kernel
@@ -73,13 +75,13 @@ bool Init_MountRoot(void)
       if (initSys)
       {
          logfmt(LOG_INFO, "[MOUNT] Found /boot/init.sys — userspace transition "
-                "ready\n");
+                          "ready\n");
          VFS_Close(initSys);
       }
       else
       {
          logfmt(LOG_WARNING, "[MOUNT] /boot/init.sys not found on root "
-                "filesystem\n");
+                             "filesystem\n");
       }
 
       return true;

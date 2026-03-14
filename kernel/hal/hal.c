@@ -69,7 +69,7 @@ const HAL_StackOperations *g_HalStackOperations = &(HAL_StackOperations){
 const HAL_SchedulerOperations *g_HalSchedulerOperations =
     &(HAL_SchedulerOperations){
         .ContextSwitch = HAL_ARCH_Scheduler_ContextSwitch,
-};
+    };
 
 const HAL_SyscallOperations *g_HalSyscallOperations = &(HAL_SyscallOperations){
     .Handler = HAL_ARCH_Syscall_Handler,

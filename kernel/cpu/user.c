@@ -34,10 +34,9 @@ static int map_user_trampoline(Process *proc)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (!phys) return -1;
 
-   if (!g_HalPagingOperations->MapPage(proc->page_directory,
-                                       USER_EXIT_TRAMPOLINE_VA, phys,
-                                       HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                           HAL_PAGE_USER))
+   if (!g_HalPagingOperations->MapPage(
+           proc->page_directory, USER_EXIT_TRAMPOLINE_VA, phys,
+           HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
    {
       PMM_FreePhysicalPage(phys);
       return -1;

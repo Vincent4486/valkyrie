@@ -40,8 +40,8 @@ static bool g_TTYInitialized = false;
  * (i686_VGA_UpdateBuffer) from spanning an unexpected page boundary.
  */
 static uint16_t g_TTYDisplayBufs[TTY_MAX_DEVICES][TTY_MAX_ROWS * TTY_MAX_COLS]
-   __attribute__((aligned(1024)));
-static char     g_TTYInputBufs[TTY_MAX_DEVICES][TTY_INPUT_SIZE];
+    __attribute__((aligned(1024)));
+static char g_TTYInputBufs[TTY_MAX_DEVICES][TTY_INPUT_SIZE];
 
 /* ANSI color mapping */
 static const uint8_t ansi_to_vga_fg[] = {0x0, 0x4, 0x2, 0x6,
@@ -120,8 +120,7 @@ static void scroll_up(TTY_Device *tty)
     * regardless of the active mode width – use the real array stride. */
    memmove(tty->screen_buf[0], tty->screen_buf[1],
            (tty->rows - 1) * TTY_MAX_COLS * sizeof(uint16_t));
-   memset(tty->screen_buf[tty->rows - 1], 0,
-          TTY_MAX_COLS * sizeof(uint16_t));
+   memset(tty->screen_buf[tty->rows - 1], 0, TTY_MAX_COLS * sizeof(uint16_t));
    tty->cursor_y = tty->rows - 1;
 }
 
@@ -438,24 +437,24 @@ TTY_Device *TTY_Create(uint32_t id)
    buffer_init(&tty->input, g_TTYInputBufs[id], TTY_INPUT_SIZE);
 
    /* Initialize TTY state */
-   tty->id            = id;
-   tty->active        = true;
-   tty->line_len      = 0;
-   tty->line_pos      = 0;
-   tty->line_ready    = false;
-   tty->eof_pending   = false;
-   tty->cursor_x      = 0;
-   tty->cursor_y      = 0;
-   tty->color         = 0x07;
+   tty->id = id;
+   tty->active = true;
+   tty->line_len = 0;
+   tty->line_pos = 0;
+   tty->line_ready = false;
+   tty->eof_pending = false;
+   tty->cursor_x = 0;
+   tty->cursor_y = 0;
+   tty->color = 0x07;
    tty->default_color = 0x07;
-   tty->flags         = TTY_DEFAULT_FLAGS;
-   tty->ansi_state    = 0;
+   tty->flags = TTY_DEFAULT_FLAGS;
+   tty->ansi_state = 0;
    tty->ansi_param_count = 0;
-   tty->cols          = SCREEN_WIDTH;
-   tty->rows          = SCREEN_HEIGHT;
-   tty->dirty_start   = SCREEN_HEIGHT;
-   tty->dirty_end     = -1;
-   tty->bytes_read    = 0;
+   tty->cols = SCREEN_WIDTH;
+   tty->rows = SCREEN_HEIGHT;
+   tty->dirty_start = SCREEN_HEIGHT;
+   tty->dirty_end = -1;
+   tty->bytes_read = 0;
    tty->bytes_written = 0;
    /* screen_buf already zeroed by kzalloc */
 
@@ -470,8 +469,7 @@ void TTY_Destroy(TTY_Device *tty)
 
    g_TTYDevices[tty->id] = NULL;
 
-   if (g_ActiveTTY == tty)
-      g_ActiveTTY = g_TTYDevices[0];
+   if (g_ActiveTTY == tty) g_ActiveTTY = g_TTYDevices[0];
 
    /* display_buf and input.data point into BSS – nothing to free */
    free(tty);
@@ -756,7 +754,7 @@ void TTY_Repaint(TTY_Device *tty)
    for (int row = tty->dirty_start; row <= tty->dirty_end; row++)
    {
       uint16_t *dest = &tty->display_buf[row * tty->cols];
-      uint16_t *src  = tty->screen_buf[row]; /* stride TTY_MAX_COLS in memory */
+      uint16_t *src = tty->screen_buf[row]; /* stride TTY_MAX_COLS in memory */
       for (int col = 0; col < tty->cols; col++)
          dest[col] = src[col] ? src[col] : blank;
    }
@@ -868,11 +866,16 @@ static void tty_reflow_shrink(TTY_Device *tty, int old_cols, int new_cols)
       uint16_t *row = tty->screen_buf[r];
       uint16_t overflow[TTY_MAX_COLS];
 
-      /* Find the last non-empty cell in the overflow zone [new_cols, old_cols). */
+      /* Find the last non-empty cell in the overflow zone [new_cols, old_cols).
+       */
       int ov_len = 0;
       for (int c = old_cols - 1; c >= new_cols; c--)
       {
-         if (row[c] != 0) { ov_len = c - new_cols + 1; break; }
+         if (row[c] != 0)
+         {
+            ov_len = c - new_cols + 1;
+            break;
+         }
       }
       if (ov_len == 0) continue; /* this row fits – nothing to wrap */
 
@@ -880,7 +883,8 @@ static void tty_reflow_shrink(TTY_Device *tty, int old_cols, int new_cols)
       memcpy(overflow, &row[new_cols], (size_t)ov_len * sizeof(uint16_t));
 
       /* Erase overflow from current row. */
-      memset(&row[new_cols], 0, (size_t)(old_cols - new_cols) * sizeof(uint16_t));
+      memset(&row[new_cols], 0,
+             (size_t)(old_cols - new_cols) * sizeof(uint16_t));
 
       if (r + 1 >= rows) break; /* last row – overflow is discarded */
 
@@ -888,7 +892,11 @@ static void tty_reflow_shrink(TTY_Device *tty, int old_cols, int new_cols)
       uint16_t *next = tty->screen_buf[r + 1];
       int next_used = 0;
       for (int c = new_cols - 1; c >= 0; c--)
-         if (next[c] != 0) { next_used = c + 1; break; }
+         if (next[c] != 0)
+         {
+            next_used = c + 1;
+            break;
+         }
 
       /* Clamp overflow to available space. */
       int can_fit = new_cols - next_used;
@@ -930,8 +938,7 @@ int TTY_SetVideoMode(int cols, int rows)
       int old_cols = tty->cols;
 
       /* Reflow before narrowing so overflow is not silently discarded. */
-      if (cols < old_cols)
-         tty_reflow_shrink(tty, old_cols, cols);
+      if (cols < old_cols) tty_reflow_shrink(tty, old_cols, cols);
 
       tty->cols = cols;
       tty->rows = rows;
@@ -942,7 +949,7 @@ int TTY_SetVideoMode(int cols, int rows)
 
       /* Reset dirty tracking to the new row count. */
       tty->dirty_start = rows;
-      tty->dirty_end   = -1;
+      tty->dirty_end = -1;
    }
 
    /* 5. Full repaint of the active TTY – rebuilds display_buf at new stride. */

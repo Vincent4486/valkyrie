@@ -2287,9 +2287,9 @@ static const VFS_Operations fat_vfs_ops = {
     .open =
         fat_vfs_open, /* Open an existing file (returns NULL if not found) */
     .create = fat_vfs_create, /* Create a new file */
-    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */

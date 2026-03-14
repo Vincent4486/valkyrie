@@ -7,7 +7,6 @@
 #include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
-#include <sys/sys.h>
 
 static int allocate_kernel_stack(Process *proc)
 {

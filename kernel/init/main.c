@@ -11,9 +11,9 @@
 #include <hal/io.h>
 #include <hal/irq.h>
 #include <hal/scheduler.h>
+#include <hal/video.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
-#include <hal/video.h>
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
