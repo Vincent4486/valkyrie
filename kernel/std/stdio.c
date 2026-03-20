@@ -90,11 +90,35 @@ void printf_signed(long long number, int radix, int width, bool zero_pad)
 #define PRINTF_LENGTH_LONG 3
 #define PRINTF_LENGTH_LONG_LONG 4
 
+typedef void (*log_emit_func_t)(const char *fmt, va_list args);
+
+static void printf_vimpl(const char *fmt, va_list args);
+static void log_emit_info(const char *fmt, va_list args);
+static void log_emit_info_disabled(const char *fmt, va_list args);
+static void log_emit_warning(const char *fmt, va_list args);
+static void log_emit_error(const char *fmt, va_list args);
+static void log_emit_fatal(const char *fmt, va_list args);
+static void log_emit_unknown(const char *fmt, va_list args);
+
+static log_emit_func_t g_LogEmitters[] = {log_emit_info, log_emit_warning,
+                                          log_emit_error, log_emit_fatal,
+                                          log_emit_unknown};
+
 void printf(const char *fmt, ...)
 {
    va_list args;
    va_start(args, fmt);
+   printf_vimpl(fmt, args);
+   va_end(args);
+}
 
+void vprintf(const char *fmt, va_list args)
+{
+   printf_vimpl(fmt, args);
+}
+
+static void printf_vimpl(const char *fmt, va_list args)
+{
    int state = PRINTF_STATE_NORMAL;
    int length = PRINTF_LENGTH_DEFAULT;
    int radix = 10;
@@ -278,8 +302,63 @@ void printf(const char *fmt, ...)
 
       fmt++;
    }
+}
 
+void LOG_DisableInfo(void)
+{
+   g_LogEmitters[LOG_INFO] = log_emit_info_disabled;
+}
+
+void logfmt_impl(LogType logtype, const char *fmt, ...)
+{
+   uint32_t emitter_index = (uint32_t)logtype;
+   if (emitter_index > LOG_FATAL) emitter_index = 4;
+
+   va_list args;
+   va_start(args, fmt);
+   g_LogEmitters[emitter_index](fmt, args);
    va_end(args);
+}
+
+static void log_emit_info(const char *fmt, va_list args)
+{
+   printf("\x1B[37mINFO: ");
+   vprintf(fmt, args);
+   printf("\x1B[0m");
+}
+
+static void log_emit_info_disabled(const char *fmt, va_list args)
+{
+   (void)fmt;
+   (void)args;
+}
+
+static void log_emit_warning(const char *fmt, va_list args)
+{
+   printf("\x1B[33mWARNING: ");
+   vprintf(fmt, args);
+   printf("\x1B[0m");
+}
+
+static void log_emit_error(const char *fmt, va_list args)
+{
+   printf("\x1B[31mERROR: ");
+   vprintf(fmt, args);
+   printf("\x1B[0m");
+}
+
+static void log_emit_fatal(const char *fmt, va_list args)
+{
+   printf("\x1B[1;41;37mFATAL: ");
+   vprintf(fmt, args);
+   printf("\x1B[0m");
+}
+
+static void log_emit_unknown(const char *fmt, va_list args)
+{
+   printf("UNKNOWN: ");
+   vprintf(fmt, args);
+   printf("\x1B[0m");
 }
 
 void print_buffer(const char *msg, const void *buffer, uint32_t count)

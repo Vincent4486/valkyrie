@@ -75,4 +75,6 @@ void SYS_Finalize()
    /* Ensure a blank line after system info so transient status updates
     * (which may use carriage returns) don't overwrite these lines. */
    printf("\n");
+
+   LOG_DisableInfo();
 }

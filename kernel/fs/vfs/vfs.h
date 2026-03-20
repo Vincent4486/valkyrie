@@ -17,6 +17,8 @@ this file, so for external modules, include fs/fs.h instead.
 /* Forward declarations */
 struct VFS_File;
 typedef struct VFS_File VFS_File;
+struct VFS_DirEntry;
+typedef struct VFS_DirEntry VFS_DirEntry;
 struct Partition;
 typedef struct Partition Partition;
 
@@ -29,6 +31,7 @@ typedef struct VFS_Operations
 {
    VFS_File *(*open)(Partition *partition, const char *path);
    VFS_File *(*create)(Partition *partition, const char *path, uint16_t mode);
+   bool (*readdir)(Partition *partition, void *fs_file, VFS_DirEntry *entryOut);
    uint32_t (*read)(Partition *partition, void *fs_file, uint32_t byteCount,
                     void *dataOut);
    uint32_t (*write)(Partition *partition, void *fs_file, uint32_t byteCount,
@@ -53,13 +56,22 @@ typedef struct VFS_File
    uint32_t size;        /* Size in bytes if known (0 for dirs/unknown) */
 } VFS_File;
 
+typedef struct VFS_DirEntry
+{
+   char name[32];
+   bool is_directory;
+   uint32_t size;
+} VFS_DirEntry;
+
 void VFS_Init(void);
 
 int FS_Mount(Partition *volume, const char *location);
 int FS_Umount(Partition *volume);
 
 VFS_File *VFS_Open(const char *path);
+VFS_File *VFS_OpenDir(const char *path);
 VFS_File *VFS_Create(const char *path, uint16_t mode);
+bool VFS_ReadDir(VFS_File *directory, VFS_DirEntry *entryOut);
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut);
 uint32_t VFS_Write(VFS_File *file, uint32_t byteCount, const void *dataIn);
 bool VFS_Seek(VFS_File *file, uint32_t position);

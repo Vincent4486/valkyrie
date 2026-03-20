@@ -272,6 +272,20 @@ VFS_File *VFS_Open(const char *path)
    return result;
 }
 
+VFS_File *VFS_OpenDir(const char *path)
+{
+   VFS_File *dir = VFS_Open(path);
+   if (!dir) return NULL;
+
+   if (!dir->is_directory)
+   {
+      VFS_Close(dir);
+      return NULL;
+   }
+
+   return dir;
+}
+
 VFS_File *VFS_Create(const char *path, uint16_t mode)
 {
    Partition *part = NULL;
@@ -295,6 +309,19 @@ VFS_File *VFS_Create(const char *path, uint16_t mode)
    VFS_File *result = part->fs->ops->create(part, relative, mode);
    free(relative);
    return result;
+}
+
+bool VFS_ReadDir(VFS_File *directory, VFS_DirEntry *entryOut)
+{
+   if (!directory || !entryOut) return false;
+   if (!directory->is_directory) return false;
+
+   if (!directory->partition || !directory->partition->fs ||
+       !directory->partition->fs->ops || !directory->partition->fs->ops->readdir)
+      return false;
+
+   return directory->partition->fs->ops->readdir(directory->partition,
+                                                 directory->fs_file, entryOut);
 }
 
 bool VFS_Delete(const char *path)

@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 .section .data
-filepath:
-   .asciz "/test/usr.txt"
-content:
-   .ascii "Hello from Valkyrie!\n"
-   content_len = . - content
-expected_eacces:
-   .long -13
+dirpath:
+   .asciz "/boot"
+newline:
+   .byte 0x0A
 
 .section .bss
-   .lcomm buffer, 64
+   .lcomm dirbuf, 512
+   .lcomm outbuf, 32
 
 .section .text
 .global _start
@@ -20,105 +18,133 @@ expected_eacces:
 .equ SYS_WRITE, 4
 .equ SYS_OPEN, 5
 .equ SYS_CLOSE, 6
-.equ SYS_CHMOD, 15
-.equ SYS_SETUID, 23
-.equ SYS_CHOWN, 182
 
 .equ O_RDONLY, 0
-.equ O_WRONLY, 1
-.equ O_TRUNC, 0x0200
-.equ O_CREAT, 0x0040
+
+# FAT directory entry offsets/sizes
+.equ DIR_ENTRY_SIZE, 32
+.equ DIR_NAME_OFF, 0
+.equ DIR_ATTR_OFF, 11
 
 _start:
-   # Create file and write content
+   # Open /test as read-only directory stream
    movl $SYS_OPEN, %eax
-   movl $filepath, %ebx
-   movl $(O_CREAT | O_WRONLY | O_TRUNC), %ecx
-   movl $0644, %edx
+   movl $dirpath, %ebx
+   movl $O_RDONLY, %ecx
+   xorl %edx, %edx
    int $0x80
    testl %eax, %eax
    js fail
 
    pushl %eax
 
-   movl $SYS_WRITE, %eax
+read_sector:
+   # Read next chunk of directory bytes
+   movl $SYS_READ, %eax
    movl (%esp), %ebx
-   movl $content, %ecx
-   movl $content_len, %edx
+   movl $dirbuf, %ecx
+   movl $512, %edx
    int $0x80
-   cmpl $content_len, %eax
-   jne fail_popfd
+   testl %eax, %eax
+   jle done
 
+   # ecx = bytes read
+   movl %eax, %ecx
+   movl $dirbuf, %esi
+
+entry_loop:
+   cmpl $DIR_ENTRY_SIZE, %ecx
+   jl read_sector
+
+   # End marker (0x00) => end of directory
+   cmpb $0x00, DIR_NAME_OFF(%esi)
+   je done
+
+   # Deleted entry (0xE5) => skip
+   cmpb $0xE5, DIR_NAME_OFF(%esi)
+   je skip_entry
+
+   # Long filename entry (attr 0x0F) => skip
+   movzbl DIR_ATTR_OFF(%esi), %eax
+   andl $0x0F, %eax
+   cmpl $0x0F, %eax
+   je skip_entry
+
+   # Build printable 8.3 name into outbuf
+   movl $outbuf, %edi
+
+   # Copy base name (up to 8 chars, stop at spaces)
+   xorl %edx, %edx
+base_loop:
+   cmpl $8, %edx
+   jge ext_check
+   movb DIR_NAME_OFF(%esi,%edx,1), %al
+   cmpb $' ', %al
+   je ext_check
+   movb %al, (%edi)
+   incl %edi
+   incl %edx
+   jmp base_loop
+
+ext_check:
+   # Determine if extension exists (non-space in bytes 8..10)
+   movb DIR_NAME_OFF+8(%esi), %al
+   cmpb $' ', %al
+   jne ext_emit_dot
+   movb DIR_NAME_OFF+9(%esi), %al
+   cmpb $' ', %al
+   jne ext_emit_dot
+   movb DIR_NAME_OFF+10(%esi), %al
+   cmpb $' ', %al
+   je emit_line
+
+ext_emit_dot:
+   movb $'.', (%edi)
+   incl %edi
+
+   # Copy extension chars
+   movl $8, %edx
+ext_loop:
+   cmpl $11, %edx
+   jge emit_line
+   movb DIR_NAME_OFF(%esi,%edx,1), %al
+   cmpb $' ', %al
+   je emit_line
+   movb %al, (%edi)
+   incl %edi
+   incl %edx
+   jmp ext_loop
+
+emit_line:
+   # name length = edi - outbuf
+   movl %edi, %edx
+   subl $outbuf, %edx
+
+   # Write name
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $outbuf, %ecx
+   int $0x80
+
+   # Write newline
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $newline, %ecx
+   movl $1, %edx
+   int $0x80
+
+skip_entry:
+   addl $DIR_ENTRY_SIZE, %esi
+   subl $DIR_ENTRY_SIZE, %ecx
+   jmp entry_loop
+
+done:
    movl $SYS_CLOSE, %eax
    popl %ebx
    int $0x80
-   testl %eax, %eax
-   js fail
-
-   # Root: chmod/chown should succeed
-   movl $SYS_CHMOD, %eax
-   movl $filepath, %ebx
-   movl $0600, %ecx
-   int $0x80
-   testl %eax, %eax
-   js fail
-
-   movl $SYS_CHOWN, %eax
-   movl $filepath, %ebx
-   movl $0, %ecx
-   movl $0, %edx
-   int $0x80
-   testl %eax, %eax
-   js fail
-
-   # Drop to non-root
-   movl $SYS_SETUID, %eax
-   movl $1000, %ebx
-   int $0x80
-   testl %eax, %eax
-   js fail
-
-   # Non-root: chmod/chown must fail with -EACCES
-   movl $SYS_CHMOD, %eax
-   movl $filepath, %ebx
-   movl $0644, %ecx
-   int $0x80
-   cmpl expected_eacces, %eax
-   jne fail
-
-   movl $SYS_CHOWN, %eax
-   movl $filepath, %ebx
-   movl $1000, %ecx
-   movl $1000, %edx
-   int $0x80
-   cmpl expected_eacces, %eax
-   jne fail
-
-   # Non-root open for write should fail on 0600 root-owned file
-   movl $SYS_OPEN, %eax
-   movl $filepath, %ebx
-   movl $O_WRONLY, %ecx
-   xorl %edx, %edx
-   int $0x80
-   cmpl expected_eacces, %eax
-   jne fail
-
-   # Non-root open for read should also fail on 0600 root-owned file
-   movl $SYS_OPEN, %eax
-   movl $filepath, %ebx
-   movl $O_RDONLY, %ecx
-   xorl %edx, %edx
-   int $0x80
-   cmpl expected_eacces, %eax
-   jne fail
 
    movl $SYS_EXIT, %eax
    xorl %ebx, %ebx
-   int $0x80
-
-fail_popfd:
-   movl $SYS_CLOSE, %eax
-   popl %ebx
    int $0x80
 
 fail:

@@ -2524,6 +2524,67 @@ static bool fat_vfs_access(Partition *partition, const char *path,
    return fat_check_access_path(partition, path, uid, gid, accessMask);
 }
 
+static void fat_short_name_to_cstr(const uint8_t fatName[11], char *out,
+                                   size_t outSize)
+{
+   if (!out || outSize == 0) return;
+
+   size_t pos = 0;
+
+   for (int i = 0; i < 8 && pos + 1 < outSize; i++)
+   {
+      if (fatName[i] == ' ') break;
+      out[pos++] = (char)fatName[i];
+   }
+
+   bool hasExt = false;
+   for (int i = 8; i < 11; i++)
+   {
+      if (fatName[i] != ' ')
+      {
+         hasExt = true;
+         break;
+      }
+   }
+
+   if (hasExt && pos + 2 < outSize)
+   {
+      out[pos++] = '.';
+      for (int i = 8; i < 11 && pos + 1 < outSize; i++)
+      {
+         if (fatName[i] == ' ') break;
+         out[pos++] = (char)fatName[i];
+      }
+   }
+
+   out[pos] = '\0';
+}
+
+static bool fat_vfs_readdir(Partition *partition, void *fs_file,
+                            VFS_DirEntry *entryOut)
+{
+   if (!partition || !fs_file || !entryOut) return false;
+
+   FAT_File *dir = (FAT_File *)fs_file;
+   if (!dir->IsDirectory) return false;
+
+   FAT_DirectoryEntry entry;
+   while (FAT_ReadEntry(partition, dir, &entry))
+   {
+      if (entry.Name[0] == 0x00) return false;
+      if ((uint8_t)entry.Name[0] == 0xE5) continue;
+      if ((entry.Attributes & FAT_ATTRIBUTE_LFN) == FAT_ATTRIBUTE_LFN) continue;
+      if (entry.Attributes & FAT_ATTRIBUTE_VOLUME_ID) continue;
+
+      fat_short_name_to_cstr(entry.Name, entryOut->name, sizeof(entryOut->name));
+      entryOut->is_directory = (entry.Attributes & FAT_ATTRIBUTE_DIRECTORY) != 0;
+      entryOut->size = entry.Size;
+      return true;
+   }
+
+   return false;
+}
+
 static bool fat_vfs_chmod(Partition *partition, const char *path,
                           uint16_t mode)
 {
@@ -2541,6 +2602,7 @@ static const VFS_Operations fat_vfs_ops = {
     .open =
         fat_vfs_open, /* Open an existing file (returns NULL if not found) */
     .create = fat_vfs_create, /* Create a new file */
+   .readdir = fat_vfs_readdir,
     .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
         (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,

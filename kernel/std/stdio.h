@@ -22,15 +22,12 @@ extern "C"
    void putc(char c);
    void puts(const char *str);
    void printf(const char *fmt, ...);
+   void vprintf(const char *fmt, va_list args);
+   void logfmt_impl(LogType logtype, const char *fmt, ...);
+   void LOG_DisableInfo(void);
 /* logfmt expands to printf with prefix and ANSI colors, reset at end */
 #define logfmt(logtype, fmt, ...)                                              \
-   printf("%s" fmt "%s",                                                       \
-          (logtype == LOG_INFO      ? "\x1B[37mINFO: "                         \
-           : logtype == LOG_WARNING ? "\x1B[33mWARNING: "                      \
-           : logtype == LOG_ERROR   ? "\x1B[31mERROR: "                        \
-           : logtype == LOG_FATAL   ? "\x1B[1;41;37mFATAL: "                   \
-                                    : "UNKNOWN: "),                              \
-          ##__VA_ARGS__, "\x1B[0m")
+   logfmt_impl((logtype), (fmt), ##__VA_ARGS__)
    void print_buffer(const char *msg, const void *buffer, uint32_t count);
    void setcursor(int x, int y);
    /* Read one byte from TTY input stream. Returns -1 if no data. */
