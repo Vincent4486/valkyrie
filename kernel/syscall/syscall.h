@@ -58,6 +58,12 @@
 #ifndef SYS_LSEEK
 #define SYS_LSEEK 19
 #endif
+#ifndef SYS_CHMOD
+#define SYS_CHMOD 15
+#endif
+#ifndef SYS_CHOWN
+#define SYS_CHOWN 182
+#endif
 
 /* Syscall handler prototypes
  * These are called by arch-specific dispatcher after extracting parameters
@@ -69,6 +75,8 @@ intptr_t sys_close(int fd);
 intptr_t sys_read(int fd, void *buf, uint32_t count);
 intptr_t sys_write(int fd, const void *buf, uint32_t count);
 intptr_t sys_lseek(int fd, int32_t offset, int whence);
+intptr_t sys_chmod(const char *path, uint16_t mode);
+intptr_t sys_chown(const char *path, uint32_t uid, uint32_t gid);
 intptr_t sys_fork(const Registers *regs);
 intptr_t sys_execve(const char *path, const char *const argv[],
                     const char *const envp[], Registers *regs);

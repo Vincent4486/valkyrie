@@ -90,7 +90,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file);
 
 // Create a new file with the given name in the root directory.
 // Returns a file handle opened for writing. Returns NULL on failure.
-FAT_File *FAT_Create(Partition *disk, const char *name);
+FAT_File *FAT_Create(Partition *disk, const char *name, uint16_t mode);
 
 // Delete a file by name from the root directory.
 // Frees all clusters and marks the directory entry as deleted (0xE5).

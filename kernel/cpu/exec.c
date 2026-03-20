@@ -315,6 +315,11 @@ int Process_Execute(Process *proc, const char *path, const char *const argv[],
    if (!proc || !path) return -1;
    if (proc->kernel_mode) return -1;
 
+   if (!VFS_Access(path, proc->euid, proc->egid, VFS_ACCESS_EXEC))
+   {
+      return -3;
+   }
+
    VFS_File *file = VFS_Open(path);
    if (!file) return -2;
 

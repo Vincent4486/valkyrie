@@ -274,8 +274,6 @@ VFS_File *VFS_Open(const char *path)
 
 VFS_File *VFS_Create(const char *path, uint16_t mode)
 {
-   (void)mode;
-
    Partition *part = NULL;
    char *relative = kmalloc(VFS_MAX_PATH);
    if (!relative) return NULL;
@@ -294,7 +292,7 @@ VFS_File *VFS_Create(const char *path, uint16_t mode)
       return NULL;
    }
 
-   VFS_File *result = part->fs->ops->create(part, relative);
+   VFS_File *result = part->fs->ops->create(part, relative, mode);
    free(relative);
    return result;
 }
@@ -322,6 +320,82 @@ bool VFS_Delete(const char *path)
    }
 
    bool result = part->fs->ops->delete (part, relative);
+   free(relative);
+   return result;
+}
+
+bool VFS_Access(const char *path, uint32_t uid, uint32_t gid,
+                uint8_t accessMask)
+{
+   Partition *part = NULL;
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative) return false;
+
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
+   {
+      free(relative);
+      return false;
+   }
+
+   if (!part || !part->fs || !part->fs->ops)
+   {
+      free(relative);
+      return false;
+   }
+
+   if (!part->fs->ops->access)
+   {
+      free(relative);
+      return true;
+   }
+
+   bool result = part->fs->ops->access(part, relative, uid, gid, accessMask);
+   free(relative);
+   return result;
+}
+
+bool VFS_Chmod(const char *path, uint16_t mode)
+{
+   Partition *part = NULL;
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative) return false;
+
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
+   {
+      free(relative);
+      return false;
+   }
+
+   if (!part || !part->fs || !part->fs->ops || !part->fs->ops->chmod)
+   {
+      free(relative);
+      return false;
+   }
+
+   bool result = part->fs->ops->chmod(part, relative, mode);
+   free(relative);
+   return result;
+}
+
+bool VFS_Chown(const char *path, uint32_t uid, uint32_t gid)
+{
+   Partition *part = NULL;
+   char *relative = kmalloc(VFS_MAX_PATH);
+   if (!relative) return false;
+
+   if (!vfs_resolve_path(path, &part, relative, VFS_MAX_PATH))
+   {
+      free(relative);
+      return false;
+   }
+
+   if (!part || !part->fs || !part->fs->ops || !part->fs->ops->chown)
+   {
+      free(relative);
+      return false;
+   }
+
+   bool result = part->fs->ops->chown(part, relative, uid, gid);
    free(relative);
    return result;
 }

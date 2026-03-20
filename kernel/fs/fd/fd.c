@@ -88,7 +88,26 @@ int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
 
    // Open via VFS (resolves partition internally)
    file->inode = VFS_Open(path);
-   if (!file->inode && (flags & O_CREAT))
+   if (file->inode)
+   {
+      uint8_t accessMask = 0;
+      if ((flags & O_WRONLY) == O_WRONLY)
+         accessMask |= VFS_ACCESS_WRITE;
+      else if ((flags & O_RDWR) == O_RDWR)
+         accessMask |= (VFS_ACCESS_READ | VFS_ACCESS_WRITE);
+      else
+         accessMask |= VFS_ACCESS_READ;
+
+      if (flags & O_TRUNC) accessMask |= VFS_ACCESS_WRITE;
+
+      if (!VFS_Access(path, proc->euid, proc->egid, accessMask))
+      {
+         VFS_Close((VFS_File *)file->inode);
+         free(file);
+         return -EACCES;
+      }
+   }
+   else if (flags & O_CREAT)
    {
       file->inode = VFS_Create(path, mode);
       if (!file->inode)
@@ -98,6 +117,18 @@ int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
                 path, (uint32_t)flags, (uint32_t)mode);
          free(file);
          return -EACCES;
+      }
+
+      if (!VFS_Chown(path, proc->euid, proc->egid))
+      {
+         logfmt(LOG_WARNING, "[fd] open: chown metadata failed for %s\n",
+                path);
+      }
+
+      if (!VFS_Chmod(path, mode))
+      {
+         logfmt(LOG_WARNING, "[fd] open: chmod metadata failed for %s\n",
+                path);
       }
    }
 

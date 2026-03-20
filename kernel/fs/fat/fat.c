@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "fat.h"
+#include <crypto/crypto.h>
 #include <drivers/ata/ata.h>
 #include <drivers/fdc/fdc.h>
 #include <fs/vfs/vfs.h>
@@ -18,6 +19,19 @@
 #define MAX_FILE_HANDLES 10
 #define ROOT_DIRECTORY_HANDLE -1
 #define FAT_CACHE_SIZE 5
+#define FAT_METADATA_PATH "/.vkmeta"
+#define FAT_METADATA_FLAG_VALID 0x01
+#define FAT_METADATA_FLAG_DELETED 0x02
+
+typedef struct
+{
+   uint8_t Hash[SHA1_DIGEST_SIZE];
+   uint16_t Mode;
+   uint32_t Uid;
+   uint32_t Gid;
+   uint8_t Flags;
+   uint8_t _Reserved[5];
+} __attribute__((packed)) FAT_MetadataRecord;
 
 typedef struct
 {
@@ -116,6 +130,42 @@ struct FAT_Instance
    uint32_t RootDirLba;     /* FAT12/16 fixed-root start LBA (0 for FAT32) */
    uint32_t RootDirSectors; /* FAT12/16 fixed-root sector count (0 for FAT32) */
 };
+
+static uint16_t fat_normalize_mode(uint16_t mode)
+{
+   uint16_t masked = mode & 0777u;
+   if (masked == 0) return 0644u;
+   return masked;
+}
+
+static bool fat_is_metadata_path(const char *path)
+{
+   return path && strcmp(path, FAT_METADATA_PATH) == 0;
+}
+
+static void fat_normalize_absolute_path(const char *path, char *out,
+                                        size_t outSize)
+{
+   if (!out || outSize == 0) return;
+
+   if (!path || path[0] == '\0')
+   {
+      out[0] = '/';
+      if (outSize > 1) out[1] = '\0';
+      return;
+   }
+
+   if (path[0] == '/')
+   {
+      strncpy(out, path, outSize - 1);
+      out[outSize - 1] = '\0';
+      return;
+   }
+
+   out[0] = '/';
+   strncpy(out + 1, path, outSize - 2);
+   out[outSize - 1] = '\0';
+}
 
 /* Retrieve the FAT_Instance stored in a Partition's filesystem slot. */
 static inline FAT_Instance *fat_inst(const Partition *disk)
@@ -582,6 +632,161 @@ static uint32_t FAT_NextCluster(FAT_Instance *inst, Partition *disk,
       nextCluster = raw & 0x0FFFFFFF;
    }
    return nextCluster;
+}
+
+static bool fat_metadata_append_record_full(Partition *disk, const char *path,
+                                            uint16_t mode, uint32_t uid,
+                                            uint32_t gid, uint8_t flags)
+{
+   if (!disk || !path) return false;
+
+   char normalizedPath[MAX_PATH_SIZE];
+   fat_normalize_absolute_path(path, normalizedPath, sizeof(normalizedPath));
+   if (fat_is_metadata_path(normalizedPath)) return true;
+
+   FAT_File *meta = FAT_Open(disk, FAT_METADATA_PATH);
+   if (!meta)
+   {
+      meta = FAT_Create(disk, FAT_METADATA_PATH, 0600u);
+      if (!meta) return false;
+   }
+
+   if (meta->Handle == ROOT_DIRECTORY_HANDLE || meta->IsDirectory)
+   {
+      if (meta->Handle != ROOT_DIRECTORY_HANDLE) FAT_Close(meta);
+      return false;
+   }
+
+   FAT_MetadataRecord record;
+   memset(&record, 0, sizeof(record));
+   SHA1_Calculate(normalizedPath, strlen(normalizedPath), record.Hash);
+   record.Mode = fat_normalize_mode(mode);
+   record.Uid = uid;
+   record.Gid = gid;
+   record.Flags = FAT_METADATA_FLAG_VALID | flags;
+
+   if (!FAT_Seek(disk, meta, meta->Size))
+   {
+      FAT_Close(meta);
+      return false;
+   }
+
+   uint32_t written = FAT_Write(disk, meta, sizeof(record), &record);
+   FAT_Close(meta);
+   return written == sizeof(record);
+}
+
+static bool fat_metadata_append_record(Partition *disk, const char *path,
+                                       uint16_t mode, uint8_t flags)
+{
+   return fat_metadata_append_record_full(disk, path, mode, 0, 0, flags);
+}
+
+static bool fat_metadata_lookup_latest(Partition *disk, const char *path,
+                                       FAT_MetadataRecord *recordOut,
+                                       bool *foundOut)
+{
+   if (!disk || !path)
+   {
+      if (foundOut) *foundOut = false;
+      return false;
+   }
+
+   char normalizedPath[MAX_PATH_SIZE];
+   fat_normalize_absolute_path(path, normalizedPath, sizeof(normalizedPath));
+
+   uint8_t hash[SHA1_DIGEST_SIZE];
+   SHA1_Calculate(normalizedPath, strlen(normalizedPath), hash);
+
+   FAT_File *meta = FAT_Open(disk, FAT_METADATA_PATH);
+   if (!meta)
+   {
+      if (foundOut) *foundOut = false;
+      return true;
+   }
+
+   if (meta->Handle == ROOT_DIRECTORY_HANDLE || meta->IsDirectory)
+   {
+      if (meta->Handle != ROOT_DIRECTORY_HANDLE) FAT_Close(meta);
+      if (foundOut) *foundOut = false;
+      return false;
+   }
+
+   if (!FAT_Seek(disk, meta, 0))
+   {
+      FAT_Close(meta);
+      if (foundOut) *foundOut = false;
+      return false;
+   }
+
+   FAT_MetadataRecord rec;
+   bool found = false;
+   while (FAT_Read(disk, meta, sizeof(rec), &rec) == sizeof(rec))
+   {
+      if ((rec.Flags & FAT_METADATA_FLAG_VALID) == 0) continue;
+      if (memcmp(rec.Hash, hash, SHA1_DIGEST_SIZE) == 0)
+      {
+         if (recordOut) *recordOut = rec;
+         found = true;
+      }
+   }
+
+   FAT_Close(meta);
+   if (foundOut) *foundOut = found;
+   return true;
+}
+
+static bool fat_check_access_path(Partition *disk, const char *path,
+                                  uint32_t uid, uint32_t gid,
+                                  uint8_t accessMask)
+{
+   if (!disk || !path) return false;
+   if (uid == 0) return true;
+
+   FAT_MetadataRecord rec;
+   bool found = false;
+   if (!fat_metadata_lookup_latest(disk, path, &rec, &found)) return false;
+   if (!found) return true;
+   if (rec.Flags & FAT_METADATA_FLAG_DELETED) return false;
+
+   uint8_t perm;
+   if (uid == rec.Uid)
+      perm = (rec.Mode >> 6) & 0x7;
+   else if (gid == rec.Gid)
+      perm = (rec.Mode >> 3) & 0x7;
+   else
+      perm = rec.Mode & 0x7;
+
+   if ((accessMask & 0x4) && ((perm & 0x4) == 0)) return false;
+   if ((accessMask & 0x2) && ((perm & 0x2) == 0)) return false;
+   if ((accessMask & 0x1) && ((perm & 0x1) == 0)) return false;
+   return true;
+}
+
+static bool fat_chmod_path(Partition *disk, const char *path, uint16_t mode)
+{
+   if (!disk || !path) return false;
+
+   FAT_MetadataRecord rec;
+   bool found = false;
+   if (!fat_metadata_lookup_latest(disk, path, &rec, &found)) return false;
+
+   uint32_t uid = found ? rec.Uid : 0;
+   uint32_t gid = found ? rec.Gid : 0;
+   return fat_metadata_append_record_full(disk, path, mode, uid, gid, 0);
+}
+
+static bool fat_chown_path(Partition *disk, const char *path, uint32_t uid,
+                           uint32_t gid)
+{
+   if (!disk || !path) return false;
+
+   FAT_MetadataRecord rec;
+   bool found = false;
+   if (!fat_metadata_lookup_latest(disk, path, &rec, &found)) return false;
+
+   uint16_t mode = found ? rec.Mode : 0644u;
+   return fat_metadata_append_record_full(disk, path, mode, uid, gid, 0);
 }
 
 uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
@@ -1623,7 +1828,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
    return false;
 }
 
-FAT_File *FAT_Create(Partition *disk, const char *path)
+FAT_File *FAT_Create(Partition *disk, const char *path, uint16_t mode)
 {
    if (!disk)
    {
@@ -1635,6 +1840,9 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 
    FAT_Instance *inst = fat_inst(disk);
    if (!inst) return NULL;
+
+   char metadataPath[MAX_PATH_SIZE];
+   fat_normalize_absolute_path(path, metadataPath, sizeof(metadataPath));
 
    // Normalize leading slash
    if (path[0] == '/') path++;
@@ -1815,6 +2023,12 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 
          if (file != NULL)
          {
+            if (!fat_metadata_append_record(disk, metadataPath, mode, 0))
+            {
+               logfmt(LOG_WARNING,
+                      "[FAT] FAT_Create: failed to append metadata for '%s'\n",
+                      metadataPath);
+            }
          }
          free(parentPath);
          free(baseName);
@@ -1833,6 +2047,9 @@ FAT_File *FAT_Create(Partition *disk, const char *path)
 bool FAT_Delete(Partition *disk, const char *name)
 {
    if (!name) return false;
+
+   char metadataPath[MAX_PATH_SIZE];
+   fat_normalize_absolute_path(name, metadataPath, sizeof(metadataPath));
 
    FAT_Instance *inst = fat_inst(disk);
    if (!inst) return false;
@@ -2011,6 +2228,13 @@ bool FAT_Delete(Partition *disk, const char *name)
                sectorBuffer[off] = 0xE5;
                Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                free(sectorBuffer);
+               if (!fat_metadata_append_record(disk, metadataPath, 0,
+                                               FAT_METADATA_FLAG_DELETED))
+               {
+                  logfmt(LOG_WARNING,
+                         "[FAT] FAT_Delete: metadata tombstone failed for '%s'\n",
+                         metadataPath);
+               }
                logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
                free(parentPath);
                free(baseName);
@@ -2055,6 +2279,13 @@ bool FAT_Delete(Partition *disk, const char *name)
                   sectorBuffer[off] = 0xE5;
                   Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                   free(sectorBuffer);
+                  if (!fat_metadata_append_record(disk, metadataPath, 0,
+                                                  FAT_METADATA_FLAG_DELETED))
+                  {
+                     logfmt(LOG_WARNING,
+                            "[FAT] FAT_Delete: metadata tombstone failed for '%s'\n",
+                            metadataPath);
+                  }
                   logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
                   free(parentPath);
                   free(baseName);
@@ -2261,11 +2492,12 @@ static VFS_File *fat_vfs_open(Partition *partition, const char *path)
 }
 
 /* VFS create wrapper: opens a new (non-existing) file via FAT_Create */
-static VFS_File *fat_vfs_create(Partition *partition, const char *path)
+static VFS_File *fat_vfs_create(Partition *partition, const char *path,
+                                uint16_t mode)
 {
    if (!partition || !partition->fs || !path) return NULL;
 
-   FAT_File *fat_file = FAT_Create(partition, path);
+   FAT_File *fat_file = FAT_Create(partition, path, mode);
    if (!fat_file) return NULL;
 
    VFS_File *vf = (VFS_File *)kmalloc(sizeof(VFS_File));
@@ -2286,6 +2518,24 @@ static uint32_t fat_vfs_get_size(void *fs_file)
    return ((FAT_File *)fs_file)->Size;
 }
 
+static bool fat_vfs_access(Partition *partition, const char *path,
+                           uint32_t uid, uint32_t gid, uint8_t accessMask)
+{
+   return fat_check_access_path(partition, path, uid, gid, accessMask);
+}
+
+static bool fat_vfs_chmod(Partition *partition, const char *path,
+                          uint16_t mode)
+{
+   return fat_chmod_path(partition, path, mode);
+}
+
+static bool fat_vfs_chown(Partition *partition, const char *path,
+                          uint32_t uid, uint32_t gid)
+{
+   return fat_chown_path(partition, path, uid, gid);
+}
+
 /* FAT operations structure - directly points to FAT functions */
 static const VFS_Operations fat_vfs_ops = {
     .open =
@@ -2297,7 +2547,10 @@ static const VFS_Operations fat_vfs_ops = {
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */
-    .delete = (bool (*)(Partition *, const char *))FAT_Delete};
+   .delete = (bool (*)(Partition *, const char *))FAT_Delete,
+   .access = fat_vfs_access,
+   .chmod = fat_vfs_chmod,
+   .chown = fat_vfs_chown};
 
 /* Public function to get FAT VFS operations */
 const VFS_Operations *FAT_GetVFSOperations(void) { return &fat_vfs_ops; }

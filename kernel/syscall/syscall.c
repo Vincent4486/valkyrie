@@ -101,6 +101,24 @@ intptr_t sys_lseek(int fd, int32_t offset, int whence)
    return FD_Lseek(proc, fd, offset, whence);
 }
 
+intptr_t sys_chmod(const char *path, uint16_t mode)
+{
+   Process *proc = get_current_process();
+   if (!proc || !path) return -1;
+
+   if (proc->euid != 0) return -EACCES;
+   return VFS_Chmod(path, mode) ? 0 : -1;
+}
+
+intptr_t sys_chown(const char *path, uint32_t uid, uint32_t gid)
+{
+   Process *proc = get_current_process();
+   if (!proc || !path) return -1;
+
+   if (proc->euid != 0) return -EACCES;
+   return VFS_Chown(path, uid, gid) ? 0 : -1;
+}
+
 intptr_t sys_fork(const Registers *regs)
 {
    Process *parent = get_current_process();
@@ -266,6 +284,12 @@ intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args, Registers *regs)
 
    case SYS_LSEEK:
       return sys_lseek(args[0], (int32_t)args[1], args[2]);
+
+   case SYS_CHMOD:
+      return sys_chmod((const char *)args[0], (uint16_t)args[1]);
+
+   case SYS_CHOWN:
+      return sys_chown((const char *)args[0], args[1], args[2]);
 
    default:
       logfmt(LOG_ERROR, "[SYSCALL] unknown syscall %u\n", syscall_num);
