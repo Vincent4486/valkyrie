@@ -105,16 +105,16 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
 
    Process_SelfTest();
 
-   Process *shell_proc = ELF_LoadProcess("/usr/bin/selftest", false);
+   Process *shell_proc = ELF_LoadProcess("/usr/bin/sh", false);
    if (!shell_proc)
    {
-      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/selftest\n");
+      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/sh\n");
       TTY_Flush(tty_dev);
       goto backup;
    }
 
    logfmt(LOG_INFO,
-          "[INIT] loaded /usr/bin/selftest (pid=%u), switching scheduler\n",
+          "[INIT] loaded /usr/bin/sh (pid=%u), switching scheduler\n",
           shell_proc->pid);
 
    Process *kernel_fallback_proc =
