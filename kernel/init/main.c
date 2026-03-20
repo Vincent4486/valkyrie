@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include <cpu/cpu.h>
+#include <crypto/crypto.h>
 #include <cpu/process.h>
 #include <drivers/ata/ata.h>
 #include <drivers/keyboard/keyboard.h>
@@ -76,6 +77,7 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    CPU_Initialize();
    HAL_Initialize();
    CmdLine_Initialize();
+   Crypto_SelfTest();
 
    TTY_Device *tty_dev = TTY_GetDevice();
    TTY_Flush(tty_dev);
