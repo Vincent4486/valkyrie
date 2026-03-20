@@ -18,6 +18,61 @@
 #define ELFDATA2LSB 1
 #define EM_386 3
 
+static int setup_initial_user_stack(Process *proc, const char *filename)
+{
+   const uint32_t stack_headroom = 64;
+
+   if (!proc || !filename) return -1;
+   if (!proc->page_directory || proc->stack_end == 0) return -1;
+
+   if (proc->stack_end <= proc->stack_start + stack_headroom) return -1;
+
+   uint32_t sp = proc->stack_end - stack_headroom;
+   uint32_t argv0_len = strlen(filename) + 1;
+
+   if (sp < proc->stack_start + argv0_len + 24) return -1;
+
+   void *kernel_pd = g_HalPagingOperations->GetCurrentPageDirectory();
+   g_HalPagingOperations->SwitchPageDirectory(proc->page_directory);
+
+   sp -= argv0_len;
+   memcpy((void *)sp, filename, argv0_len);
+   uint32_t argv0_user = sp;
+
+   sp &= ~0x3u;
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = 0; // auxv[0].a_un.a_val
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = 0; // auxv[0].a_type = AT_NULL
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = 0; // envp[0] = NULL
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = 0; // argv[1] = NULL
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = argv0_user; // argv[0]
+
+   sp -= sizeof(uint32_t);
+   *(uint32_t *)sp = 1; // argc
+
+   g_HalPagingOperations->SwitchPageDirectory(kernel_pd);
+
+   proc->esp = sp;
+   proc->ebp = sp;
+
+   if (proc->saved_regs)
+   {
+      proc->saved_regs->esp = sp;
+      proc->saved_regs->ebp = sp;
+   }
+
+   return 0;
+}
+
 bool ELF_Load(VFS_File *file, void **entryOut)
 {
    // read ELF header
@@ -360,6 +415,14 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    VFS_Close(file);
+
+   if (setup_initial_user_stack(proc, filename) != 0)
+   {
+      logfmt(LOG_ERROR, "[ELF] LoadProcess: failed to setup user stack\n");
+      Process_Destroy(proc);
+      return NULL;
+   }
+
    logfmt(LOG_INFO,
           "[ELF] LoadProcess: successfully loaded %s into pid=%u at entry "
           "0x%08x\n",
