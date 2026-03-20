@@ -64,7 +64,7 @@
  */
 intptr_t sys_brk(void *addr);
 void *sys_sbrk(intptr_t increment);
-intptr_t sys_open(const char *path, int flags);
+intptr_t sys_open(const char *path, int flags, uint16_t mode);
 intptr_t sys_close(int fd);
 intptr_t sys_read(int fd, void *buf, uint32_t count);
 intptr_t sys_write(int fd, const void *buf, uint32_t count);

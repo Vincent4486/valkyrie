@@ -1100,11 +1100,15 @@ bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
    }
    else
    {
-      // Guard: don't try to seek on regular files that are empty
+      // Empty regular files only support seek to BOF.
+      // This allows first read/write at offset 0 without forcing a failure.
       if (fd->Public.Size == 0 && !fd->Public.IsDirectory)
       {
+         if (position == 0) return true;
+
          logfmt(LOG_ERROR,
-                "[FAT] FAT_Seek: cannot seek on empty regular file\n");
+                "[FAT] FAT_Seek: cannot seek to non-zero offset on empty "
+                "regular file\n");
          return false;
       }
 

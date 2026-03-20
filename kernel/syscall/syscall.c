@@ -61,12 +61,12 @@ void *sys_sbrk(intptr_t increment)
 }
 
 // File descriptor syscalls
-intptr_t sys_open(const char *path, int flags)
+intptr_t sys_open(const char *path, int flags, uint16_t mode)
 {
    Process *proc = get_current_process();
    if (!proc) return -1;
 
-   return FD_Open(proc, path, flags);
+   return FD_Open(proc, path, flags, mode);
 }
 
 intptr_t sys_close(int fd)
@@ -253,7 +253,7 @@ intptr_t syscall_dispatch(uint32_t syscall_num, uint32_t *args, Registers *regs)
       return (intptr_t)sys_sbrk((intptr_t)args[0]);
 
    case SYS_OPEN:
-      return sys_open((const char *)args[0], args[1]);
+      return sys_open((const char *)args[0], args[1], (uint16_t)args[2]);
 
    case SYS_CLOSE:
       return sys_close(args[0]);

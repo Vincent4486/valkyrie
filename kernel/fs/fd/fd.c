@@ -10,6 +10,14 @@
 
 #include <drivers/tty/tty.h>
 
+#ifndef EACCES
+#define EACCES 13
+#endif
+
+#ifndef ENOENT
+#define ENOENT 2
+#endif
+
 void FD_Retain(FileDescriptor *file)
 {
    if (!file) return;
@@ -43,7 +51,7 @@ int FD_FindFree(void *proc_ptr)
 }
 
 // Open a file and return file descriptor
-int FD_Open(void *proc_ptr, const char *path, int flags)
+int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
 {
    Process *proc = (Process *)proc_ptr;
 
@@ -80,11 +88,24 @@ int FD_Open(void *proc_ptr, const char *path, int flags)
 
    // Open via VFS (resolves partition internally)
    file->inode = VFS_Open(path);
+   if (!file->inode && (flags & O_CREAT))
+   {
+      file->inode = VFS_Create(path, mode);
+      if (!file->inode)
+      {
+         logfmt(LOG_ERROR,
+                "[fd] open: create failed for path=%s flags=0x%x mode=%o\n",
+                path, (uint32_t)flags, (uint32_t)mode);
+         free(file);
+         return -EACCES;
+      }
+   }
+
    if (!file->inode)
    {
       logfmt(LOG_ERROR, "[fd] open: file not found: %s\n", path);
       free(file);
-      return -1; // ENOENT
+      return -ENOENT;
    }
 
    file->ref_count = 1;

@@ -55,7 +55,7 @@ if not config_path.exists():
         'config': 'debug',
         'arch': 'i686',
         'kernelMajor': 0,
-        'kernelMinor': 26,
+        'kernelMinor': 27,
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
@@ -121,7 +121,7 @@ VARS.Add('kernelMajor',
 
 VARS.Add('kernelMinor',
          help='Kernel minor version',
-         default=26,
+         default=27,
          converter=int)
 
 

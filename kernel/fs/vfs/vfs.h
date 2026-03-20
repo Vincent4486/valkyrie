@@ -50,7 +50,7 @@ int FS_Mount(Partition *volume, const char *location);
 int FS_Umount(Partition *volume);
 
 VFS_File *VFS_Open(const char *path);
-VFS_File *VFS_Create(const char *path);
+VFS_File *VFS_Create(const char *path, uint16_t mode);
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut);
 uint32_t VFS_Write(VFS_File *file, uint32_t byteCount, const void *dataIn);
 bool VFS_Seek(VFS_File *file, uint32_t position);

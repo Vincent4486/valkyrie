@@ -272,8 +272,10 @@ VFS_File *VFS_Open(const char *path)
    return result;
 }
 
-VFS_File *VFS_Create(const char *path)
+VFS_File *VFS_Create(const char *path, uint16_t mode)
 {
+   (void)mode;
+
    Partition *part = NULL;
    char *relative = kmalloc(VFS_MAX_PATH);
    if (!relative) return NULL;
@@ -411,7 +413,7 @@ void VFS_SelfTest(void)
 
    /* Try to open the existing test file; create it on first boot if absent */
    test_file = VFS_Open(test_path);
-   if (!test_file) test_file = VFS_Create(test_path);
+   if (!test_file) test_file = VFS_Create(test_path, 0);
 
    if (!test_file)
    {

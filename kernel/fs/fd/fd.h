@@ -31,7 +31,7 @@ typedef struct
 } FileDescriptor;
 
 // Core FD operations
-int FD_Open(void *proc, const char *path, int flags);
+int FD_Open(void *proc, const char *path, int flags, uint16_t mode);
 int FD_Close(void *proc, int fd);
 int FD_Read(void *proc, int fd, void *buf, uint32_t count);
 int FD_Write(void *proc, int fd, const void *buf, uint32_t count);
