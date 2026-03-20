@@ -55,7 +55,7 @@ if not config_path.exists():
         'config': 'debug',
         'arch': 'i686',
         'kernelMajor': 0,
-        'kernelMinor': 27,
+        'kernelMinor': 28,
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
