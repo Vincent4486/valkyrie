@@ -24,7 +24,7 @@ jobs:
 
       - name: Pull builder container image
         run: |
-          docker pull vincent4486/valkyrie-build:latest
+          docker pull vincent4486/valkyrie-builder:latest
 
       - name: Build kernel + image formats inside container
         run: |
