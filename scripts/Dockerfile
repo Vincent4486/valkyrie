@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     gcc g++ make libmpfr-dev libgmp-dev \
     libmpc-dev coreutils grep dosfstools \
     e2fsprogs xorriso grub-pc-bin guestfish \
-    qemu-system-x86 gdb texinfo
+    qemu-system-x86 gdb texinfo git
 
 WORKDIR /build
 
