@@ -29,6 +29,7 @@ jobs:
       - name: Build kernel + image formats inside container
         run: |
           set -euo pipefail
+          apt install -y xorriso
           docker run --rm -v "$(pwd)":/build vincent4486/valkyrie-builder:latest bash -lc '
             set -euo pipefail
             scons -Q config=debug outputFormat=img toolchain=../os_toolchain
