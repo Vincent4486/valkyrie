@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include <cpu/cpu.h>
-#include <crypto/crypto.h>
 #include <cpu/process.h>
+#include <crypto/crypto.h>
 #include <drivers/ata/ata.h>
 #include <drivers/keyboard/keyboard.h>
 #include <drivers/tty/tty.h>
@@ -113,12 +113,7 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
       goto backup;
    }
 
-   logfmt(LOG_INFO,
-          "[INIT] loaded /usr/bin/selftest (pid=%u), switching scheduler\n",
-          shell_proc->pid);
-
-   Process *kernel_fallback_proc =
-       Process_CreateKernel((uint32_t)fallback);
+   Process *kernel_fallback_proc = Process_CreateKernel((uint32_t)fallback);
    if (!kernel_fallback_proc)
    {
       logfmt(LOG_ERROR, "[INIT] failed to create kernel fallback process\n");
@@ -131,8 +126,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
       g_HalSchedulerOperations->ContextSwitch();
    }
 
-   // TTY_SetVideoMode(80, 43);
-   // TTY_SetVideoMode(40, 25);
 backup:
    /* Fallback interactive mode if shell handoff returns unexpectedly. */
    interact();

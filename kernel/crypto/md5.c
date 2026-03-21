@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "crypto.h"
-#include <std/string.h>
 #include <mem/mm_kernel.h>
+#include <std/string.h>
 
 #define MD5_F(x, y, z) (((x) & (y)) | (~(x) & (z)))
 #define MD5_G(x, y, z) (((x) & (z)) | ((y) & ~(z)))
@@ -50,12 +50,12 @@ static void MD5_Transform(uint32_t state[4], const uint8_t block[64])
 
    MD5_Decode32(x, block, 64);
 
-#define MD5_STEP(f, a_, b_, c_, d_, xk, s, ti) \
-   do                                            \
-   {                                             \
-      (a_) += f((b_), (c_), (d_)) + (xk) + (ti);\
-      (a_) = MD5_ROTL((a_), (s));               \
-      (a_) += (b_);                             \
+#define MD5_STEP(f, a_, b_, c_, d_, xk, s, ti)                                 \
+   do                                                                          \
+   {                                                                           \
+      (a_) += f((b_), (c_), (d_)) + (xk) + (ti);                               \
+      (a_) = MD5_ROTL((a_), (s));                                              \
+      (a_) += (b_);                                                            \
    } while (0)
 
    MD5_STEP(MD5_F, a, b, c, d, x[0], 7, 0xd76aa478);
@@ -198,7 +198,8 @@ void MD5_Final(MD5_Context *ctx, uint8_t digest[MD5_DIGEST_SIZE])
    memset(ctx, 0, sizeof(*ctx));
 }
 
-void MD5_Calculate(const void *data, size_t len, uint8_t digest[MD5_DIGEST_SIZE])
+void MD5_Calculate(const void *data, size_t len,
+                   uint8_t digest[MD5_DIGEST_SIZE])
 {
    MD5_Context ctx;
    MD5_Init(&ctx);
@@ -206,7 +207,8 @@ void MD5_Calculate(const void *data, size_t len, uint8_t digest[MD5_DIGEST_SIZE]
    MD5_Final(&ctx, digest);
 }
 
-void MD5_ToHex(const uint8_t digest[MD5_DIGEST_SIZE], char out_hex[MD5_HEX_SIZE])
+void MD5_ToHex(const uint8_t digest[MD5_DIGEST_SIZE],
+               char out_hex[MD5_HEX_SIZE])
 {
    static const char hex_chars[] = "0123456789abcdef";
 

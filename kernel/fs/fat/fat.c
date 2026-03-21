@@ -2231,9 +2231,10 @@ bool FAT_Delete(Partition *disk, const char *name)
                if (!fat_metadata_append_record(disk, metadataPath, 0,
                                                FAT_METADATA_FLAG_DELETED))
                {
-                  logfmt(LOG_WARNING,
-                         "[FAT] FAT_Delete: metadata tombstone failed for '%s'\n",
-                         metadataPath);
+                  logfmt(
+                      LOG_WARNING,
+                      "[FAT] FAT_Delete: metadata tombstone failed for '%s'\n",
+                      metadataPath);
                }
                logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
                free(parentPath);
@@ -2283,7 +2284,8 @@ bool FAT_Delete(Partition *disk, const char *name)
                                                   FAT_METADATA_FLAG_DELETED))
                   {
                      logfmt(LOG_WARNING,
-                            "[FAT] FAT_Delete: metadata tombstone failed for '%s'\n",
+                            "[FAT] FAT_Delete: metadata tombstone failed for "
+                            "'%s'\n",
                             metadataPath);
                   }
                   logfmt(LOG_INFO, "[FAT] FAT_Delete: deleted '%s'\n", name);
@@ -2518,8 +2520,8 @@ static uint32_t fat_vfs_get_size(void *fs_file)
    return ((FAT_File *)fs_file)->Size;
 }
 
-static bool fat_vfs_access(Partition *partition, const char *path,
-                           uint32_t uid, uint32_t gid, uint8_t accessMask)
+static bool fat_vfs_access(Partition *partition, const char *path, uint32_t uid,
+                           uint32_t gid, uint8_t accessMask)
 {
    return fat_check_access_path(partition, path, uid, gid, accessMask);
 }
@@ -2576,8 +2578,10 @@ static bool fat_vfs_readdir(Partition *partition, void *fs_file,
       if ((entry.Attributes & FAT_ATTRIBUTE_LFN) == FAT_ATTRIBUTE_LFN) continue;
       if (entry.Attributes & FAT_ATTRIBUTE_VOLUME_ID) continue;
 
-      fat_short_name_to_cstr(entry.Name, entryOut->name, sizeof(entryOut->name));
-      entryOut->is_directory = (entry.Attributes & FAT_ATTRIBUTE_DIRECTORY) != 0;
+      fat_short_name_to_cstr(entry.Name, entryOut->name,
+                             sizeof(entryOut->name));
+      entryOut->is_directory =
+          (entry.Attributes & FAT_ATTRIBUTE_DIRECTORY) != 0;
       entryOut->size = entry.Size;
       return true;
    }
@@ -2585,14 +2589,13 @@ static bool fat_vfs_readdir(Partition *partition, void *fs_file,
    return false;
 }
 
-static bool fat_vfs_chmod(Partition *partition, const char *path,
-                          uint16_t mode)
+static bool fat_vfs_chmod(Partition *partition, const char *path, uint16_t mode)
 {
    return fat_chmod_path(partition, path, mode);
 }
 
-static bool fat_vfs_chown(Partition *partition, const char *path,
-                          uint32_t uid, uint32_t gid)
+static bool fat_vfs_chown(Partition *partition, const char *path, uint32_t uid,
+                          uint32_t gid)
 {
    return fat_chown_path(partition, path, uid, gid);
 }
@@ -2602,17 +2605,17 @@ static const VFS_Operations fat_vfs_ops = {
     .open =
         fat_vfs_open, /* Open an existing file (returns NULL if not found) */
     .create = fat_vfs_create, /* Create a new file */
-   .readdir = fat_vfs_readdir,
-    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .readdir = fat_vfs_readdir,
+    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
     .seek = (bool (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */
-   .delete = (bool (*)(Partition *, const char *))FAT_Delete,
-   .access = fat_vfs_access,
-   .chmod = fat_vfs_chmod,
-   .chown = fat_vfs_chown};
+    .delete = (bool (*)(Partition *, const char *))FAT_Delete,
+    .access = fat_vfs_access,
+    .chmod = fat_vfs_chmod,
+    .chown = fat_vfs_chown};
 
 /* Public function to get FAT VFS operations */
 const VFS_Operations *FAT_GetVFSOperations(void) { return &fat_vfs_ops; }

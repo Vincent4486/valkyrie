@@ -121,14 +121,12 @@ int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
 
       if (!VFS_Chown(path, proc->euid, proc->egid))
       {
-         logfmt(LOG_WARNING, "[fd] open: chown metadata failed for %s\n",
-                path);
+         logfmt(LOG_WARNING, "[fd] open: chown metadata failed for %s\n", path);
       }
 
       if (!VFS_Chmod(path, mode))
       {
-         logfmt(LOG_WARNING, "[fd] open: chmod metadata failed for %s\n",
-                path);
+         logfmt(LOG_WARNING, "[fd] open: chmod metadata failed for %s\n", path);
       }
    }
 

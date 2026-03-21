@@ -26,8 +26,7 @@ extern "C"
    void logfmt_impl(LogType logtype, const char *fmt, ...);
    void LOG_DisableInfo(void);
 /* logfmt expands to printf with prefix and ANSI colors, reset at end */
-#define logfmt(logtype, fmt, ...)                                              \
-   logfmt_impl((logtype), (fmt), ##__VA_ARGS__)
+#define logfmt(logtype, fmt, ...) logfmt_impl((logtype), (fmt), ##__VA_ARGS__)
    void print_buffer(const char *msg, const void *buffer, uint32_t count);
    void setcursor(int x, int y);
    /* Read one byte from TTY input stream. Returns -1 if no data. */

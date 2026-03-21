@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "crypto.h"
-#include <std/string.h>
 #include <mem/mm_kernel.h>
+#include <std/string.h>
 
 #define SHA1_ROTL32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
 
@@ -152,7 +152,8 @@ void SHA1_Final(SHA1_Context *ctx, uint8_t digest[SHA1_DIGEST_SIZE])
    memset(ctx, 0, sizeof(*ctx));
 }
 
-void SHA1_Calculate(const void *data, size_t len, uint8_t digest[SHA1_DIGEST_SIZE])
+void SHA1_Calculate(const void *data, size_t len,
+                    uint8_t digest[SHA1_DIGEST_SIZE])
 {
    SHA1_Context ctx;
    SHA1_Init(&ctx);
@@ -160,7 +161,8 @@ void SHA1_Calculate(const void *data, size_t len, uint8_t digest[SHA1_DIGEST_SIZ
    SHA1_Final(&ctx, digest);
 }
 
-void SHA1_ToHex(const uint8_t digest[SHA1_DIGEST_SIZE], char out_hex[SHA1_HEX_SIZE])
+void SHA1_ToHex(const uint8_t digest[SHA1_DIGEST_SIZE],
+                char out_hex[SHA1_HEX_SIZE])
 {
    static const char hex_chars[] = "0123456789abcdef";
 

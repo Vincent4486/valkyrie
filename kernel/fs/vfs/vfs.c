@@ -317,7 +317,8 @@ bool VFS_ReadDir(VFS_File *directory, VFS_DirEntry *entryOut)
    if (!directory->is_directory) return false;
 
    if (!directory->partition || !directory->partition->fs ||
-       !directory->partition->fs->ops || !directory->partition->fs->ops->readdir)
+       !directory->partition->fs->ops ||
+       !directory->partition->fs->ops->readdir)
       return false;
 
    return directory->partition->fs->ops->readdir(directory->partition,
@@ -346,7 +347,7 @@ bool VFS_Delete(const char *path)
       return NULL;
    }
 
-   bool result = part->fs->ops->delete (part, relative);
+   bool result = part->fs->ops->delete(part, relative);
    free(relative);
    return result;
 }

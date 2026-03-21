@@ -51,7 +51,8 @@ void printf_unsigned(unsigned long long number, int radix, int width,
    if (width > 31) width = 31;
 
    // convert number to ASCII
-   do {
+   do
+   {
       unsigned long long rem = number % radix;
       number /= radix;
       buffer[pos++] = g_HexChars[rem];
@@ -112,10 +113,7 @@ void printf(const char *fmt, ...)
    va_end(args);
 }
 
-void vprintf(const char *fmt, va_list args)
-{
-   printf_vimpl(fmt, args);
-}
+void vprintf(const char *fmt, va_list args) { printf_vimpl(fmt, args); }
 
 static void printf_vimpl(const char *fmt, va_list args)
 {
@@ -304,10 +302,7 @@ static void printf_vimpl(const char *fmt, va_list args)
    }
 }
 
-void LOG_DisableInfo(void)
-{
-   g_LogEmitters[LOG_INFO] = log_emit_info_disabled;
-}
+void LOG_DisableInfo(void) { g_LogEmitters[LOG_INFO] = log_emit_info_disabled; }
 
 void logfmt_impl(LogType logtype, const char *fmt, ...)
 {
@@ -389,14 +384,16 @@ int vsnprintf(char *buffer, size_t buf_size, const char *format, va_list ap)
 
 /* helper to emit a single char */
 #define EMIT_CH(c)                                                             \
-   do {                                                                        \
+   do                                                                          \
+   {                                                                           \
       if (out_idx + 1 < buf_size) buffer[out_idx++] = (c);                     \
       would_have++;                                                            \
    } while (0)
 
 /* helper to emit a whole string */
 #define EMIT_STR(s)                                                            \
-   do {                                                                        \
+   do                                                                          \
+   {                                                                           \
       const char *_p = (s);                                                    \
       while (*_p)                                                              \
       {                                                                        \

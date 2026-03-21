@@ -32,7 +32,8 @@ typedef struct
 void MD5_Init(MD5_Context *ctx);
 void MD5_Update(MD5_Context *ctx, const void *data, size_t len);
 void MD5_Final(MD5_Context *ctx, uint8_t digest[MD5_DIGEST_SIZE]);
-void MD5_Calculate(const void *data, size_t len, uint8_t digest[MD5_DIGEST_SIZE]);
+void MD5_Calculate(const void *data, size_t len,
+                   uint8_t digest[MD5_DIGEST_SIZE]);
 void MD5_ToHex(const uint8_t digest[MD5_DIGEST_SIZE],
                char out_hex[MD5_HEX_SIZE]);
 bool MD5_SelfTest(void);
