@@ -43,8 +43,7 @@ typedef struct
 typedef struct
 {
    /* Kernel version and identification */
-   uint16_t kernel_major;   /* Kernel major version */
-   uint16_t kernel_minor;   /* Kernel minor version */
+   char kernel_version[16]; /* Kernel version string (MAJOR.MINOR) */
    uint64_t uptime_seconds; /* Uptime in seconds */
 
    /* Architecture and CPU */

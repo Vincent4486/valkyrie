@@ -14,8 +14,9 @@ SYS_Info *g_SysInfo = (SYS_Info *)(uintptr_t)K_MEM_SYS_INFO_START;
 void SYS_Initialize()
 {
    /* Initialize SYS_Info structure */
-   g_SysInfo->kernel_major = KERNEL_MAJOR;
-   g_SysInfo->kernel_minor = KERNEL_MINOR;
+   strncpy(g_SysInfo->kernel_version, KERNEL_VERSION,
+           sizeof(g_SysInfo->kernel_version) - 1);
+   g_SysInfo->kernel_version[sizeof(g_SysInfo->kernel_version) - 1] = '\0';
    g_SysInfo->uptime_seconds = 0;
    g_SysInfo->initialized = 0;
 
@@ -61,8 +62,7 @@ void SYS_Finalize()
       arch_str = "aarch64";
 
    printf("[SYS] Finalized, system info: \n");
-   printf("--> Kernel Version: %u.%u\n", g_SysInfo->kernel_major,
-          g_SysInfo->kernel_minor);
+   printf("--> Kernel Version: %s\n", g_SysInfo->kernel_version);
    printf("--> Architecture: %d (%s)\n", g_SysInfo->arch.arch, arch_str);
    printf("--> CPU Cores: %u\n", g_SysInfo->arch.cpu_count);
    printf("--> CPU Frequency: %u Hz (%u MHz)\n", g_SysInfo->arch.cpu_frequency,

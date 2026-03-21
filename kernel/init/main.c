@@ -105,10 +105,10 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
 
    Process_SelfTest();
 
-   Process *shell_proc = ELF_LoadProcess("/usr/bin/sh", false);
+   Process *shell_proc = ELF_LoadProcess("/usr/bin/selftest", false);
    if (!shell_proc)
    {
-      logfmt(LOG_ERROR, "[INIT] failed to load /usr/bin/sh\n");
+      logfmt(LOG_ERROR, "[INIT] failed to load init process\n");
       TTY_Flush(tty_dev);
       goto backup;
    }

@@ -3,12 +3,8 @@
 #ifndef VALKYRIE_H
 #define VALKYRIE_H
 
-#ifndef KERNEL_MAJOR
-#error "KERNEL_MAJOR must be defined by the build system"
-#endif
-
-#ifndef KERNEL_MINOR
-#error "KERNEL_MINOR must be defined by the build system"
+#ifndef KERNEL_VERSION
+#error "KERNEL_VERSION must be defined by the build system"
 #endif
 
 #define ARCH_I686 1

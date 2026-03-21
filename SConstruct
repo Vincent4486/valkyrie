@@ -43,6 +43,20 @@ def host_arch_matches_target(target_triple: str) -> bool:
     return False
 
 
+def get_git_short_hash() -> str:
+    """Return the current git short commit hash or an empty string."""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ''
+
+
 # =============================================================================
 # Build Variables
 # =============================================================================
@@ -54,8 +68,7 @@ if not config_path.exists():
     default_config = {
         'config': 'debug',
         'arch': 'i686',
-        'kernelMajor': 0,
-        'kernelMinor': 28,
+        'kernelVersion': '0.28',
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
@@ -114,15 +127,9 @@ VARS.Add('kernelName',
          help='Kernel executable name',
          default='valkyrix')
 
-VARS.Add('kernelMajor',
-         help='Kernel major version',
-         default=0,
-         converter=int)
-
-VARS.Add('kernelMinor',
-         help='Kernel minor version',
-         default=27,
-         converter=int)
+VARS.Add('kernelVersion',
+         help='Kernel version string in MAJOR.MINOR form',
+         default='0.28')
 
 
 # =============================================================================
@@ -149,9 +156,14 @@ def create_host_environment():
         STRIP='strip',
     )
 
-    # Kernel version is configured via SCons and propagated as preprocessor
-    # symbols so C code can use KERNEL_MAJOR/KERNEL_MINOR without hardcoding.
-    env['kernelVersion'] = f'{env["kernelMajor"]}.{env["kernelMinor"]}'
+    # Debug builds use the latest commit hash; release builds use
+    # the configured semantic version string (for example MAJOR.MINOR).
+    configured_version = str(env['kernelVersion'])
+    if env['config'] == 'debug':
+        git_hash = get_git_short_hash()
+        env['kernelVersion'] = git_hash if git_hash else configured_version
+    else:
+        env['kernelVersion'] = configured_version
     env['kernelOutputName'] = f'{env["kernelName"]}-{env["kernelVersion"]}'
     
     # Configuration-specific flags
@@ -164,8 +176,7 @@ def create_host_environment():
     arch_config = get_arch_config(env['arch'])
     env.Append(CCFLAGS=[
         f'-D{arch_config["define"]}',
-        f'-DKERNEL_MAJOR={env["kernelMajor"]}',
-        f'-DKERNEL_MINOR={env["kernelMinor"]}',
+        f'-DKERNEL_VERSION=\\"{env["kernelVersion"]}\\"',
     ])
     
     return env
