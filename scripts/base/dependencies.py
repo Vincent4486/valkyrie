@@ -38,6 +38,7 @@ DEPENDENCIES = {
             # === Filesystem & Disk Tools ===
             'dosfstools',
             'e2fsprogs',
+            'xorriso',
             
             # === Boot & Image Creation ===
             'grub-pc-bin',
@@ -82,6 +83,7 @@ DEPENDENCIES = {
             # === Filesystem & Disk Tools ===
             'dosfstools',
             'e2fsprogs',
+            'xorriso',
             
             # === Boot & Image Creation ===
             'grub2-tools',
@@ -127,6 +129,7 @@ DEPENDENCIES = {
             # === Filesystem & Disk Tools ===
             'dosfstools',
             'e2fsprogs',
+            'xorriso',
             
             # === Boot & Image Creation ===
             'grub',
@@ -171,6 +174,7 @@ DEPENDENCIES = {
             # === Filesystem & Disk Tools ===
             'dosfstools',
             'e2fsprogs',
+            'xorriso',
             
             # === Boot & Image Creation ===
             'grub2',
@@ -216,6 +220,7 @@ DEPENDENCIES = {
             # === Filesystem & Disk Tools ===
             'dosfstools',
             'e2fsprogs',
+            'xorriso',
             
             # === Boot & Image Creation ===
             'grub',

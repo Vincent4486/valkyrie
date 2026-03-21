@@ -31,7 +31,6 @@ jobs:
           set -euo pipefail
           docker run --rm -v "$(pwd)":/build vincent4486/valkyrie-builder:latest bash -lc '
             set -euo pipefail
-            apt install xorriso
             scons -Q config=debug outputFormat=img toolchain=../os_toolchain
             scons -Q config=debug outputFormat=iso toolchain=../os_toolchain
           '
