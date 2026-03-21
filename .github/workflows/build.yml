@@ -31,9 +31,9 @@ jobs:
           set -euo pipefail
           docker run --rm -v "$(pwd)":/build vincent4486/valkyrie-builder:latest bash -lc '
             set -euo pipefail
-            scons -Q config=debug buildType=kernel toolchain=/toolchain
-            scons -Q config=debug buildType=image outputFormat=img toolchain=/toolchain
-            scons -Q config=debug buildType=image outputFormat=iso toolchain=/toolchain
+            scons -Q config=debug buildType=kernel toolchain=../os_toolchain
+            scons -Q config=debug buildType=image outputFormat=img toolchain=../os_toolchain
+            scons -Q config=debug buildType=image outputFormat=iso toolchain=../os_toolchain
           '
 
       - name: Gather artifacts and create tarball
