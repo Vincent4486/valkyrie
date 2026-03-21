@@ -29,7 +29,7 @@ jobs:
       - name: Build kernel + image formats inside container
         run: |
           set -euo pipefail
-          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work vincent4486/valkyrie-build:latest bash -lc '
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work vincent4486/valkyrie-builder:latest bash -lc '
             set -euo pipefail
             scons -Q config=debug buildType=kernel
             scons -Q config=debug buildType=image outputFormat=img
