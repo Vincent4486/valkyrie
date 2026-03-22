@@ -83,10 +83,11 @@ jobs:
 
           scp -o StrictHostKeyChecking=no "$tarball" "$REMOTE_USER@$REMOTE_IP:$REMOTE_PATH/"
 
-          ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" bash -lc '
-            set -euo pipefail
-            mkdir -p "$REMOTE_PATH"
-            cd "$REMOTE_PATH"
-            # keep max 10 most recent tarballs by modification time
-            ls -1t *.tar.xz 2>/dev/null | tail -n +11 | xargs -r rm --
-          '
+          ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" \
+            "REMOTE_PATH='$REMOTE_PATH' bash -se" <<'EOF'
+          set -euo pipefail
+          mkdir -p "$REMOTE_PATH"
+          cd "$REMOTE_PATH"
+          # keep max 10 most recent tarballs by modification time
+          ls -1t *.tar.xz 2>/dev/null | tail -n +11 | xargs -r rm --
+          EOF
