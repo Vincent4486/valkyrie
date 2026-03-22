@@ -43,17 +43,19 @@ def host_arch_matches_target(target_triple: str) -> bool:
     return False
 
 
-def get_git_short_hash() -> str:
+def get_git_short_hash(length: int = 12) -> str:
     """Return the current git short commit hash or an empty string."""
     try:
+        # Git accepts --short and --short=<n>; clamp to a sane minimum.
+        short_len = max(4, int(length))
         result = subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
+            ['git', 'rev-parse', f'--short={short_len}', 'HEAD'],
             check=True,
             capture_output=True,
             text=True,
         )
         return result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (ValueError, subprocess.CalledProcessError, FileNotFoundError):
         return ''
 
 
@@ -131,6 +133,17 @@ VARS.Add('kernelVersion',
          help='Kernel version string in MAJOR.MINOR form',
          default='0.28')
 
+VARS.AddVariables(
+    EnumVariable('kernelVersionSource',
+                 help='Kernel version source mode',
+                 default='auto',
+                 allowed_values=('auto', 'git', 'fixed')),
+)
+
+VARS.Add('kernelGitShortLength',
+         help='Length of git short hash when kernelVersionSource uses git',
+         default='12')
+
 
 # =============================================================================
 # Dependency Versions
@@ -156,11 +169,25 @@ def create_host_environment():
         STRIP='strip',
     )
 
-    # Debug builds use the latest commit hash; release builds use
-    # the configured semantic version string (for example MAJOR.MINOR).
+    # Version mode:
+    # - auto: debug -> git short hash, release -> configured version
+    # - git: always git short hash
+    # - fixed: always configured version
     configured_version = str(env['kernelVersion'])
-    if env['config'] == 'debug':
-        git_hash = get_git_short_hash()
+    version_source = str(env['kernelVersionSource'])
+
+    try:
+        git_short_len = int(env['kernelGitShortLength'])
+    except (TypeError, ValueError):
+        git_short_len = 12
+
+    use_git_version = (
+        version_source == 'git'
+        or (version_source == 'auto' and env['config'] == 'debug')
+    )
+
+    if use_git_version:
+        git_hash = get_git_short_hash(git_short_len)
         env['kernelVersion'] = git_hash if git_hash else configured_version
     else:
         env['kernelVersion'] = configured_version

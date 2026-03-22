@@ -29,10 +29,14 @@ jobs:
       - name: Build kernel + image formats inside container
         run: |
           set -euo pipefail
+
+          short_hash=$(git rev-parse --short=12 HEAD 2>/dev/null || echo "unknown")
+          echo "SHORT_HASH=$short_hash" >> "$GITHUB_ENV"
+
           docker run --rm -v "$(pwd)":/build vincent4486/valkyrieos-builder:latest bash -lc '
             set -euo pipefail
-            scons -Q config=debug outputFormat=img toolchain=../os_toolchain
-            scons -Q config=debug outputFormat=iso toolchain=../os_toolchain
+            scons -Q config=debug outputFormat=img toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
+            scons -Q config=debug outputFormat=iso toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
           '
 
       - name: Gather artifacts and create tarball
@@ -50,7 +54,7 @@ jobs:
             exit 1
           fi
 
-          short_hash=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          short_hash="${SHORT_HASH:-unknown}"
           date_tag=$(date -u +"%Y%m%d%H%M%S")
           tarball="valkyrie-nightly-${date_tag}-${short_hash}.tar.xz"
 
