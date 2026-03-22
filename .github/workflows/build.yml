@@ -24,12 +24,12 @@ jobs:
 
       - name: Pull builder container image
         run: |
-          docker pull vincent4486/valkyrie-builder:latest
+          docker pull vincent4486/valkyrieos-builder:latest
 
       - name: Build kernel + image formats inside container
         run: |
           set -euo pipefail
-          docker run --rm -v "$(pwd)":/build vincent4486/valkyrie-builder:latest bash -lc '
+          docker run --rm -v "$(pwd)":/build vincent4486/valkyrieos-builder:latest bash -lc '
             set -euo pipefail
             scons -Q config=debug outputFormat=img toolchain=../os_toolchain
             scons -Q config=debug outputFormat=iso toolchain=../os_toolchain
