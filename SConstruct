@@ -43,7 +43,7 @@ def host_arch_matches_target(target_triple: str) -> bool:
     return False
 
 
-def get_git_short_hash(length: int = 12) -> str:
+def get_git_short_hash(length: int = 7) -> str:
     """Return the current git short commit hash or an empty string."""
     try:
         # Git accepts --short and --short=<n>; clamp to a sane minimum.
@@ -142,7 +142,7 @@ VARS.AddVariables(
 
 VARS.Add('kernelGitShortLength',
          help='Length of git short hash when kernelVersionSource uses git',
-         default='12')
+         default='7')
 
 
 # =============================================================================
@@ -179,7 +179,7 @@ def create_host_environment():
     try:
         git_short_len = int(env['kernelGitShortLength'])
     except (TypeError, ValueError):
-        git_short_len = 12
+        git_short_len = 7
 
     use_git_version = (
         version_source == 'git'

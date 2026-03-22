@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          short_hash=$(git rev-parse --short=12 HEAD 2>/dev/null || echo "unknown")
+          short_hash=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
           echo "SHORT_HASH=$short_hash" >> "$GITHUB_ENV"
 
           docker run --rm -v "$(pwd)":/build vincent4486/valkyrieos-builder:latest bash -lc '
