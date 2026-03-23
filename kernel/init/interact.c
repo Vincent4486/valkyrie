@@ -43,40 +43,88 @@ void interact(void)
             __asm__ volatile("lidt %0" : : "m"(invalid_idt));
             __asm__ volatile("int $0");
          }
-         else if (strncmp(buf, "read ", 5) == 0)
+         else if (strcmp(buf, "read") == 0 || strncmp(buf, "read ", 5) == 0)
          {
-            char *path = buf + 5;
+            char *path = buf + 4;
             while (*path == ' ') path++;
+
+            if (*path == '\0')
+            {
+               printf("Usage: read <file-path>\n\n");
+               printf("$ ");
+               continue;
+            }
 
             VFS_File *f = VFS_Open(path);
             if (f)
             {
-               char *read_buf = kmalloc(4096);
-               if (read_buf)
+               if (f->is_directory)
                {
-                  uint32_t bytes;
-                  uint32_t total_read = 0;
-                  uint32_t max_read =
-                      65536; /* Limit to 4KB to prevent infinite reads */
-                  while ((bytes = VFS_Read(f, 4096, read_buf)) > 0 &&
-                         total_read < max_read)
-                  {
-                     for (uint32_t i = 0; i < bytes; i++)
-                     {
-                        printf("%c", read_buf[i]);
-                     }
-                  }
-                  free(read_buf);
+                  printf("Error: '%s' is a directory. Use: ls %s\n", path,
+                         path);
                }
                else
                {
-                  printf("Error: Out of memory\n");
+                  char *read_buf = kmalloc(4096);
+                  if (read_buf)
+                  {
+                     uint32_t bytes;
+                     uint32_t total_read = 0;
+                     uint32_t max_read =
+                         65536; /* Limit to 64KB to prevent runaway output */
+                     while ((bytes = VFS_Read(f, 4096, read_buf)) > 0 &&
+                            total_read < max_read)
+                     {
+                        for (uint32_t i = 0; i < bytes; i++)
+                        {
+                           printf("%c", read_buf[i]);
+                        }
+                        total_read += bytes;
+                     }
+                     free(read_buf);
+                  }
+                  else
+                  {
+                     printf("Error: Out of memory\n");
+                  }
                }
                VFS_Close(f);
             }
             else
             {
                printf("Error: Could not open file '%s'\n", path);
+            }
+            printf("\n");
+         }
+         else if (strcmp(buf, "ls") == 0 || strncmp(buf, "ls ", 3) == 0)
+         {
+            char *path = buf + 2;
+            while (*path == ' ') path++;
+            if (*path == '\0') path = "/";
+
+            VFS_File *dir = VFS_OpenDir(path);
+            if (dir)
+            {
+               VFS_DirEntry entry;
+               uint32_t entry_count = 0;
+               uint32_t max_entries = 4096;
+
+               while (entry_count < max_entries && VFS_ReadDir(dir, &entry))
+               {
+                  printf("%s%s  (%u bytes)\n", entry.name,
+                         entry.is_directory ? "/" : "", entry.size);
+                  entry_count++;
+               }
+
+               if (entry_count == 0) printf("(empty directory)\n");
+               if (entry_count >= max_entries)
+                  printf("Warning: directory listing truncated\n");
+
+               VFS_Close(dir);
+            }
+            else
+            {
+               printf("Error: Could not open directory '%s'\n", path);
             }
             printf("\n");
          }

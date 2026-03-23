@@ -2,7 +2,7 @@
 
 .section .data
 dirpath:
-   .asciz "/boot"
+   .asciz "/"
 newline:
    .byte 0x0A
 

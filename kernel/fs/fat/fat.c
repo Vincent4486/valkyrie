@@ -550,11 +550,10 @@ static FAT_File *FAT_OpenEntry(FAT_Instance *inst, Partition *disk,
    fd->CurrentCluster = fd->FirstCluster;
    fd->CurrentSectorInCluster = 0;
 
-   /* If the file has no data (size 0) or an invalid zero cluster, skip the
-    * initial read and treat it as an empty file. FAT12/16 root dir entries can
-    * legally have FirstCluster = 0. For regular files with nonzero size, we
-    * must have a valid cluster. */
-   if (fd->Public.Size == 0 || fd->FirstCluster == 0)
+   /* Skip the initial sector read only when the entry has no data cluster.
+    * Directories frequently have Size=0 on FAT but still require reading their
+    * first cluster for iteration. */
+   if (fd->FirstCluster == 0)
    {
       fd->Opened = true;
       return &fd->Public;
@@ -822,9 +821,13 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
       return 0;
    }
 
-   // don't read past the end of the file (for non-directories)
-   if (!fd->Public.IsDirectory && fd->Public.Size > 0)
+   // don't read past the end of the file (once size is known)
+   // For directories, Size becomes > 0 only after hitting the end of the cluster chain.
+   if (fd->Public.Size > 0)
+   {
+      if (fd->Public.Position >= fd->Public.Size) return 0;
       byteCount = min(byteCount, fd->Public.Size - fd->Public.Position);
+   }
 
    // For root directory in FAT32, limit reading to a reasonable max size
    if (fd->Public.Handle == ROOT_DIRECTORY_HANDLE && inst->FatType == 32)
@@ -1091,6 +1094,9 @@ FAT_File *FAT_Open(Partition *disk, const char *path)
    // If path is empty or just "/", return root directory
    if (*cursor == '\0')
    {
+      // Root directory handle is shared; always rewind on open so callers
+      // observe deterministic directory iteration.
+      FAT_Seek(disk, &inst->RootDirectory.Public, 0);
       free(normalizedPath);
       free(name);
       return &inst->RootDirectory.Public;
@@ -1712,6 +1718,7 @@ bool FAT_UpdateEntry(Partition *disk, FAT_File *file)
    {
       if (file->Handle < 0 || file->Handle >= MAX_FILE_HANDLES) return false;
       if (!fd->Opened) return false;
+      inst->RootDirectory.CurrentSectorInCluster = 0;
    }
 
    // Determine where the parent directory starts
