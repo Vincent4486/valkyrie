@@ -24,14 +24,18 @@ void setcursor(int x, int y)
 
 int getchar(void)
 {
-   extern int TTY_ReadChar(void);
-   return TTY_ReadChar();
+   TTY_Device *tty = TTY_GetDevice();
+   char c;
+   if (!tty) return -1;
+   if (TTY_Read(tty, &c, 1) <= 0) return -1;
+   return (int)(unsigned char)c;
 }
 
 void putc(char c)
 {
    g_HalIoOperations->outb(0xe9, c);
-   TTY_PutChar(c);
+   TTY_Device *tty = TTY_GetDevice();
+   if (tty) TTY_WriteChar(tty, c);
 }
 
 void puts(const char *str)

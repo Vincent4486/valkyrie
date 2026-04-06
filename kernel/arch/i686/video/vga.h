@@ -13,7 +13,7 @@ void i686_VGA_Initialize(void);
 void i686_VGA_PutChar(char c, uint8_t color, int x, int y);
 void i686_VGA_Clear(uint8_t color);
 void i686_VGA_SetCursor(int x, int y);
-void i686_VGA_UpdateBuffer(void *buffer);
+void i686_VGA_GetCursor(int *x, int *y);
 
 /**
  * Switch to a supported VGA text mode.

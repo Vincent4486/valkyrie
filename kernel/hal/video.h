@@ -23,7 +23,7 @@
 #define HAL_ARCH_Video_PutChar i686_VGA_PutChar
 #define HAL_ARCH_Video_Clear i686_VGA_Clear
 #define HAL_ARCH_Video_SetCursor i686_VGA_SetCursor
-#define HAL_ARCH_Video_UpdateBuffer i686_VGA_UpdateBuffer
+#define HAL_ARCH_Video_GetCursor i686_VGA_GetCursor
 #define HAL_ARCH_Video_SetDisplaySize i686_VGA_SetDisplaySize
 #else
 #error "Unsupported architecture for HAL Video"
@@ -40,11 +40,8 @@ typedef struct HAL_VideoOperations
    /* Move the hardware text cursor to column x, row y. */
    void (*SetCursor)(int x, int y);
 
-   /* Blit a pre-composed shadow buffer to VRAM.
-    *   VGA text mode  – buffer is uint16_t[80 * 25]
-    *   VESA/VBE       – buffer is a full linear framebuffer
-    */
-   void (*UpdateBuffer)(void *buffer);
+   /* Read current text cursor location. */
+   void (*GetCursor)(int *x, int *y);
 
    /* Switch to a supported text mode (cols × rows).
     * Supported: 40×25, 80×25, 80×43, 80×50.

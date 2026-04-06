@@ -75,6 +75,25 @@ static bool s_font_cache_ready = false;
 static uint8_t s_font16[256 * 16];
 static uint8_t s_font8[256 * 8];
 
+#define VGA_TERM_MAX_COLS 160
+#define VGA_TERM_MAX_ROWS 50
+#define VGA_ANSI_PARAM_MAX 16
+
+static uint16_t s_TermBuffer[VGA_TERM_MAX_ROWS][VGA_TERM_MAX_COLS];
+static int s_TermCursorX = 0;
+static int s_TermCursorY = 0;
+static uint8_t s_TermColor = 0x07;
+static uint8_t s_TermDefaultColor = 0x07;
+static uint8_t s_TermInputColor = 0x07;
+static int s_AnsiState = 0;
+static int s_AnsiParamCount = 0;
+static int s_AnsiParams[VGA_ANSI_PARAM_MAX];
+
+static const uint8_t s_AnsiToVgaFg[] = {0x0, 0x4, 0x2, 0x6,
+                                        0x1, 0x5, 0x3, 0x7};
+static const uint8_t s_AnsiToVgaBg[] = {0x00, 0x40, 0x20, 0x60,
+                                        0x10, 0x50, 0x30, 0x70};
+
 /* ── Text-mode descriptor table ─────────────────────────────────────────── */
 
 /** One CRTC (index, value) write; sentinel has index == 0xFF. */
@@ -371,6 +390,280 @@ static void vga_upload_font(int char_height)
    gfx_write(0x06, s_gfx6);
 }
 
+static inline void vga_clamp_cursor(void)
+{
+   if (s_TermCursorX < 0) s_TermCursorX = 0;
+   if (s_TermCursorY < 0) s_TermCursorY = 0;
+   if (s_TermCursorX >= s_VGA_Cols) s_TermCursorX = s_VGA_Cols - 1;
+   if (s_TermCursorY >= s_VGA_Rows) s_TermCursorY = s_VGA_Rows - 1;
+}
+
+static void vga_present(void)
+{
+   uint16_t blank = ((uint16_t)s_TermColor << 8) | ' ';
+
+   for (int row = 0; row < s_VGA_Rows; row++)
+   {
+      for (int col = 0; col < s_VGA_Cols; col++)
+      {
+         uint16_t cell = s_TermBuffer[row][col];
+         VGA_BUFFER[row * s_VGA_Cols + col] = cell ? cell : blank;
+      }
+   }
+}
+
+static void vga_reset_terminal_state(uint8_t color)
+{
+   memset(s_TermBuffer, 0, sizeof(s_TermBuffer));
+   s_TermCursorX = 0;
+   s_TermCursorY = 0;
+   s_TermColor = color;
+   s_TermDefaultColor = color;
+   s_TermInputColor = color;
+   s_AnsiState = 0;
+   s_AnsiParamCount = 0;
+   memset(s_AnsiParams, 0, sizeof(s_AnsiParams));
+}
+
+static void vga_scroll_up(void)
+{
+   if (s_VGA_Rows <= 1) return;
+
+   memmove(s_TermBuffer[0], s_TermBuffer[1],
+           (size_t)(s_VGA_Rows - 1) * VGA_TERM_MAX_COLS * sizeof(uint16_t));
+   memset(s_TermBuffer[s_VGA_Rows - 1], 0,
+          (size_t)VGA_TERM_MAX_COLS * sizeof(uint16_t));
+   s_TermCursorY = s_VGA_Rows - 1;
+}
+
+static void vga_handle_ansi_sgr(void)
+{
+   for (int i = 0; i < s_AnsiParamCount; i++)
+   {
+      int code = s_AnsiParams[i];
+
+      if (code == 0)
+      {
+         s_TermColor = s_TermDefaultColor;
+      }
+      else if (code == 1)
+      {
+         s_TermColor |= 0x08;
+      }
+      else if (code == 22)
+      {
+         s_TermColor &= (uint8_t)~0x08;
+      }
+      else if (code >= 30 && code <= 37)
+      {
+         s_TermColor = (uint8_t)((s_TermColor & 0xF0) | s_AnsiToVgaFg[code - 30]);
+      }
+      else if (code == 39)
+      {
+         s_TermColor = (uint8_t)((s_TermColor & 0xF0) | (s_TermDefaultColor & 0x0F));
+      }
+      else if (code >= 40 && code <= 47)
+      {
+         s_TermColor = (uint8_t)((s_TermColor & 0x0F) | s_AnsiToVgaBg[code - 40]);
+      }
+      else if (code == 49)
+      {
+         s_TermColor = (uint8_t)((s_TermColor & 0x0F) | (s_TermDefaultColor & 0xF0));
+      }
+      else if (code >= 90 && code <= 97)
+      {
+         s_TermColor = (uint8_t)((s_TermColor & 0xF0) |
+                                 (s_AnsiToVgaFg[code - 90] | 0x08));
+      }
+   }
+}
+
+static void vga_handle_ansi_command(char cmd)
+{
+   int n = (s_AnsiParamCount > 0) ? s_AnsiParams[0] : 1;
+   if (n < 1) n = 1;
+
+   switch (cmd)
+   {
+   case 'A':
+      s_TermCursorY -= n;
+      break;
+   case 'B':
+      s_TermCursorY += n;
+      break;
+   case 'C':
+      s_TermCursorX += n;
+      break;
+   case 'D':
+      s_TermCursorX -= n;
+      break;
+   case 'H':
+   case 'f':
+   {
+      int row = (s_AnsiParamCount > 0) ? s_AnsiParams[0] : 1;
+      int col = (s_AnsiParamCount > 1) ? s_AnsiParams[1] : 1;
+      if (row < 1) row = 1;
+      if (col < 1) col = 1;
+      s_TermCursorY = row - 1;
+      s_TermCursorX = col - 1;
+      break;
+   }
+   case 'J':
+      if (n == 2)
+      {
+         memset(s_TermBuffer, 0, sizeof(s_TermBuffer));
+         s_TermCursorX = 0;
+         s_TermCursorY = 0;
+         vga_present();
+      }
+      break;
+   case 'K':
+   {
+      uint16_t *row = s_TermBuffer[s_TermCursorY];
+
+      if (n == 0)
+         memset(&row[s_TermCursorX], 0,
+                (size_t)(s_VGA_Cols - s_TermCursorX) * sizeof(uint16_t));
+      else if (n == 1)
+         memset(row, 0, (size_t)(s_TermCursorX + 1) * sizeof(uint16_t));
+      else
+         memset(row, 0, (size_t)s_VGA_Cols * sizeof(uint16_t));
+
+      vga_present();
+      break;
+   }
+   case 'm':
+      vga_handle_ansi_sgr();
+      break;
+   default:
+      break;
+   }
+
+   vga_clamp_cursor();
+}
+
+static bool vga_process_ansi(char c)
+{
+   if (s_AnsiState == 0)
+   {
+      if (c == '\x1B')
+      {
+         s_AnsiState = 1;
+         return true;
+      }
+      return false;
+   }
+
+   if (s_AnsiState == 1)
+   {
+      if (c == '[')
+      {
+         s_AnsiState = 2;
+         s_AnsiParamCount = 0;
+         s_AnsiParams[0] = 0;
+         return true;
+      }
+      s_AnsiState = 0;
+      return true;
+   }
+
+   if (s_AnsiState == 2)
+   {
+      if (c >= '0' && c <= '9')
+      {
+         s_AnsiParams[s_AnsiParamCount] =
+             s_AnsiParams[s_AnsiParamCount] * 10 + (c - '0');
+         return true;
+      }
+      if (c == ';')
+      {
+         s_AnsiParamCount++;
+         if (s_AnsiParamCount >= VGA_ANSI_PARAM_MAX)
+            s_AnsiParamCount = VGA_ANSI_PARAM_MAX - 1;
+         s_AnsiParams[s_AnsiParamCount] = 0;
+         return true;
+      }
+      if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+      {
+         s_AnsiParamCount++;
+         vga_handle_ansi_command(c);
+         s_AnsiState = 0;
+         return true;
+      }
+      if (c == '?')
+      {
+         return true;
+      }
+
+      s_AnsiState = 0;
+      return true;
+   }
+
+   return false;
+}
+
+static void vga_stream_put_char(char c)
+{
+   bool repaint = false;
+
+   if (vga_process_ansi(c))
+   {
+      i686_VGA_SetCursor(s_TermCursorX, s_TermCursorY);
+      return;
+   }
+
+   if (c == '\n')
+   {
+      s_TermCursorX = 0;
+      s_TermCursorY++;
+      if (s_TermCursorY >= s_VGA_Rows) vga_scroll_up();
+      repaint = true;
+   }
+   else if (c == '\r')
+   {
+      s_TermCursorX = 0;
+   }
+   else if (c == '\t')
+   {
+      int spaces = 4 - (s_TermCursorX % 4);
+      for (int i = 0; i < spaces; i++)
+      {
+         vga_stream_put_char(' ');
+      }
+      return;
+   }
+   else if (c == '\b')
+   {
+      if (s_TermCursorX > 0)
+      {
+         s_TermCursorX--;
+         memmove(&s_TermBuffer[s_TermCursorY][s_TermCursorX],
+                 &s_TermBuffer[s_TermCursorY][s_TermCursorX + 1],
+                 (size_t)(s_VGA_Cols - s_TermCursorX - 1) * sizeof(uint16_t));
+         s_TermBuffer[s_TermCursorY][s_VGA_Cols - 1] = 0;
+         repaint = true;
+      }
+   }
+   else if ((unsigned char)c >= 0x20)
+   {
+      s_TermBuffer[s_TermCursorY][s_TermCursorX] =
+          ((uint16_t)s_TermColor << 8) | (uint8_t)c;
+      s_TermCursorX++;
+
+      if (s_TermCursorX >= s_VGA_Cols)
+      {
+         s_TermCursorX = 0;
+         s_TermCursorY++;
+         if (s_TermCursorY >= s_VGA_Rows) vga_scroll_up();
+      }
+
+      repaint = true;
+   }
+
+   if (repaint) vga_present();
+   i686_VGA_SetCursor(s_TermCursorX, s_TermCursorY);
+}
+
 /* ── Backend implementation ──────────────────────────────────────────────── */
 
 /*
@@ -394,7 +687,8 @@ void i686_VGA_Initialize(void)
 
    s_VGA_Cols = 80;
    s_VGA_Rows = 25;
-
+   vga_reset_terminal_state(0x07);
+   vga_present();
    i686_VGA_SetCursor(0, 0);
 }
 
@@ -482,6 +776,9 @@ int i686_VGA_SetDisplaySize(int cols, int rows)
    /* ── 11. Update tracked dimensions ─────────────────────── */
    s_VGA_Cols = cols;
    s_VGA_Rows = rows;
+   vga_clamp_cursor();
+   vga_present();
+   i686_VGA_SetCursor(s_TermCursorX, s_TermCursorY);
 
    return 0;
 }
@@ -489,14 +786,35 @@ int i686_VGA_SetDisplaySize(int cols, int rows)
 /*
  * VGA_PutChar — write one character directly into VGA VRAM.
  *
- * Low-level primitive for early-boot or panic output.  The TTY driver
- * normally composes a full uint16_t[80*25] shadow buffer in RAM and blits
- * it in one shot via VGA_UpdateBuffer.
+ * In stream mode (x/y < 0) this routes through the internal terminal parser,
+ * including ANSI handling and cursor movement.
  */
 void i686_VGA_PutChar(char c, uint8_t color, int x, int y)
 {
-   if (x < 0 || x >= s_VGA_Cols || y < 0 || y >= s_VGA_Rows) return;
+   if (x < 0 || y < 0)
+   {
+      /* External colour (TTY default) should not clobber active ANSI colour
+       * on each character.  Only adopt it when the caller changes it. */
+      if (color != s_TermInputColor)
+      {
+         s_TermInputColor = color;
+         s_TermDefaultColor = color;
+         if (s_AnsiState == 0)
+         {
+            s_TermColor = color;
+         }
+      }
+      vga_stream_put_char(c);
+      return;
+   }
+
+   if (x >= s_VGA_Cols || y >= s_VGA_Rows) return;
+
    VGA_BUFFER[y * s_VGA_Cols + x] = ((uint16_t)color << 8) | (uint8_t)c;
+   if (x < VGA_TERM_MAX_COLS && y < VGA_TERM_MAX_ROWS)
+   {
+      s_TermBuffer[y][x] = ((uint16_t)color << 8) | (uint8_t)c;
+   }
 }
 
 /*
@@ -504,8 +822,9 @@ void i686_VGA_PutChar(char c, uint8_t color, int x, int y)
  */
 void i686_VGA_Clear(uint8_t color)
 {
-   uint16_t blank = ((uint16_t)color << 8) | ' ';
-   for (int i = 0; i < s_VGA_Cols * s_VGA_Rows; i++) VGA_BUFFER[i] = blank;
+   vga_reset_terminal_state(color);
+   vga_present();
+   i686_VGA_SetCursor(0, 0);
 }
 
 /*
@@ -523,6 +842,12 @@ void i686_VGA_SetCursor(int x, int y)
 {
    if (x < 0) x = 0;
    if (y < 0) y = 0;
+   if (x >= s_VGA_Cols) x = s_VGA_Cols - 1;
+   if (y >= s_VGA_Rows) y = s_VGA_Rows - 1;
+
+   s_TermCursorX = x;
+   s_TermCursorY = y;
+
    uint16_t pos = (uint16_t)(y * s_VGA_Cols + x);
 
    g_HalIoOperations->outb(VGA_CRTC_ADDR, VGA_CRTC_CURSOR_HI);
@@ -532,14 +857,9 @@ void i686_VGA_SetCursor(int x, int y)
    g_HalIoOperations->outb(VGA_CRTC_DATA, (uint8_t)(pos & 0xFF));
 }
 
-/*
- * VGA_UpdateBuffer — blit a pre-composed shadow buffer to VGA VRAM.
- *
- * The TTY driver keeps a uint16_t[VGA_COLS * VGA_ROWS] copy in normal RAM
- * and calls this once per repaint so VRAM is updated in one memcpy.
- */
-void i686_VGA_UpdateBuffer(void *buffer)
+void i686_VGA_GetCursor(int *x, int *y)
 {
-   memcpy((void *)VGA_BUFFER, buffer,
-          (size_t)(s_VGA_Cols * s_VGA_Rows) * sizeof(uint16_t));
+   if (x) *x = s_TermCursorX;
+   if (y) *y = s_TermCursorY;
 }
+

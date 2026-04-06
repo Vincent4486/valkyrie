@@ -234,8 +234,9 @@ void Keyboard_HandleScancode(uint8_t scancode)
       /* Push to keyboard buffer for devfs reads */
       keyboard_buffer_push(out);
 
-      /* Also push to TTY input for legacy support */
-      TTY_InputPush(out);
+      /* Also push to active TTY input stream. */
+      TTY_Device *dev = TTY_GetDevice();
+      if (dev) TTY_InputChar(dev, out);
    }
 }
 
@@ -251,10 +252,9 @@ int Keyboard_ReadlineNb(char *buf, int bufsize)
    TTY_Device *dev = TTY_GetDevice();
    if (!dev) return 0;
 
-   int ci;
-   while ((ci = TTY_ReadChar()) >= 0)
+   char c;
+   while (TTY_Read(dev, &c, 1) > 0)
    {
-      char c = (char)ci;
       if (c == '\n' || line_len >= sizeof(line_buf) - 1)
       {
          line_buf[line_len] = '\0';

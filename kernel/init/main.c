@@ -80,16 +80,14 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    Crypto_SelfTest();
 
    TTY_Device *tty_dev = TTY_GetDevice();
-   TTY_Flush(tty_dev);
+   (void)tty_dev;
 
    if (!FS_Initialize())
    {
-      TTY_Flush(tty_dev);
       goto end;
    }
    if (!Init_MountRoot())
    {
-      TTY_Flush(tty_dev);
       goto end;
    }
    VFS_SelfTest();
@@ -97,7 +95,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
 
    if (!Dylib_Initialize())
    {
-      TTY_Flush(tty_dev);
    }
 
    /* Mark system as fully initialized */
@@ -109,7 +106,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    if (!shell_proc)
    {
       logfmt(LOG_ERROR, "[INIT] failed to load init process\n");
-      TTY_Flush(tty_dev);
       goto backup;
    }
 
@@ -117,7 +113,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    if (!kernel_fallback_proc)
    {
       logfmt(LOG_ERROR, "[INIT] failed to create kernel fallback process\n");
-      TTY_Flush(tty_dev);
       goto backup;
    }
 

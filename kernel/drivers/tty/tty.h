@@ -25,14 +25,6 @@ struct DEVFS_DeviceNode;
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 25
 
-/* Maximum buffer dimensions.
- * All TTY devices pre-allocate for the largest supported VGA text mode so
- * that no reallocation is ever needed on a mode switch.  The live display
- * dimensions are tracked per-device in TTY_Device::cols / TTY_Device::rows
- * and rendering clips to those values. */
-#define TTY_MAX_COLS 160
-#define TTY_MAX_ROWS 50
-
 /* Buffer sizes */
 #define TTY_INPUT_SIZE 4096
 #define TTY_LINE_SIZE 256
@@ -93,11 +85,7 @@ typedef struct TTY_Device
    bool line_ready;              /* A complete line is ready */
    bool eof_pending;             /* EOF was received */
 
-   /* Output/display – max-size buffer; active area is cols × rows */
-   uint16_t screen_buf[TTY_MAX_ROWS][TTY_MAX_COLS]; /* packed (color<<8)|char */
-   uint16_t *display_buf; /* VGA shadow/display buffer */
-
-   /* Current video mode dimensions (≤ TTY_MAX_COLS × TTY_MAX_ROWS) */
+   /* Current text mode dimensions */
    int cols; /* Active columns */
    int rows; /* Active rows    */
 
@@ -111,15 +99,6 @@ typedef struct TTY_Device
 
    /* Flags/modes */
    uint32_t flags; /* TTY_FLAG_* */
-
-   /* ANSI state machine */
-   int ansi_state;
-   int ansi_params[16];
-   int ansi_param_count;
-
-   /* Dirty tracking for efficient repaint */
-   int dirty_start;
-   int dirty_end;
 
    /* Statistics */
    uint32_t bytes_read;
@@ -144,25 +123,15 @@ void TTY_SetActive(TTY_Device *tty);
 
 /* Input functions (called by keyboard driver) */
 void TTY_InputChar(TTY_Device *tty, char c);
-void TTY_InputPush(char c); /* Push to active TTY */
-
-/* Output functions */
 void TTY_Write(TTY_Device *tty, const char *data, size_t len);
 void TTY_WriteChar(TTY_Device *tty, char c);
-void TTY_PutChar(char c); /* Write to active TTY */
-void TTY_PutString(const char *s);
 
 /* Reading (for processes) */
 int TTY_Read(TTY_Device *tty, char *buf, size_t count);
-int TTY_ReadNonBlock(TTY_Device *tty, char *buf, size_t count);
-int TTY_ReadChar(void); /* Read from active TTY (legacy) */
 
 /* Display control */
 void TTY_ClearDevice(TTY_Device *tty);
 void TTY_Clear(void);
-void TTY_Scroll(int lines);
-void TTY_Repaint(TTY_Device *tty);
-void TTY_Flush(TTY_Device *tty);
 
 /* Cursor control */
 void TTY_SetCursor(TTY_Device *tty, int x, int y);
@@ -189,12 +158,6 @@ static inline bool TTY_IsEcho(TTY_Device *tty)
  * repaint of the active TTY.  Returns 0 on success, -1 if the mode is not
  * supported by the hardware backend. */
 int TTY_SetVideoMode(int cols, int rows);
-
-/* Query functions */
-int TTY_GetVisibleLineLength(int y);
-/* No scrollback: the following always return 0. */
-int TTY_GetMaxScroll(void);
-uint32_t TTY_GetVisibleStart(void);
 
 /* Devfs operations */
 uint32_t TTY_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
