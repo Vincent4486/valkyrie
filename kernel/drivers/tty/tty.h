@@ -152,13 +152,6 @@ static inline bool TTY_IsEcho(TTY_Device *tty)
    return (tty->flags & TTY_FLAG_ECHO) != 0;
 }
 
-/** Switch the video mode for all TTY devices.
- * Calls g_HalVideoOperations->SetDisplaySize, updates col/row tracking on
- * every active device, clamps out-of-bounds cursors, and forces a full
- * repaint of the active TTY.  Returns 0 on success, -1 if the mode is not
- * supported by the hardware backend. */
-int TTY_SetVideoMode(int cols, int rows);
-
 /* Devfs operations */
 uint32_t TTY_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,
                        uint32_t size, void *buffer);

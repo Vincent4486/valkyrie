@@ -42,12 +42,6 @@ typedef struct HAL_VideoOperations
 
    /* Read current text cursor location. */
    void (*GetCursor)(int *x, int *y);
-
-   /* Switch to a supported text mode (cols × rows).
-    * Supported: 40×25, 80×25, 80×43, 80×50.
-    * Returns 0 on success, -1 if the size is not a recognised mode.
-    */
-   int (*SetDisplaySize)(int cols, int rows);
 } HAL_VideoOperations;
 
 extern const HAL_VideoOperations *g_HalVideoOperations;

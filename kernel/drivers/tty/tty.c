@@ -416,33 +416,6 @@ uint32_t TTY_GetFlags(TTY_Device *tty)
    return tty->flags;
 }
 
-int TTY_SetVideoMode(int cols, int rows)
-{
-   const HAL_VideoOperations *vdev = g_HalVideoOperations;
-   if (!vdev || !vdev->SetDisplaySize) return -1;
-
-   if (vdev->SetDisplaySize(cols, rows) != 0) return -1;
-
-   for (int i = 0; i < TTY_MAX_DEVICES; i++)
-   {
-      TTY_Device *tty = g_TTYDevices[i];
-      if (!tty) continue;
-
-      tty->cols = cols;
-      tty->rows = rows;
-      if (tty->cursor_x >= cols) tty->cursor_x = cols - 1;
-      if (tty->cursor_y >= rows) tty->cursor_y = rows - 1;
-   }
-
-   if (g_ActiveTTY && vdev->SetCursor)
-   {
-      vdev->SetCursor(g_ActiveTTY->cursor_x, g_ActiveTTY->cursor_y);
-      tty_sync_cursor_from_backend(g_ActiveTTY);
-   }
-
-   return 0;
-}
-
 uint32_t TTY_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset, uint32_t size,
                        void *buffer)
 {
