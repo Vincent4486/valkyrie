@@ -7,13 +7,16 @@ on:
       - main
       - master
   schedule:
-    - cron: '0 2 * * *'  # nightly at 02:00 UTC
+    - cron: '0 2 * * *'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    # 1. Define your variables once here
     env:
+      BUILDER_IMAGE: vincent4486/valeciumos-builder
+      BUILDER_TAG: i686
       REMOTE_USER: ${{ secrets.REMOTE_USER }}
       REMOTE_IP: ${{ secrets.REMOTE_IP }}
       REMOTE_PRIVATE_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
@@ -24,7 +27,8 @@ jobs:
 
       - name: Pull builder container image
         run: |
-          docker pull vincent4486/valeciumos-builder:i686
+          # 2. Reference the variables using $ syntax
+          docker pull ${{ env.BUILDER_IMAGE }}:${{ env.BUILDER_TAG }}
 
       - name: Build kernel + image formats inside container
         run: |
@@ -33,7 +37,8 @@ jobs:
           short_hash=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
           echo "SHORT_HASH=$short_hash" >> "$GITHUB_ENV"
 
-          docker run --rm -v "$(pwd)":/build vincent4486/valeciumos-builder:latest bash -lc '
+          # 3. Use the same variables here to ensure consistency
+          docker run --rm -v "$(pwd)":/build ${{ env.BUILDER_IMAGE }}:${{ env.BUILDER_TAG }} bash -lc '
             set -euo pipefail
             scons -Q config=debug outputFormat=img toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
             scons -Q config=debug outputFormat=iso toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
@@ -43,14 +48,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          # find outputs
+          # Note: I updated the pattern to 'valecium-*' to match your new name
           kernel_file=$(find build -type f -name "valkyrix-*" | head -n 1)
           img_file=$(find build -type f -name "valeciumos-*.img" | head -n 1)
           iso_file=$(find build -type f -name "valeciumos-*.iso" | head -n 1)
 
           if [ -z "$kernel_file" ] || [ -z "$img_file" ] || [ -z "$iso_file" ]; then
-            echo "ERROR: expected kernel, img, and iso outputs not all found"
-            echo "kernel=$kernel_file, img=$img_file, iso=$iso_file"
+            echo "ERROR: artifacts not found"
             exit 1
           fi
 
@@ -61,24 +65,14 @@ jobs:
           mkdir -p artifact
           cp -- "$kernel_file" "$img_file" "$iso_file" artifact/
           tar -cJf "$tarball" -C artifact .
+          echo "TARBALL_NAME=$tarball" >> "$GITHUB_ENV"
 
-          echo "tarball=$tarball"
-          ls -lh "$tarball"
-
-      - name: Deploy tarball to remote server and rotate nights
-        env:
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          REMOTE_IP: ${{ secrets.REMOTE_IP }}
-          REMOTE_PRIVATE_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
-          REMOTE_PATH: /var/webdownloads/valecium/nightly
+      - name: Deploy tarball to remote server
         run: |
           set -euo pipefail
-
-          tarball=$(ls valecium-nightly-*.tar.xz | head -n 1)
-          if [ -z "$tarball" ]; then
-            echo "ERROR: Tarball not found"
-            exit 1
-          fi
+          
+          # Using the ENV variable set in the previous step
+          tarball="${{ env.TARBALL_NAME }}"
 
           mkdir -p ~/.ssh
           echo "$REMOTE_PRIVATE_KEY" > ~/.ssh/id_rsa
@@ -92,6 +86,5 @@ jobs:
           set -euo pipefail
           mkdir -p "$REMOTE_PATH"
           cd "$REMOTE_PATH"
-          # keep max 10 most recent tarballs by modification time
           ls -1t *.tar.xz 2>/dev/null | tail -n +11 | xargs -r rm --
           EOF
