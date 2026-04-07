@@ -1,4 +1,8 @@
-# Valecium OS
+<p align="center">
+  <img src="Documentation/assets/ValeciumOS.png" alt="ValeciumOS Element Block" width="100"/>
+</p>
+
+<h1 align="center">ValeciumOS</h1>
 
 Valecium OS is a Unix-like operating system project focused on low-level systems design, modular kernel architecture, and educational clarity.
 
