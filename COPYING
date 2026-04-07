@@ -1,34 +1,71 @@
+ValeciumOS Global Licensing Declaration and Policy
+==================================================
 
-Repository licensing summary
+This repository utilizes a multi-licensed architecture to govern the various
+functional layers of the system. This policy ensures the project remains 
+open-source while protecting the foundational identity of the OS.
+
+License to specific files are all according to the SPDX License Identifier
+labeled at the top of each file, and license text can be found in directory
+`LICENCES/` within this repository.
+
+1. GLOBAL FALLBACK LICENSE
+--------------------------
+Unless otherwise specified within a file header or categorized below, all 
+source code, build scripts (SCons), and tools in this repository are 
+governed by:
+
+    - License: BSD 3-Clause "New" or "Revised" License
+    - SPDX-License-Identifier: BSD-3-Clause
+    - Full Text: LICENSES/BSD-3-Clause.txt
+
+2. COMPONENT-SPECIFIC LICENSES
+------------------------------
+The following directories are subject to specific licensing terms that 
+override the global fallback:
+
+- `kernel/` (The Valecium Kernel)
+    - SPDX-License-Identifier: GPL-3.0-only
+    - Full Text: LICENSES/GPL-3.0.txt
+
+- `Documentation/` (Project Manuals and Text)
+    - SPDX-License-Identifier: CC-BY-SA-4.0
+    - Full Text: LICENSES/CC-BY-SA-4.0.txt
+
+- `Documentation/assets/` (Icon, Logos, and Branding)
+    - SPDX-License-Identifier: CC-BY-SA-4.0
+    - Full Text: LICENSES/CC-BY-SA-4.0.txt
+    - Note: Usage of these assets is strictly subject to Section 3.
+
+3. TRADEMARK AND IDENTITY POLICY
+--------------------------------
+- TRADEMARKS: "Valecium"™, the "ValeciumOS" wordmark, and the "Va" element 
+  block icon are trademarks belonging to Vincent Yang. 
+
+- SCOPE OF GRANT: The CC-BY-SA-4.0 license applies strictly to the copyright
+  of the image files within `Documentation/assets/`. This grant does not
+  constitute permission to use the "Valecium" name or "Va" block in any
+  manner that suggests official affiliation, endorsement, or ownership.
+
+- DERIVATIVES: Any redistribution or derivative work that deviates 
+  significantly from the upstream source must be re-branded to avoid 
+  user confusion and brand dilution.
+
+4. CONTRIBUTION POLICY (DCO)
 ----------------------------
+This project utilizes the Developer Certificate of Origin (DCO) to maintain 
+legal clarity. By contributing to this project, you agree that:
 
-This repository uses multiple licenses for different parts of the tree.
-Full license references and canonical texts are provided in the
-`LICENCES/` directory.
+- INBOUND = OUTBOUND: Your contribution is licensed under the same terms 
+  as the file or directory being modified.
+  
+- SIGN-OFF: You certify that you have the right to submit the work. All 
+  commits should include a "Signed-off-by" line in the following format:
+  
+      Signed-off-by: Random J Developer <random@example.com>
 
-Per-directory license mapping (SPDX identifiers):
-
-- `kernel/` : GNU General Public License v3.0 only
-  - SPDX-License-Identifier: GPL-3.0-only
-  - See: LICENCES/GPL-3.0.txt
-
-- `usr/` : BSD 3-Clause "New" or "Revised" License
-  - SPDX-License-Identifier: BSD-3-Clause
-  - See: LICENCES/BSD-3-Clause.txt
-
-- `docs/` : Creative Commons Attribution-ShareAlike 4.0 International
-  - SPDX-License-Identifier: CC-BY-SA-4.0
-  - See: LICENCES/CC-BY-SA-4.0.txt
-
-- build system and related top-level build scripts (e.g. `scripts/`,
-  SCons helpers):
-  - SPDX-License-Identifier: BSD-3-Clause
-  - See: LICENCES/BSD-3-Clause.txt
-
-Notes:
-
-- Files not mentioned above are covered by the SPDX identifiers at the
-  top of the file.
-- SPDX identifiers above are authoritative short identifiers for the
-  stated licenses. The full texts (or links to canonical texts) are
-  included in the `LICENCES/` directory.
+5. COPYRIGHT
+------------
+Unless explicitly noted in individual file headers:
+Copyright © 2024–2026 Vincent and ValeciumOS contributors. 
+All rights reserved.
