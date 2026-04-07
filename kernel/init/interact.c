@@ -32,6 +32,7 @@ void interact(void)
          else if (strcmp(buf, "shutdown") == 0)
          {
             printf("Shutting down...\n");
+            g_HalIoOperations->DisableInterrupts();
             g_HalIoOperations->Halt();
             break;
          }

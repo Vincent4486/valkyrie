@@ -70,9 +70,31 @@ void Keyboard_HandleScancode(uint8_t scancode)
       return;
    }
 
-   /* Extended keys are currently ignored by the line discipline. */
+   /* Emit ANSI CSI escapes for cursor keys (ESC [ A/B/C/D). */
    if (extended)
    {
+      TTY_Device *dev = TTY_GetDevice();
+      if (dev)
+      {
+         switch (scancode)
+         {
+         case 0x48:
+            TTY_InputArrow(dev, 'A');
+            break;
+         case 0x50:
+            TTY_InputArrow(dev, 'B');
+            break;
+         case 0x4D:
+            TTY_InputArrow(dev, 'C');
+            break;
+         case 0x4B:
+            TTY_InputArrow(dev, 'D');
+            break;
+         default:
+            break;
+         }
+      }
+
       extended = 0;
       return;
    }

@@ -123,6 +123,8 @@ void TTY_SetActive(TTY_Device *tty);
 
 /* Input functions (called by keyboard driver) */
 void TTY_InputChar(TTY_Device *tty, char c);
+void TTY_InputEscape(TTY_Device *tty, const char *seq);
+void TTY_InputArrow(TTY_Device *tty, char direction);
 void TTY_Write(TTY_Device *tty, const char *data, size_t len);
 void TTY_WriteChar(TTY_Device *tty, char c);
 

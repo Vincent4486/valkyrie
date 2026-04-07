@@ -66,6 +66,7 @@ typedef struct
    // Scheduling
    uint32_t priority;        // Priority level
    uint32_t ticks_remaining; // Time slice remaining
+   void *wait_channel;       // Sleep channel for blocking operations
 
    // Signals
    uint32_t signal_mask; // Blocked signals
@@ -92,6 +93,9 @@ Process *Process_GetCurrent(void);
 void Process_SetCurrent(Process *proc);
 int Process_InitializeStandardIO(Process *proc);
 void Process_SelfTest(void);
+void Process_BlockOn(Process *proc, void *wait_channel);
+void Process_Unblock(Process *proc);
+void Process_WakeByChannel(void *wait_channel);
 
 /* Identity helpers */
 uint32_t Process_GetPid(const Process *proc);

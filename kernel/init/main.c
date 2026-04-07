@@ -97,7 +97,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    {
    }
 
-   /* Mark system as fully initialized */
    SYS_Finalize();
 
    Process_SelfTest();
@@ -109,12 +108,12 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
       goto backup;
    }
 
-   Process *kernel_fallback_proc = Process_CreateKernel((uint32_t)fallback);
+   /* Process *kernel_fallback_proc = Process_CreateKernel((uint32_t)fallback);
    if (!kernel_fallback_proc)
    {
       logfmt(LOG_ERROR, "[INIT] failed to create kernel fallback process\n");
       goto backup;
-   }
+   }*/
 
    if (g_HalSchedulerOperations && g_HalSchedulerOperations->ContextSwitch)
    {
@@ -123,7 +122,7 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
 
 backup:
    /* Fallback interactive mode if shell handoff returns unexpectedly. */
-   interact();
+   // interact();
 
    hold(-1);
 
@@ -133,7 +132,7 @@ end:
 
 static void __attribute__((noreturn)) fallback(void)
 {
-   interact();
+   // interact();
    hold(-1);
 
    for (;;)

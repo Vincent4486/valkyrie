@@ -4,6 +4,7 @@
 #include "gdt.h"
 #include <cpu/process.h>
 #include <cpu/scheduler.h>
+#include <hal/io.h>
 #include <std/string.h>
 
 #define USER_CODE_SELECTOR (i686_GDT_USER_CODE_SEGMENT | 0x3u)
@@ -48,15 +49,33 @@ void i686_Scheduler_RestoreCpuState() {}
 
 Registers *i686_Scheduler_ContextSwitch_Impl(void)
 {
-   Scheduler_Schedule();
-
-   Process *next = Process_GetCurrent();
-   if (!next) return NULL;
-
-   if (!next->saved_regs)
+   for (;;)
    {
-      return build_initial_frame(next);
-   }
+      Scheduler_Schedule();
 
-   return next->saved_regs;
+      Process *next = Process_GetCurrent();
+      if (next && next->state == STATE_RUNNING)
+      {
+         if (g_HalIoOperations && g_HalIoOperations->DisableInterrupts)
+         {
+            g_HalIoOperations->DisableInterrupts();
+         }
+
+         if (!next->saved_regs)
+         {
+            return build_initial_frame(next);
+         }
+
+         return next->saved_regs;
+      }
+
+      if (!g_HalIoOperations || !g_HalIoOperations->EnableInterrupts ||
+          !g_HalIoOperations->Halt)
+      {
+         return NULL;
+      }
+
+      g_HalIoOperations->EnableInterrupts();
+      g_HalIoOperations->Halt();
+   }
 }

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "tty.h"
+#include <cpu/process.h>
 #include <fs/devfs/devfs.h>
+#include <hal/scheduler.h>
 #include <hal/video.h>
 #include <mem/mm_kernel.h>
 
@@ -74,6 +76,27 @@ static void line_flush(TTY_Device *tty)
    tty->line_len = 0;
    tty->line_pos = 0;
    tty->line_ready = true;
+
+   Process_WakeByChannel(tty);
+}
+
+static bool tty_has_pending_read(TTY_Device *tty)
+{
+   if (!tty) return false;
+
+   if (tty->eof_pending && tty->input.count == 0)
+   {
+      return true;
+   }
+
+   if (TTY_IsCanonical(tty))
+   {
+      if (tty->line_ready) return true;
+      if (tty->input.count > 0) return true;
+      return false;
+   }
+
+   return tty->input.count > 0;
 }
 
 static void line_erase_char(TTY_Device *tty)
@@ -113,6 +136,14 @@ static void line_add_char(TTY_Device *tty, char c)
    {
       TTY_WriteChar(tty, c);
    }
+}
+
+static void tty_input_noecho(TTY_Device *tty, char c)
+{
+   if (!tty) return;
+
+   buffer_push(&tty->input, c);
+   Process_WakeByChannel(tty);
 }
 
 void TTY_Initialize(void)
@@ -226,6 +257,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
          {
             tty->eof_pending = true;
             tty->line_ready = true;
+            Process_WakeByChannel(tty);
          }
          else
          {
@@ -276,10 +308,36 @@ void TTY_InputChar(TTY_Device *tty, char c)
    }
 
    buffer_push(&tty->input, c);
+   Process_WakeByChannel(tty);
    if (TTY_IsEcho(tty))
    {
       TTY_WriteChar(tty, c);
    }
+}
+
+void TTY_InputEscape(TTY_Device *tty, const char *seq)
+{
+   if (!tty || !seq) return;
+
+   for (size_t i = 0; seq[i] != '\0'; ++i)
+   {
+      tty_input_noecho(tty, seq[i]);
+   }
+}
+
+void TTY_InputArrow(TTY_Device *tty, char direction)
+{
+   if (!tty) return;
+
+   if (direction != 'A' && direction != 'B' && direction != 'C' &&
+       direction != 'D')
+   {
+      return;
+   }
+
+   tty_input_noecho(tty, '\x1B');
+   tty_input_noecho(tty, '[');
+   tty_input_noecho(tty, direction);
 }
 
 void TTY_WriteChar(TTY_Device *tty, char c)
@@ -309,10 +367,33 @@ int TTY_Read(TTY_Device *tty, char *buf, size_t count)
 {
    if (!tty || !buf || count == 0) return 0;
 
-   if (TTY_IsCanonical(tty) && !tty->line_ready && tty->input.count == 0)
+   Process *current = Process_GetCurrent();
+   while (!tty_has_pending_read(tty))
    {
-      return 0;
+      if (!current) return 0;
+
+      Process_BlockOn(current, tty);
+
+      /* Avoid a lost wakeup by checking availability after blocking state is
+       * visible to input IRQ handlers. */
+      if (tty_has_pending_read(tty))
+      {
+         Process_Unblock(current);
+         break;
+      }
+
+      if (!g_HalSchedulerOperations || !g_HalSchedulerOperations->ContextSwitch)
+      {
+         Process_Unblock(current);
+         return 0;
+      }
+
+      g_HalSchedulerOperations->ContextSwitch();
+      current = Process_GetCurrent();
+      if (!current) return 0;
    }
+
+   if (current) Process_Unblock(current);
 
    if (tty->eof_pending && tty->input.count == 0)
    {

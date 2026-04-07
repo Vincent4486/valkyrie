@@ -56,6 +56,7 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
    child->egid = parent->egid;
    child->priority = parent->priority;
    child->ticks_remaining = parent->ticks_remaining;
+   child->wait_channel = NULL;
    child->signal_mask = parent->signal_mask;
    child->exit_code = 0;
 

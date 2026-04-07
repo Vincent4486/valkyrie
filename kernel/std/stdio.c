@@ -9,8 +9,7 @@
 
 #include <drivers/tty/tty.h>
 
-/* Simple non-blocking getchar that uses the TTY input stream. Returns -1
-   when no character is available. */
+/* Simple getchar that reads from the active TTY input stream. */
 void setcursor(int x, int y)
 {
    if (x < 0) x = 0;

@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 .section .data
+stdin_prompt:
+   .ascii "stdin blocking test: type text and press Enter\n"
+stdin_prompt_end:
+stdin_prefix:
+   .ascii "stdin bytes: "
+stdin_prefix_end:
 dirpath:
    .asciz "/"
 newline:
    .byte 0x0A
 
 .section .bss
+   .lcomm stdinbuf, 128
    .lcomm dirbuf, 512
    .lcomm outbuf, 32
 
@@ -27,6 +34,55 @@ newline:
 .equ DIR_ATTR_OFF, 11
 
 _start:
+   # Blocking stdin read test (fd 0)
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $stdin_prompt, %ecx
+   movl $(stdin_prompt_end - stdin_prompt), %edx
+   int $0x80
+
+   movl $SYS_READ, %eax
+   xorl %ebx, %ebx
+   movl $stdinbuf, %ecx
+   movl $127, %edx
+   int $0x80
+   testl %eax, %eax
+   jle fail
+
+   # Preserve byte count across later syscalls.
+   pushl %eax
+
+   # Print what was read from stdin.
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $stdin_prefix, %ecx
+   movl $(stdin_prefix_end - stdin_prefix), %edx
+   int $0x80
+
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $stdinbuf, %ecx
+   movl (%esp), %edx
+   int $0x80
+
+   # Emit trailing newline if input did not end with one.
+   movl (%esp), %edx
+   testl %edx, %edx
+   jle stdin_line_done
+   decl %edx
+   movb stdinbuf(%edx), %al
+   cmpb $0x0A, %al
+   je stdin_line_done
+
+   movl $SYS_WRITE, %eax
+   movl $1, %ebx
+   movl $newline, %ecx
+   movl $1, %edx
+   int $0x80
+
+stdin_line_done:
+   addl $4, %esp
+
    # Open /test as read-only directory stream
    movl $SYS_OPEN, %eax
    movl $dirpath, %ebx

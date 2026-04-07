@@ -235,6 +235,42 @@ int Process_Wait(Process *parent, int32_t pid, int *status, int options)
 
 Process *Process_GetCurrent(void) { return g_CurrentProcess; }
 
+void Process_BlockOn(Process *proc, void *wait_channel)
+{
+   if (!proc) return;
+
+   proc->wait_channel = wait_channel;
+   proc->state = STATE_BLOCKED;
+}
+
+void Process_Unblock(Process *proc)
+{
+   if (!proc) return;
+
+   proc->wait_channel = NULL;
+   if (proc->state == STATE_BLOCKED)
+   {
+      proc->state = (proc == g_CurrentProcess) ? STATE_RUNNING : STATE_READY;
+   }
+}
+
+void Process_WakeByChannel(void *wait_channel)
+{
+   if (!wait_channel) return;
+
+   uint32_t count = Scheduler_GetProcessCount();
+   for (uint32_t i = 0; i < count; ++i)
+   {
+      Process *proc = Scheduler_GetProcessAt(i);
+      if (!proc) continue;
+      if (proc->state != STATE_BLOCKED) continue;
+      if (proc->wait_channel != wait_channel) continue;
+
+      proc->wait_channel = NULL;
+      proc->state = (proc == g_CurrentProcess) ? STATE_RUNNING : STATE_READY;
+   }
+}
+
 void Process_SetCurrent(Process *proc)
 {
    g_CurrentProcess = proc;
