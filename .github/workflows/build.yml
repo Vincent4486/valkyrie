@@ -24,7 +24,7 @@ jobs:
 
       - name: Pull builder container image
         run: |
-          docker pull vincent4486/valeciumos-builder:latest
+          docker pull vincent4486/valeciumos-builder:i686
 
       - name: Build kernel + image formats inside container
         run: |
