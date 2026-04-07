@@ -17,14 +17,14 @@ jobs:
       REMOTE_USER: ${{ secrets.REMOTE_USER }}
       REMOTE_IP: ${{ secrets.REMOTE_IP }}
       REMOTE_PRIVATE_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
-      REMOTE_PATH: /var/webdownloads/valkyrie/nightly
+      REMOTE_PATH: /var/webdownloads/valecium/nightly
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Pull builder container image
         run: |
-          docker pull vincent4486/valkyrieos-builder:latest
+          docker pull vincent4486/valeciumos-builder:latest
 
       - name: Build kernel + image formats inside container
         run: |
@@ -33,7 +33,7 @@ jobs:
           short_hash=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
           echo "SHORT_HASH=$short_hash" >> "$GITHUB_ENV"
 
-          docker run --rm -v "$(pwd)":/build vincent4486/valkyrieos-builder:latest bash -lc '
+          docker run --rm -v "$(pwd)":/build vincent4486/valeciumos-builder:latest bash -lc '
             set -euo pipefail
             scons -Q config=debug outputFormat=img toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
             scons -Q config=debug outputFormat=iso toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
@@ -45,8 +45,8 @@ jobs:
 
           # find outputs
           kernel_file=$(find build -type f -name "valkyrix-*" | head -n 1)
-          img_file=$(find build -type f -name "valkyrieos-*.img" | head -n 1)
-          iso_file=$(find build -type f -name "valkyrieos-*.iso" | head -n 1)
+          img_file=$(find build -type f -name "valeciumos-*.img" | head -n 1)
+          iso_file=$(find build -type f -name "valeciumos-*.iso" | head -n 1)
 
           if [ -z "$kernel_file" ] || [ -z "$img_file" ] || [ -z "$iso_file" ]; then
             echo "ERROR: expected kernel, img, and iso outputs not all found"
@@ -56,7 +56,7 @@ jobs:
 
           short_hash="${SHORT_HASH:-unknown}"
           date_tag=$(date -u +"%Y%m%d%H%M%S")
-          tarball="valkyrie-nightly-${date_tag}-${short_hash}.tar.xz"
+          tarball="valecium-nightly-${date_tag}-${short_hash}.tar.xz"
 
           mkdir -p artifact
           cp -- "$kernel_file" "$img_file" "$iso_file" artifact/
@@ -70,11 +70,11 @@ jobs:
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           REMOTE_IP: ${{ secrets.REMOTE_IP }}
           REMOTE_PRIVATE_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
-          REMOTE_PATH: /var/webdownloads/valkyrie/nightly
+          REMOTE_PATH: /var/webdownloads/valecium/nightly
         run: |
           set -euo pipefail
 
-          tarball=$(ls valkyrie-nightly-*.tar.xz | head -n 1)
+          tarball=$(ls valecium-nightly-*.tar.xz | head -n 1)
           if [ -z "$tarball" ]; then
             echo "ERROR: Tarball not found"
             exit 1
