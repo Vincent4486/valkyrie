@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Documentation/assets/ValeciumOS.png" alt="ValeciumOS Element Block" width="100"/>
+  <img src="Documentation/assets/ValeciumOS.png" alt="ValeciumOS Element Block" width="150"/>
 </p>
 
 <h1 align="center">ValeciumOS</h1>
