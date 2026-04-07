@@ -1,20 +1,20 @@
-= Valkyrie OS Development Guide
+= Valecium OS Development Guide
 :toc: left
 :icons: font
 
 See also: link:index.html[Home], link:building.html[Build Guide], link:roadmap.html[Roadmap]
 
-== Contributing to Valkyrie
+== Contributing to Valecium
 
-First, thank you all for being interested into joining the development of Valkyrie OS, we are very happy to recieve patches from all of you. Below are the basic guidelines for contributing to Valkyrie, you should always read this before you open a Pull Request for submit an issue.
+First, thank you all for being interested into joining the development of Valecium OS, we are very happy to recieve patches from all of you. Below are the basic guidelines for contributing to Valecium, you should always read this before you open a Pull Request for submit an issue.
 
 == Setting Up a Development Environment
 
-This part is explained in link:building.html[Building Valkyrie OS], see there for a detailed explanation of how to build Valkyrie.
+This part is explained in link:building.html[Building Valecium OS], see there for a detailed explanation of how to build Valecium.
 
 == Build System
 
-This part is also explained in link:building.html[Building Valkyrie OS]; see that document for details of the build system.
+This part is also explained in link:building.html[Building Valecium OS]; see that document for details of the build system.
 
 The kernel uses SCons for building. Key files:
 
@@ -77,7 +77,7 @@ Patches:
 
 == Coding Style Conventions
 
-This document outlines the coding style and conventions used throughout the Valkyrie OS kernel.
+This document outlines the coding style and conventions used throughout the Valecium OS kernel.
 
 === Licensing and Headers
 
@@ -193,7 +193,7 @@ lgdt (%eax)
 
 **Critical: No x86-specific assembly in platform-independent code.**
 
-Valkyrie OS is designed for multi-architecture support. All architecture-specific operations must go through the HAL (Hardware Abstraction Layer).
+Valecium OS is designed for multi-architecture support. All architecture-specific operations must go through the HAL (Hardware Abstraction Layer).
 
 ==== HAL-Provided Assembly Operations
 

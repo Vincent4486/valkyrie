@@ -8,7 +8,7 @@
 
 #include <mem/mm_kernel.h>
 #include <stdint.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 // Maximum dependencies per library
 #define DYLIB_MAX_DEPS 16

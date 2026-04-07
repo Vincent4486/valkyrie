@@ -8,7 +8,7 @@
 /**
  * x86 32-bit Virtual Memory Layout (4GB total)
  *
- * This file defines the virtual address space organization for ValkyrieOS.
+ * This file defines the virtual address space organization for ValeciumOS.
  * The layout divides 4GB between kernel and user space with specific regions
  * for different purposes.
  */

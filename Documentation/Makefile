@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: CC0-1.0
-# Documentation Build System for Valkyrie OS
+# Documentation Build System for Valecium OS
 
 .PHONY: all pdf html clean help man info
 
@@ -40,7 +40,7 @@ YELLOW := \033[0;33m
 NC := \033[0m
 
 help:
-	@echo "$(GREEN)Valkyrie OS Documentation Builder$(NC)"
+	@echo "$(GREEN)Valecium OS Documentation Builder$(NC)"
 	@echo ""
 	@echo "Targets:"
 	@echo "  $(YELLOW)all$(NC)          - Build PDF, HTML, man pages, and info pages"

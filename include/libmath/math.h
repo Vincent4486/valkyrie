@@ -2,7 +2,7 @@
 
 /**
  * @file math.h
- * @brief Math library header for ValkyrieOS kernel
+ * @brief Math library header for ValeciumOS kernel
  *
  * Provides common mathematical functions for integer and floating-point
  * arithmetic, trigonometry, exponential/logarithmic operations, and rounding.

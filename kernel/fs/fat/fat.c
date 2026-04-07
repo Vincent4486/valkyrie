@@ -12,7 +12,7 @@
 #include <std/string.h>
 #include <stddef.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 #define SECTOR_SIZE 512
 #define MAX_PATH_SIZE 256

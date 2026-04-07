@@ -10,7 +10,7 @@
 #include <std/string.h>
 #include <sys/cmdline.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 /* =========================================================================
  * Public disk subsystem interface

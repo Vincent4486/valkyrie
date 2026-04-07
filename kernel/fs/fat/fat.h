@@ -10,7 +10,7 @@ To interact with the filesystem, use the VFS interface defined in fs/fs.h.
 #define FAT_H
 #include <stdbool.h>
 #include <stdint.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 /* Opaque per-volume instance — defined in fat.c */
 typedef struct FAT_Instance FAT_Instance;

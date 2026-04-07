@@ -1,6 +1,6 @@
-# Valkyrie OS
+# Valecium OS
 
-Valkyrie OS is a Unix-like operating system project focused on low-level systems design, modular kernel architecture, and educational clarity.
+Valecium OS is a Unix-like operating system project focused on low-level systems design, modular kernel architecture, and educational clarity.
 
 This repository contains:
 
@@ -18,7 +18,7 @@ Primary source docs live in [`Documents/`](Documents/).
 - Development guide and coding conventions: [`Documents/devel.ad`](Documents/devel.ad)
 - Implementation roadmap: [`Documents/roadmap.ad`](Documents/roadmap.ad)
 
-Published docs are available at [docs.vyang.org/valkyrie](https://docs.vyang.org/valkyrie/).
+Published docs are available at [docs.vyang.org/valecium](https://docs.vyang.org/valecium/).
 
 ## Quick Start
 
@@ -112,7 +112,7 @@ If you plan a larger feature, check [`Documents/roadmap.ad`](Documents/roadmap.a
 
 ## Project Status
 
-Valkyrie OS is actively developed. Roadmap highlights include:
+Valecium OS is actively developed. Roadmap highlights include:
 
 - Core kernel infrastructure improvements
 - Expanded syscall coverage

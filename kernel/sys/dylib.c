@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 // ELF32 relocation types (i686)
 #define R_386_NONE 0
@@ -1228,7 +1228,7 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/dylib.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 static int load_libmath(void)
 {

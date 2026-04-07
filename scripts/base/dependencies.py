@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Dependency installer for Valkyrie OS development.
+Dependency installer for Valecium OS development.
 
 Detects the Linux distribution and installs required packages.
 """
@@ -323,7 +323,7 @@ def install_dependencies(distro: str, dry_run: bool = False,
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Install development dependencies for Valkyrie OS',
+        description='Install development dependencies for Valecium OS',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     

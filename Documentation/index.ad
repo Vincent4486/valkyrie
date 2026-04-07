@@ -1,11 +1,11 @@
-= Valkyrie OS Documentation
+= Valecium OS Documentation
 :toc: left
 :icons: font
 :sectlinks:
 
-Welcome to the Valkyrie OS project! This documentation provides everything you need to understand, build, develop, and use Valkyrie OS.
+Welcome to the Valecium OS project! This documentation provides everything you need to understand, build, develop, and use Valecium OS.
 
-Valkyrie OS is a Unix-like, multi-architecture operating system kernel designed with clean architecture, modularity, and educational value in mind. Whether you're a curious learner, a systems developer, or someone interested in OS internals, this documentation will guide you through the project.
+Valecium OS is a Unix-like, multi-architecture operating system kernel designed with clean architecture, modularity, and educational value in mind. Whether you're a curious learner, a systems developer, or someone interested in OS internals, this documentation will guide you through the project.
 
 == Quick Start
 
@@ -16,7 +16,7 @@ Valkyrie OS is a Unix-like, multi-architecture operating system kernel designed 
 
 == Project Overview
 
-Valkyrie OS is built with the following principles:
+Valecium OS is built with the following principles:
 
 * *Multi-architecture support* — Designed from the ground up to support multiple CPU architectures (i686, x64, ARM64, etc.)
 * *Clean separation of concerns* — Hardware abstraction layer (HAL) isolates platform-specific code
@@ -28,7 +28,7 @@ Valkyrie OS is built with the following principles:
 
 === For Developers and Contributors
 
-These documents cover everything needed to participate in Valkyrie OS development:
+These documents cover everything needed to participate in Valecium OS development:
 
 * **link:devel.html[devel.ad]** — Coding standards, naming conventions, assembly strategy, and git workflow
 * **link:kernel/index.html[kernel/index.ad]** — Deep dives into kernel subsystems, memory management, scheduling, and device drivers
@@ -38,14 +38,14 @@ New contributors should start with **devel.ad** to understand the project's codi
 
 === For Users and Testers
 
-Want to try Valkyrie OS or understand how to use it?
+Want to try Valecium OS or understand how to use it?
 
 * **link:building.html[building.ad]** — Step-by-step instructions for compiling the kernel and userland
-* **link:usage/index.html[usage/index.ad]** — How to boot, interact with, and test Valkyrie OS
+* **link:usage/index.html[usage/index.ad]** — How to boot, interact with, and test Valecium OS
 
 === For Userspace Developers
 
-Building applications or utilities for Valkyrie OS?
+Building applications or utilities for Valecium OS?
 
 * **link:usr/index.html[usr/index.ad]** — System calls, libc functions, and standard library APIs
 

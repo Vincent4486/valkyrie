@@ -1,11 +1,11 @@
-= Building Valkyrie OS
+= Building Valecium OS
 :toc: left
 :icons: font
 :sectlinks:
 
 See also: link:index.html[Home], link:devel.html[Developer Guide]
 
-This guide walks you through building Valkyrie OS from source, including the kernel, userspace applications, and bootable disk images.
+This guide walks you through building Valecium OS from source, including the kernel, userspace applications, and bootable disk images.
 
 == Prerequisites
 
@@ -73,7 +73,7 @@ imageFS = 'fat32'
 buildType = 'full'
 imageSize = '250m'
 toolchain = '../os_toolchain'
-outputFile = 'valkyrieos'
+outputFile = 'valeciumos'
 outputFormat = 'img'
 kernelName = 'valkyrix'
 ----
@@ -84,7 +84,7 @@ Install all build dependencies (compilers, libraries, tools):
 
 [source,bash]
 ----
-cd ~/Programming/valkyrie
+cd ~/Programming/valecium
 scons deps
 ----
 
@@ -182,7 +182,7 @@ Pass variables to `scons` to customize the build. Common options:
 | `imageSize` | Size with k/m/g suffix | `250m`
 | `buildType` | `full`, `kernel`, `usr`, `image` | `full`
 | `outputFormat` | `img`, `iso` | `img`
-| `outputFile` | Base name (no extension) | `valkyrieos`
+| `outputFile` | Base name (no extension) | `valeciumos`
 |===
 
 === Examples
@@ -280,7 +280,7 @@ Generates bootable disk image from pre-built kernel and userspace.
 
 === Boot in QEMU
 
-Launch Valkyrie OS in the QEMU emulator:
+Launch Valecium OS in the QEMU emulator:
 
 [source,bash]
 ----
@@ -300,7 +300,7 @@ This starts a QEMU virtual machine with:
 scons run -- --memory=64M
 
 # Use specific output image
-scons run -- --image=build/valkyrieos.img
+scons run -- --image=build/valeciumos.img
 ----
 
 === Debugging with GDB
@@ -351,16 +351,16 @@ brew install gmp mpc mpfr
 
 [source,bash]
 ----
-docker run -it -v $(pwd):/valkyrie ubuntu:22.04 bash
+docker run -it -v $(pwd):/valecium ubuntu:22.04 bash
 # Inside container:
 apt-get update && apt-get install -y scons python3
-cd /valkyrie
+cd /valecium
 scons deps && scons toolchain && scons build
 ----
 
 **Option 3: Use a Linux VM (VirtualBox, Parallels)**
 
-Running Valkyrie OS builds on Linux is more reliable. Consider setting up a development VM.
+Running Valecium OS builds on Linux is more reliable. Consider setting up a development VM.
 
 **Option 4: Manual toolchain installation (advanced)**
 
@@ -386,8 +386,8 @@ You can also set build options via environment variables (lower precedence than 
 
 [source,bash]
 ----
-export VALKYRIE_ARCH=i686
-export VALKYRIE_CONFIG=release
+export VALECIUM_ARCH=i686
+export VALECIUM_CONFIG=release
 scons
 ----
 

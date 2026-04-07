@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Valkyrie OS Build System
+Valecium OS Build System
 
 Main build configuration file using SCons.
 """
@@ -75,7 +75,7 @@ if not config_path.exists():
         'buildType': 'full',
         'imageSize': '250m',
         'toolchain': 'toolchain/',
-        'outputFile': 'valkyrieos',
+        'outputFile': 'valeciumos',
         'outputFormat': 'img',
         'kernelName': 'valkyrix',
     }
@@ -123,7 +123,7 @@ VARS.Add('toolchain',
 
 VARS.Add('outputFile',
          help='Output image filename (without extension)',
-         default='valkyrieos')
+         default='valeciumos')
 
 VARS.Add('kernelName',
          help='Kernel executable name',

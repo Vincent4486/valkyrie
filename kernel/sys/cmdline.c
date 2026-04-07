@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 /*
- * kernel/sys/cmdline.c — Kernel command-line parsing for ValkyrieOS.
+ * kernel/sys/cmdline.c — Kernel command-line parsing for ValeciumOS.
  *
  * Parses the raw kernel command line from the bootloader into a global
  * key/value table accessible to all kernel subsystems.

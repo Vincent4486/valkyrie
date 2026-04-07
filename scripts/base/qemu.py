@@ -81,7 +81,7 @@ def run_qemu(arch: str, image_type: str, image_path: str,
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Run Valkyrie OS in QEMU',
+        description='Run Valecium OS in QEMU',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     

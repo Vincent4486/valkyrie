@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 /*
- * kernel/init/mount.c — Root filesystem mount for ValkyrieOS.
+ * kernel/init/mount.c — Root filesystem mount for ValeciumOS.
  *
  * Isolation policy: no kernel-local headers are #included inside kernel/init/.
  * Every external symbol is declared with `extern` directly in this file.
@@ -19,9 +19,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
-#include <valkyrie/system.h>
-#include <valkyrie/valkyrie.h>
+#include <valecium/fs.h>
+#include <valecium/system.h>
+#include <valecium/valecium.h>
 
 /* -------------------------------------------------------------------------
  * Public interface
@@ -51,7 +51,7 @@ bool Init_MountRoot(void)
       Partition *part = &g_SysInfo->volume[i];
 
       logfmt(LOG_INFO, "[MOUNT] Root found: LABEL=\"%s\"\n",
-             part->label[0] ? part->label : "VALKYRIE");
+             part->label[0] ? part->label : "VALECIUM");
 
       int rc = FS_Mount(part, "/");
       if (rc != 0)

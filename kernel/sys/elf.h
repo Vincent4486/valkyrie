@@ -7,7 +7,7 @@
 #include <cpu/process.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 // ELF structures for 32-bit little-endian
 typedef struct

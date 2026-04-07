@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include <valkyrie/valkyrie.h>
+#include <valecium/valecium.h>
 
 #include "sys.h"
 #include <mem/mm_kernel.h>

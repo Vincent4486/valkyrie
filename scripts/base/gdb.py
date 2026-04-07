@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 """
-GDB debugging launcher for Valkyrie OS.
+GDB debugging launcher for Valecium OS.
 
 Launches QEMU in debug mode and connects GDB for kernel debugging.
 """
@@ -48,7 +48,7 @@ def get_qemu_debug_args(arch: str, image_type: str, image_path: str,
 
 def generate_gdb_script(qemu_cmd: str, kernel_symbols: str = None) -> str:
     """Generate GDB initialization script."""
-    script = f'''# Auto-generated GDB script for Valkyrie OS debugging
+    script = f'''# Auto-generated GDB script for Valecium OS debugging
 target remote | {qemu_cmd}
 set disassembly-flavor intel
 '''
@@ -98,7 +98,7 @@ def run_gdb(arch: str, image_type: str, image_path: str,
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Debug Valkyrie OS with GDB',
+        description='Debug Valecium OS with GDB',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     

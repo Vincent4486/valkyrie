@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Bochs emulator launcher for Valkyrie OS.
+Bochs emulator launcher for Valecium OS.
 
 Generates bochs configuration and runs disk, cdrom, or floppy media.
 """
@@ -69,7 +69,7 @@ def generate_bochs_config(image_type: str, image_path: str,
     else:
         raise ValueError(f"Unknown image type: {image_type}")
     
-    config = f'''# Auto-generated Bochs configuration for Valkyrie OS
+    config = f'''# Auto-generated Bochs configuration for Valecium OS
 megs: {memory_mb}
 romimage: file={bios_path}
 vgaromimage: file={vga_path}
@@ -157,7 +157,7 @@ def run_bochs(image_type: str, image_path: str,
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Run Valkyrie OS in Bochs',
+        description='Run Valecium OS in Bochs',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     

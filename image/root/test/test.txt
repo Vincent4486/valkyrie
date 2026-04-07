@@ -1,6 +1,6 @@
 Hello world from a file!!!
 
-This is a test file for the ValkyrieOS FAT12 filesystem driver.
+This is a test file for the ValeciumOS FAT12 filesystem driver.
 The kernel can now successfully:
   - Read FAT12 boot sectors
   - Navigate directory structures
@@ -87,13 +87,13 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 Ut enim ad minim veniam, quis nostrud exercitation ullamco.
 
-ValkyrieOS Test File - Multi-Cluster Read Test
+ValeciumOS Test File - Multi-Cluster Read Test
 ================================================
 If this entire file is read correctly, the FAT driver is working!
 Cluster chain following: PASS
 File content verification: IN PROGRESS...
 Reading multi-sector files: IN PROGRESS...
-ValkyrieOS File System Test - SUCCESS!
+ValeciumOS File System Test - SUCCESS!
 
 END OF 10KiB TEST FILE
 This marks the end of the test file content.

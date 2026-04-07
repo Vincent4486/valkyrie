@@ -5,7 +5,7 @@
 #include <std/stdio.h>
 #include <stddef.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 static DEVFS_DeviceOps partition_ops = {.read = Partition_DevfsRead,
                                         .write = Partition_DevfsWrite};

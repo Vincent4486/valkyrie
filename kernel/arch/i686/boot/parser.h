@@ -12,7 +12,7 @@
 #define BOOT_PARSER_H
 
 #include <stdint.h>
-#include <valkyrie/system.h>
+#include <valecium/system.h>
 
 /* -------------------------------------------------------------------------
  * Multiboot v1 information structure (Multiboot spec §3.3)

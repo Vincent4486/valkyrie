@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Code formatter for Valkyrie OS.
+Code formatter for Valecium OS.
 
 Formats all C, C++, and header files using clang-format.
 """
@@ -104,7 +104,7 @@ def format_files(files: list, formatter: str = 'clang-format',
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Format C/C++ source files in the Valkyrie OS project',
+        description='Format C/C++ source files in the Valecium OS project',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     

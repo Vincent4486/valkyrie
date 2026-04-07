@@ -5,7 +5,7 @@
 
 See also: link:../index.html[Home], link:../devel.html[Developer Guide], link:../roadmap.html[Roadmap]
 
-This section documents the Valkyrie kernel implementation by subsystem. Each page below corresponds to a directory under `kernel/` in the source tree and provides a brief overview of responsibilities and key components.
+This section documents the Valecium kernel implementation by subsystem. Each page below corresponds to a directory under `kernel/` in the source tree and provides a brief overview of responsibilities and key components.
 
 == Kernel Subsystems
 

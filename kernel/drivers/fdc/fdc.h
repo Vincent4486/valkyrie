@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <valkyrie/fs.h> // For DISK struct
+#include <valecium/fs.h> // For DISK struct
 
 #define FDC_SECTOR_SIZE 512
 

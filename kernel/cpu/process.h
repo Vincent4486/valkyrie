@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 #define HEAP_MAX 0xC0000000u // Don't allow heap
 

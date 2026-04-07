@@ -6,7 +6,7 @@
 #include <std/stdio.h>
 #include <stdint.h>
 #include <sys/sys.h>
-#include <valkyrie/system.h>
+#include <valecium/system.h>
 
 static DEVFS_DeviceOps disk_ops = {.read = DISK_DevfsRead,
                                    .write = DISK_DevfsWrite};

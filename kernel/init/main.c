@@ -21,8 +21,8 @@
 #include <sys/dylib.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
-#include <valkyrie/fs.h>
-#include <valkyrie/system.h>
+#include <valecium/fs.h>
+#include <valecium/system.h>
 
 #include <libmath/math.h>
 

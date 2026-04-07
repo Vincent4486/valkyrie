@@ -11,7 +11,7 @@ this file, so for external modules, include fs/fs.h instead.
 #include <fs/disk/disk.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <valkyrie/fs.h>
+#include <valecium/fs.h>
 
 // The reserved volume for DEVFS
 #define DEVFS_VOLUME 30

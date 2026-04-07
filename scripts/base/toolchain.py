@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Cross-compiler toolchain builder for Valkyrie OS.
+Cross-compiler toolchain builder for Valecium OS.
 
 Builds binutils, GCC, and musl libc for the specified target architecture.
 This replaces the shell-based toolchain.sh with a more flexible Python version.
@@ -453,7 +453,7 @@ class ToolchainBuilder:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Build cross-compilation toolchain for Valkyrie OS',
+        description='Build cross-compilation toolchain for Valecium OS',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:

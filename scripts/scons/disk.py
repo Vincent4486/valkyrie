@@ -6,7 +6,7 @@ import shutil
 
 import sh
 
-VOLUME_LABEL = 'VALKYRIE'
+VOLUME_LABEL = 'VALECIUM'
 
 FS_CONFIG = {
     'fat12': {
@@ -131,7 +131,7 @@ def copy_toolchain_runtime_to_staging(staging_root: str, toolchain_prefix: str, 
             shutil.copy2(lib_libc, lib_ld)
 
 
-def create_bootable_iso(staging_dir: str, output_iso: str, volume_label: str = 'VALKYRIE'):
+def create_bootable_iso(staging_dir: str, output_iso: str, volume_label: str = 'VALECIUM'):
     """Create a bootable ISO image using grub-mkrescue.
 
     The staging directory must already contain boot/grub/grub.cfg.
@@ -171,7 +171,7 @@ if [ -z "$config_loaded" ]; then
     set timeout={timeout}
     set default=0
 
-    menuentry "Valkyrie OS" {{
+    menuentry "Valecium OS" {{
         search --no-floppy --label {volume_label} --set=root
         multiboot /boot/{kernel_name} root=LABEL={volume_label}
         boot

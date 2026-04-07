@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#ifndef VALKYRIE_H
-#define VALKYRIE_H
+#ifndef VALECIUM_H
+#define VALECIUM_H
 
 #ifndef KERNEL_VERSION
 #error "KERNEL_VERSION must be defined by the build system"
@@ -11,4 +11,4 @@
 #define ARCH_X64 2
 #define ARCH_AARCH64 3
 
-#endif /* VALKYRIE_H */
+#endif /* VALECIUM_H */

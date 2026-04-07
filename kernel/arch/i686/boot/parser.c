@@ -18,7 +18,7 @@
 #include "parser.h"
 #include <mem/mm_kernel.h>
 #include <stdint.h>
-#include <valkyrie/system.h>
+#include <valecium/system.h>
 
 /* -------------------------------------------------------------------------
  * Forward declaration: the kernel entry point defined in main.c.
