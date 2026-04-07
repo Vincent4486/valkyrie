@@ -19,7 +19,7 @@ jobs:
       - name: Build documentation
         run: |
           sudo apt-get install -y asciidoctor
-          make -C Documents html
+          make -C Documentation html
 
       - name: Deploy documentation via SSH
         env:
@@ -31,5 +31,5 @@ jobs:
           echo "$REMOTE_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$REMOTE_IP" >> ~/.ssh/known_hosts
-          rsync -avz Documents/build/html/ $REMOTE_USER@$REMOTE_IP:/var/webdocs/valkyrie/
+          rsync -avz Documentation/build/html/ $REMOTE_USER@$REMOTE_IP:/var/webdocs/valkyrie/
           echo "Documentation deployed to $REMOTE_USER@$REMOTE_IP:/var/webdocs/valkyrie/"
