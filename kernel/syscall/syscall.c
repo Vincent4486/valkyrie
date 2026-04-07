@@ -82,6 +82,7 @@ intptr_t sys_read(int fd, void *buf, uint32_t count)
    Process *proc = get_current_process();
    if (!proc) return -1;
 
+   // logfmt(LOG_FATAL, "[SYSCALL] %d\n", fd);
    return FD_Read(proc, fd, buf, count);
 }
 

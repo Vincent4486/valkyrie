@@ -16,7 +16,6 @@ src_dir = Dir('#usr/sh').abspath
 env.Append(
     CPATH=[src_dir],
     CPPPATH=[src_dir],
-    LINKFLAGS=['-static'],
 )
 
 sources = GlobSources(src_dir)

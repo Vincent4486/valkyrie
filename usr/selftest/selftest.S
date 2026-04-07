@@ -41,6 +41,7 @@ _start:
    movl $(stdin_prompt_end - stdin_prompt), %edx
    int $0x80
 
+read_stdin:
    movl $SYS_READ, %eax
    xorl %ebx, %ebx
    movl $stdinbuf, %ecx
@@ -48,6 +49,17 @@ _start:
    int $0x80
    testl %eax, %eax
    jle fail
+
+   # Ignore stale bare line endings and wait for actual typed bytes.
+   cmpl $1, %eax
+   jne stdin_ready
+   movb stdinbuf, %dl
+   cmpb $0x0A, %dl
+   je read_stdin
+   cmpb $0x0D, %dl
+   je read_stdin
+
+stdin_ready:
 
    # Preserve byte count across later syscalls.
    pushl %eax
