@@ -27,6 +27,7 @@ extern void _process_exit_handler(void);
 void i686_Stack_SetupProcess(Stack *stack, uint32_t entry_point)
 {
    if (!stack) return;
+   (void)entry_point;
 
    // Reset stack to base (top of allocated region)
    stack->current = stack->base;

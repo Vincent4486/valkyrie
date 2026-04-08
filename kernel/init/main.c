@@ -28,7 +28,7 @@
 
 extern int Init_MountRoot(void);
 extern void interact();
-static void fallback(void);
+static void __attribute__((unused, noreturn)) fallback(void);
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
@@ -37,7 +37,8 @@ extern void _init();
 void hold(int sec)
 {
    uint32_t last_uptime = 0;
-   while (g_SysInfo->uptime_seconds < sec)
+   int run_forever = (sec < 0);
+   while (run_forever || g_SysInfo->uptime_seconds < (uint64_t)sec)
    {
       /* Update uptime from tick counter */
       g_SysInfo->uptime_seconds = system_ticks / 1000;
@@ -130,7 +131,7 @@ end:
    for (;;);
 }
 
-static void __attribute__((noreturn)) fallback(void)
+static void __attribute__((unused, noreturn)) fallback(void)
 {
    // interact();
    hold(-1);

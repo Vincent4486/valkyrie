@@ -1060,8 +1060,6 @@ bool FAT_FindFile(Partition *disk, FAT_File *file, const char *name,
 
       if (memcmp(fatName, entry.Name, 11) == 0)
       {
-         uint32_t cluster =
-             entry.FirstClusterLow + ((uint32_t)entry.FirstClusterHigh << 16);
          *entryOut = entry;
          return true;
       }
@@ -2379,7 +2377,6 @@ bool FAT_Truncate(Partition *disk, FAT_File *file)
       return true;
    }
 
-   uint8_t fatBuffer[SECTOR_SIZE];
    int clusterCount = 0;
 
    logfmt(LOG_INFO,

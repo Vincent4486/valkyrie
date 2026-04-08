@@ -139,7 +139,11 @@ static void fdc_motor_off(uint8_t drive)
 }
 
 // FDC IRQ handler - sets flag when interrupt is received
-static void fdc_irq_handler(Registers *regs) { g_fdc_irq_received = true; }
+static void fdc_irq_handler(Registers *regs)
+{
+   (void)regs;
+   g_fdc_irq_received = true;
+}
 
 // Wait for FDC IRQ with timeout
 static bool fdc_wait_irq(void)
@@ -278,7 +282,7 @@ static bool fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
 
    // Sense interrupt status
    fdc_send_byte(FDC_CMD_SENSE_INT);
-   uint8_t st0 = fdc_read_byte();
+   fdc_read_byte();
    uint8_t cyl = fdc_read_byte();
 
    if (cyl != track)

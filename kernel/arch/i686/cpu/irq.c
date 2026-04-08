@@ -48,7 +48,7 @@ void i686_IRQ_Initialize()
        i8259_GetDriver(),
    };
 
-   for (int i = 0; i < SIZE(drivers); i++)
+   for (size_t i = 0; i < SIZE(drivers); i++)
    {
       if (drivers[i]->Probe())
       {

@@ -75,6 +75,8 @@ uint16_t i8259_GetMask()
 
 void i8259_Configure(uint8_t offsetPic1, uint8_t offsetPic2, bool autoEoi)
 {
+   g_AutoEoi = autoEoi;
+
    // Mask everything
    i8259_SetMask(0xFFFF);
 

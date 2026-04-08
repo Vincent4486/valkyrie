@@ -25,4 +25,8 @@ void i686_i8253_Initialize(uint32_t frequency)
    i686_i8253_SetFrequency(frequency);
 }
 
-void i686_i8253_TimerHandler(Registers *regs) { system_ticks++; }
+void i686_i8253_TimerHandler(Registers *regs)
+{
+   (void)regs;
+   system_ticks++;
+}

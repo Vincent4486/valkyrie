@@ -286,7 +286,6 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
             uint32_t sym_ent_offset = symidx * 16;
             uint32_t st_name_offset =
                 *(uint32_t *)(dynsym_addr + sym_ent_offset);
-            uint32_t st_value = *(uint32_t *)(dynsym_addr + sym_ent_offset + 4);
 
             if (dynstr_addr > 0)
             {
@@ -346,9 +345,7 @@ int Dylib_ApplyKernelRelocations(void)
    extern char _kernel_rel_plt_start[];
    extern char _kernel_rel_plt_end[];
    extern char _kernel_dynsym_start[];
-   extern char _kernel_dynsym_end[];
    extern char _kernel_dynstr_start[];
-   extern char _kernel_dynstr_end[];
 
    uint32_t kernel_base = 0x00A00000; // Kernel load address
 
@@ -404,6 +401,10 @@ int Dylib_ApplyKernelRelocations(void)
                sym_name = (const char *)(dynstr_addr + st_name);
                sym_addr = *(uint32_t *)(dynsym_addr + sym_ent_offset + 4);
             }
+
+            (void)got_val;
+            (void)sym_name;
+            (void)sym_addr;
          }
       }
    }
@@ -412,6 +413,8 @@ int Dylib_ApplyKernelRelocations(void)
 
 uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
 {
+   (void)lib_name;
+
    if (!dylib_mem_initialized)
    {
       logfmt(LOG_INFO, "[DYLIB] Initializing memory allocator...\n");
@@ -970,7 +973,6 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
 
       // Skip undefined and local symbols
       uint8_t st_bind = ELF32_ST_BIND(sym->st_info);
-      uint8_t st_type = ELF32_ST_TYPE(sym->st_info);
 
       if (st_bind == 0 || sym->st_shndx == 0)
          continue; // Skip local or undefined
