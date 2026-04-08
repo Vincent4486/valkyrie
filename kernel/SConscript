@@ -9,7 +9,7 @@ from SCons.Environment import Environment
 from SCons.Script import Dir, Export
 
 from scripts.scons.arch import get_arch_config
-from scripts.scons.utility import GlobSources, FindIndex, IsFileName
+from scripts.scons.utility import GlobSources
 
 
 Import('TARGET_ENVIRONMENT')
@@ -83,32 +83,12 @@ if os.path.exists(mkisrs_path):
 # Source Files
 # =============================================================================
 
-sources = GlobSources(src_dir)
+sources = [
+    src for src in GlobSources(src_dir)
+    if os.path.basename(str(src)) not in ('crti.S', 'crtn.S')
+]
 
 objects = env.Object(sources)
-
-# =============================================================================
-# C Runtime Objects
-# =============================================================================
-
-# Extract crti.o and crtn.o for proper linking order
-obj_crti = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crti.o')))
-obj_crtn = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crtn.o')))
-
-# Build with proper CRT ordering: crti, crtbegin, ..., crtend, crtn
-gcc_lib_dir = str(env.get('GCC_LIB_DIR', ''))
-crtbegin_obj = env.get('CRTBEGIN_OBJ', 'crtbegin.o')
-crtend_obj = env.get('CRTEND_OBJ', 'crtend.o')
-if gcc_lib_dir:
-    crtbegin_obj = os.path.join(gcc_lib_dir, 'crtbegin.o')
-    crtend_obj = os.path.join(gcc_lib_dir, 'crtend.o')
-objects = [
-    obj_crti,
-    crtbegin_obj,
-    *objects,
-    crtend_obj,
-    obj_crtn,
-]
 
 
 # =============================================================================

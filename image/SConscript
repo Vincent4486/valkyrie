@@ -95,7 +95,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
         volume_label=disk_label,
     )
 
-    # C library and runtime files
+    # Shared C runtime libraries (no CRT startup objects)
     copy_toolchain_runtime_to_staging(staging_dir, target_sysroot, arch_config)
 
     # User libraries

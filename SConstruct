@@ -47,38 +47,6 @@ def query_compiler_value(compiler: str, flag: str) -> str:
         return ''
 
 
-def infer_gcc_lib_dir(compiler: str, compiler_path: str, default_target: str) -> str:
-    """Infer GCC runtime library directory from compiler binary location."""
-    if not compiler_path or compiler_path == '<not found>':
-        return ''
-
-    compiler_bin = Path(compiler_path).resolve()
-    gcc_base = compiler_bin.parent / '..' / 'lib' / 'gcc'
-
-    machine = query_compiler_value(compiler, '-dumpmachine') or default_target
-    version = query_compiler_value(compiler, '-dumpversion')
-
-    if machine and version:
-        candidate = (gcc_base / machine / version).resolve()
-        if candidate.exists():
-            return str(candidate)
-
-    if machine:
-        machine_dir = (gcc_base / machine).resolve()
-        if machine_dir.exists() and machine_dir.is_dir():
-            versions = sorted([p for p in machine_dir.iterdir() if p.is_dir()])
-            if versions:
-                return str(versions[-1])
-
-    libgcc_a = query_compiler_value(compiler, '-print-file-name=libgcc.a')
-    if libgcc_a and libgcc_a != 'libgcc.a':
-        libgcc_path = Path(libgcc_a)
-        if libgcc_path.exists():
-            return str(libgcc_path.parent)
-
-    return ''
-
-
 def resolve_build_tools(arch: str):
     """Resolve build tools from PATH using preferred cross prefixes.
 
@@ -264,22 +232,13 @@ def create_target_environment(host_env):
     tools, tool_paths, selected_prefix = resolve_build_tools(arch)
 
     cc = tools['CC']
-    cc_path = tool_paths.get('CC', '')
-    gcc_lib_dir = infer_gcc_lib_dir(cc, cc_path, arch_config['target_triple'])
     target_sysroot = query_compiler_value(cc, '-print-sysroot')
-    if gcc_lib_dir:
-        crtbegin_obj = str(Path(gcc_lib_dir) / 'crtbegin.o')
-        crtend_obj = str(Path(gcc_lib_dir) / 'crtend.o')
-    else:
-        crtbegin_obj = query_compiler_value(cc, '-print-file-name=crtbegin.o')
-        crtend_obj = query_compiler_value(cc, '-print-file-name=crtend.o')
 
     selected_desc = selected_prefix if selected_prefix else 'unprefixed host tools'
     print(f"Using build tool prefix for {arch}: {selected_desc}")
     print('Resolved build tools:')
     for key in ('CC', 'CXX', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
         print(f"  {key:<6} {tools[key]:<24} -> {tool_paths[key]}")
-    print(f"  {'GCCLIB':<6} {'(inferred)':<24} -> {gcc_lib_dir if gcc_lib_dir else '<not found>'}")
 
     env = host_env.Clone(
         # Cross-compiler or native tools
@@ -287,9 +246,6 @@ def create_target_environment(host_env):
 
         # Runtime paths resolved from the selected compiler
         TARGET_SYSROOT=target_sysroot,
-        GCC_LIB_DIR=gcc_lib_dir,
-        CRTBEGIN_OBJ=crtbegin_obj,
-        CRTEND_OBJ=crtend_obj,
 
         # Architecture info
         ARCH_CONFIG=arch_config,

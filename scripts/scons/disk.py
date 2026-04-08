@@ -99,7 +99,7 @@ def format_partition_image(partition_path: str, filesystem: str, volume_label: s
 
 
 def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, arch_config: dict):
-    """Copy C runtime files to a staging tree without requiring root permissions."""
+    """Copy required shared C runtime libraries to staging without root permissions."""
     ld_name = arch_config['ld_musl_name']
 
     if not target_sysroot:
@@ -111,7 +111,7 @@ def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, ar
         print(f"   WARNING: compiler sysroot not found at {sysroot}")
         return
 
-    print("   CP toolchain C libraries")
+    print("   CP toolchain C shared runtime")
 
     sysroot_lib = os.path.join(sysroot, 'lib')
     target_lib = os.path.join(staging_root, 'lib')
@@ -122,11 +122,6 @@ def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, ar
         libc_src = os.path.join(sysroot_lib, 'libc.so')
         if os.path.exists(libc_src):
             shutil.copy2(libc_src, target_lib)
-
-        for crt_file in ['Scrt1.o', 'crt1.o', 'crti.o', 'crtn.o']:
-            crt_path = os.path.join(sysroot_lib, crt_file)
-            if os.path.exists(crt_path):
-                shutil.copy2(crt_path, target_lib)
 
         lib_libc = os.path.join(target_lib, 'libc.so')
         lib_ld = os.path.join(target_lib, ld_name)
