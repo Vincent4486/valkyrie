@@ -63,13 +63,9 @@ void hold(int sec)
 
 void __attribute__((noreturn)) start(BOOT_Info *boot)
 {
-   // Init system
    memset(&__bss_start, 0, (&__end) - (&__bss_start));
-   _init();
-
    memset(g_SysInfo, 0, sizeof(SYS_Info));
 
-   /* Member-wise copy of the pre-parsed boot parameters into g_SysInfo. */
    g_SysInfo->boot = *boot;
 
    MEM_Initialize();
@@ -79,9 +75,6 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    HAL_Initialize();
    CmdLine_Initialize();
    Crypto_SelfTest();
-
-   TTY_Device *tty_dev = TTY_GetDevice();
-   (void)tty_dev;
 
    if (!FS_Initialize())
    {
@@ -109,22 +102,12 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
       goto backup;
    }
 
-   /* Process *kernel_fallback_proc = Process_CreateKernel((uint32_t)fallback);
-   if (!kernel_fallback_proc)
-   {
-      logfmt(LOG_ERROR, "[INIT] failed to create kernel fallback process\n");
-      goto backup;
-   }*/
-
    if (g_HalSchedulerOperations && g_HalSchedulerOperations->ContextSwitch)
    {
       g_HalSchedulerOperations->ContextSwitch();
    }
 
 backup:
-   /* Fallback interactive mode if shell handoff returns unexpectedly. */
-   // interact();
-
    hold(-1);
 
 end:
@@ -133,7 +116,6 @@ end:
 
 static void __attribute__((unused, noreturn)) fallback(void)
 {
-   // interact();
    hold(-1);
 
    for (;;)
