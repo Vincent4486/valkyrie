@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
 
           # Note: I updated the pattern to 'valecium-*' to match your new name
-          kernel_file=$(find build -type f -name "valkyrix-*" | head -n 1)
+          kernel_file=$(find build -type f -name "valeciumx-*" | head -n 1)
           img_file=$(find build -type f -name "valeciumos-*.img" | head -n 1)
           iso_file=$(find build -type f -name "valeciumos-*.iso" | head -n 1)
 

@@ -23,11 +23,10 @@ TARGET_ENVIRONMENT: Environment
 
 arch = TARGET_ENVIRONMENT['arch']
 arch_config = get_arch_config(arch)
-target_triple = arch_config['target_triple']
 
-# Build sysroot path from toolchain prefix and target
-toolchain_prefix = str(TARGET_ENVIRONMENT['TOOLCHAIN_PREFIX'])
-sysroot = os.path.join(toolchain_prefix, target_triple, 'sysroot', 'usr')
+# Build sysroot path from compiler-reported sysroot
+target_sysroot = str(TARGET_ENVIRONMENT.get('TARGET_SYSROOT', ''))
+sysroot = os.path.join(target_sysroot, 'usr') if target_sysroot else ''
 
 musl_include = os.path.join(sysroot, 'include')
 musl_lib = os.path.join(sysroot, 'lib')

@@ -98,13 +98,17 @@ def format_partition_image(partition_path: str, filesystem: str, volume_label: s
         raise ValueError(f'Unsupported mkfs command for filesystem {filesystem}: {mkfs_command}')
 
 
-def copy_toolchain_runtime_to_staging(staging_root: str, toolchain_prefix: str, target_triple: str, arch_config: dict):
+def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, arch_config: dict):
     """Copy C runtime files to a staging tree without requiring root permissions."""
     ld_name = arch_config['ld_musl_name']
 
-    sysroot = os.path.join(toolchain_prefix, target_triple, 'sysroot', 'usr')
+    if not target_sysroot:
+        print('   WARNING: compiler sysroot is empty; skipping runtime copy')
+        return
+
+    sysroot = os.path.join(target_sysroot, 'usr')
     if not os.path.exists(sysroot):
-        print(f"   WARNING: toolchain sysroot not found at {sysroot}")
+        print(f"   WARNING: compiler sysroot not found at {sysroot}")
         return
 
     print("   CP toolchain C libraries")
@@ -146,7 +150,7 @@ def create_bootable_iso(staging_dir: str, output_iso: str, volume_label: str = '
     grub_mkrescue('-o', output_iso, staging_dir, '--', '-volid', volume_label)
 
 
-def _get_grub_config(config: str = 'release', kernel_name: str = 'valkyrix', volume_label: str = VOLUME_LABEL) -> str:
+def _get_grub_config(config: str = 'release', kernel_name: str = 'valeciumx', volume_label: str = VOLUME_LABEL) -> str:
     """Generate GRUB configuration content based on build configuration.
     
     Args:
@@ -188,7 +192,7 @@ def generate_grub_config(
     grub_dir: str,
     output_format: str = 'img',
     config: str = 'release',
-    kernel_name: str = 'valkyrix',
+    kernel_name: str = 'valeciumx',
     volume_label: str = VOLUME_LABEL,
 ) -> str:
     """Generate grub.cfg for the given output format and build configuration.

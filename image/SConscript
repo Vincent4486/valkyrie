@@ -51,7 +51,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     size = env['imageSize']
     filesystem = env['imageFS']
     output_format = env.get('outputFormat', 'hd')
-    toolchain_prefix = env.get('TOOLCHAIN_PREFIX', '')
+    target_sysroot = env.get('TARGET_SYSROOT', '')
     arch = env.get('arch', 'i686')
     config = env.get('config', 'release')
 
@@ -63,7 +63,6 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     grub_path = '/usr/lib/grub/i386-pc'
 
     arch_config = get_arch_config(arch)
-    target_triple = arch_config['target_triple']
 
     total_size_mb = max(1, (size + (1024 * 1024 - 1)) // (1024 * 1024))
     part_size_mb = total_size_mb - part_start_mb
@@ -97,7 +96,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     )
 
     # C library and runtime files
-    copy_toolchain_runtime_to_staging(staging_dir, toolchain_prefix, target_triple, arch_config)
+    copy_toolchain_runtime_to_staging(staging_dir, target_sysroot, arch_config)
 
     # User libraries
     if libraries:

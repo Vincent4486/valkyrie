@@ -7,7 +7,7 @@ Main build configuration file using SCons.
 
 import os
 from pathlib import Path
-import platform
+import shutil
 import subprocess
 
 from SCons.Variables import Variables, EnumVariable
@@ -19,44 +19,114 @@ from scripts.scons.phony_targets import PhonyTargets
 from scripts.scons.utility import ParseSize
 
 
-# Determine whether the host toolchain matches the requested target.
-def host_arch_matches_target(target_triple: str) -> bool:
-    host = platform.machine().lower()
-    # Normalize common names but preserve specific x86 variants like i686
-    host_map = {
-        'x86_64': 'x86_64', 'amd64': 'x86_64',
-        'i386': 'i386', 'i486': 'i486', 'i586': 'i586', 'i686': 'i686',
-        'aarch64': 'aarch64', 'arm64': 'aarch64', 'armv7l': 'arm',
-    }
-    host_norm = host_map.get(host, host)
-    target_arch = target_triple.split('-')[0].lower()
-
-    # Exact match is fine
-    if host_norm == target_arch:
-        return True
-
-    # Treat x86/i686/i386 family as compatible
-    if host_norm.startswith('i') and host_norm.endswith('86') \
-       and target_arch.startswith('i') and target_arch.endswith('86'):
-        return True
-
-    return False
-
-
-def get_git_short_hash(length: int = 7) -> str:
+def get_git_short_hash() -> str:
     """Return the current git short commit hash or an empty string."""
     try:
-        # Git accepts --short and --short=<n>; clamp to a sane minimum.
-        short_len = max(4, int(length))
         result = subprocess.run(
-            ['git', 'rev-parse', f'--short={short_len}', 'HEAD'],
+            ['git', 'rev-parse', '--short=7', 'HEAD'],
             check=True,
             capture_output=True,
             text=True,
         )
         return result.stdout.strip()
-    except (ValueError, subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return ''
+
+
+def query_compiler_value(compiler: str, flag: str) -> str:
+    """Query a compiler for a single value and return a stripped string."""
+    try:
+        result = subprocess.run(
+            [compiler, flag],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ''
+
+
+def infer_gcc_lib_dir(compiler: str, compiler_path: str, default_target: str) -> str:
+    """Infer GCC runtime library directory from compiler binary location."""
+    if not compiler_path or compiler_path == '<not found>':
+        return ''
+
+    compiler_bin = Path(compiler_path).resolve()
+    gcc_base = compiler_bin.parent / '..' / 'lib' / 'gcc'
+
+    machine = query_compiler_value(compiler, '-dumpmachine') or default_target
+    version = query_compiler_value(compiler, '-dumpversion')
+
+    if machine and version:
+        candidate = (gcc_base / machine / version).resolve()
+        if candidate.exists():
+            return str(candidate)
+
+    if machine:
+        machine_dir = (gcc_base / machine).resolve()
+        if machine_dir.exists() and machine_dir.is_dir():
+            versions = sorted([p for p in machine_dir.iterdir() if p.is_dir()])
+            if versions:
+                return str(versions[-1])
+
+    libgcc_a = query_compiler_value(compiler, '-print-file-name=libgcc.a')
+    if libgcc_a and libgcc_a != 'libgcc.a':
+        libgcc_path = Path(libgcc_a)
+        if libgcc_path.exists():
+            return str(libgcc_path.parent)
+
+    return ''
+
+
+def resolve_build_tools(arch: str):
+    """Resolve build tools from PATH using preferred cross prefixes.
+
+    Preference order:
+    1) {arch}-linux-musl-*
+    2) {arch}-elf-*
+    3) unprefixed host tools
+    """
+    prefix_candidates = [f'{arch}-linux-musl-', f'{arch}-elf-', '']
+
+    selected_prefix = ''
+    for prefix in prefix_candidates:
+        gcc_name = f'{prefix}gcc' if prefix else 'gcc'
+        if shutil.which(gcc_name):
+            selected_prefix = prefix
+            break
+
+    tool_bases = {
+        'AS': 'as',
+        'AR': 'ar',
+        'CC': 'gcc',
+        'CXX': 'g++',
+        'LD': 'g++',
+        'RANLIB': 'ranlib',
+        'STRIP': 'strip',
+    }
+
+    tools = {}
+    tool_paths = {}
+
+    for key, base in tool_bases.items():
+        preferred_name = f'{selected_prefix}{base}' if selected_prefix else base
+        preferred_path = shutil.which(preferred_name)
+        if preferred_path:
+            tools[key] = preferred_name
+            tool_paths[key] = preferred_path
+            continue
+
+        fallback_path = shutil.which(base)
+        if fallback_path:
+            tools[key] = base
+            tool_paths[key] = fallback_path
+        else:
+            # Keep the preferred command name so SCons errors are explicit.
+            tools[key] = preferred_name
+            tool_paths[key] = '<not found>'
+
+    return tools, tool_paths, selected_prefix
 
 
 # =============================================================================
@@ -74,10 +144,9 @@ if not config_path.exists():
         'imageFS': 'fat32',
         'buildType': 'full',
         'imageSize': '250m',
-        'toolchain': 'toolchain/',
         'outputFile': 'valeciumos',
         'outputFormat': 'img',
-        'kernelName': 'valkyrix',
+        'kernelName': 'valeciumx',
     }
     with open(config_path, 'w') as cf:
         for k, v in default_config.items():
@@ -117,33 +186,17 @@ VARS.Add('imageSize',
          default='250m',
          converter=ParseSize)
 
-VARS.Add('toolchain',
-         help='Path to toolchain directory',
-         default='toolchain/')
-
 VARS.Add('outputFile',
          help='Output image filename (without extension)',
          default='valeciumos')
 
 VARS.Add('kernelName',
          help='Kernel executable name',
-         default='valkyrix')
+         default='valeciumx')
 
 VARS.Add('kernelVersion',
          help='Kernel version string in MAJOR.MINOR form',
          default='0.28')
-
-VARS.AddVariables(
-    EnumVariable('kernelVersionSource',
-                 help='Kernel version source mode',
-                 default='auto',
-                 allowed_values=('auto', 'git', 'fixed')),
-)
-
-VARS.Add('kernelGitShortLength',
-         help='Length of git short hash when kernelVersionSource uses git',
-         default='7')
-
 
 # =============================================================================
 # Dependency Versions
@@ -170,24 +223,11 @@ def create_host_environment():
     )
 
     # Version mode:
-    # - auto: debug -> git short hash, release -> configured version
-    # - git: always git short hash
-    # - fixed: always configured version
+    # - debug: git short hash
+    # - release: configured version from .config
     configured_version = str(env['kernelVersion'])
-    version_source = str(env['kernelVersionSource'])
-
-    try:
-        git_short_len = int(env['kernelGitShortLength'])
-    except (TypeError, ValueError):
-        git_short_len = 7
-
-    use_git_version = (
-        version_source == 'git'
-        or (version_source == 'auto' and env['config'] == 'debug')
-    )
-
-    if use_git_version:
-        git_hash = get_git_short_hash(git_short_len)
+    if env['config'] == 'debug':
+        git_hash = get_git_short_hash()
         env['kernelVersion'] = git_hash if git_hash else configured_version
     else:
         env['kernelVersion'] = configured_version
@@ -209,69 +249,47 @@ def create_host_environment():
     return env
 
 
-def ensure_toolchain_if_needed(host_env):
-    """Ensure cross-toolchain is available for build targets."""
-    if GetOption('clean'):
-        return
-
-    command_targets = set(COMMAND_LINE_TARGETS)
-    non_build_targets = {'deps', 'fformat'}
-    if command_targets and command_targets.issubset(non_build_targets):
-        return
-
-    arch_config = get_arch_config(host_env['arch'])
-    target = arch_config['target_triple']
-    toolchain_dir = host_env['toolchain']
-
-    cmd = [
-        'python3',
-        './scripts/base/toolchain.py',
-        toolchain_dir,
-        '-t',
-        target,
-        '--ensure',
-    ]
-
-    print(f"Ensuring toolchain for {target} in {toolchain_dir}")
-    subprocess.run(cmd, check=True)
-
-
 # =============================================================================
 # Target Environment
 # =============================================================================
 
 def create_target_environment(host_env):
-    """Create the cross-compilation target environment."""
+    """Create the cross-compilation target environment.
+
+    The required prefixed toolchain binaries must already be available in PATH.
+    """
     arch = host_env['arch']
     arch_config = get_arch_config(arch)
-    
-    toolchain_dir = Path(host_env['toolchain']).resolve()
-    toolchain_bin = toolchain_dir / 'bin'
-    toolchain_gcc_libs = (toolchain_dir / 'lib' / 'gcc' / 
-                          arch_config['target_triple'] / DEPS['gcc'])
-    
-    prefix = arch_config['toolchain_prefix']
 
-    use_native = host_arch_matches_target(arch_config['target_triple'])
+    tools, tool_paths, selected_prefix = resolve_build_tools(arch)
 
-    # Choose tool names: prefixed cross-tools or native host tools
-    if use_native:
-        tools = dict(
-            AS='as', AR='ar', CC='gcc', CXX='g++', LD='g++', RANLIB='ranlib', STRIP='strip'
-        )
+    cc = tools['CC']
+    cc_path = tool_paths.get('CC', '')
+    gcc_lib_dir = infer_gcc_lib_dir(cc, cc_path, arch_config['target_triple'])
+    target_sysroot = query_compiler_value(cc, '-print-sysroot')
+    if gcc_lib_dir:
+        crtbegin_obj = str(Path(gcc_lib_dir) / 'crtbegin.o')
+        crtend_obj = str(Path(gcc_lib_dir) / 'crtend.o')
     else:
-        tools = dict(
-            AS=f'{prefix}as', AR=f'{prefix}ar', CC=f'{prefix}gcc', CXX=f'{prefix}g++',
-            LD=f'{prefix}g++', RANLIB=f'{prefix}ranlib', STRIP=f'{prefix}strip'
-        )
+        crtbegin_obj = query_compiler_value(cc, '-print-file-name=crtbegin.o')
+        crtend_obj = query_compiler_value(cc, '-print-file-name=crtend.o')
+
+    selected_desc = selected_prefix if selected_prefix else 'unprefixed host tools'
+    print(f"Using build tool prefix for {arch}: {selected_desc}")
+    print('Resolved build tools:')
+    for key in ('CC', 'CXX', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
+        print(f"  {key:<6} {tools[key]:<24} -> {tool_paths[key]}")
+    print(f"  {'GCCLIB':<6} {'(inferred)':<24} -> {gcc_lib_dir if gcc_lib_dir else '<not found>'}")
 
     env = host_env.Clone(
         # Cross-compiler or native tools
         **tools,
 
-        # Toolchain paths
-        TOOLCHAIN_PREFIX=str(toolchain_dir),
-        TOOLCHAIN_LIBGCC=str(toolchain_gcc_libs),
+        # Runtime paths resolved from the selected compiler
+        TARGET_SYSROOT=target_sysroot,
+        GCC_LIB_DIR=gcc_lib_dir,
+        CRTBEGIN_OBJ=crtbegin_obj,
+        CRTEND_OBJ=crtend_obj,
 
         # Architecture info
         ARCH_CONFIG=arch_config,
@@ -303,9 +321,6 @@ def create_target_environment(host_env):
         RANLIBCOMSTR='   RANLIB  $TARGET',
     )
     
-    # Add toolchain to PATH
-    env['ENV']['PATH'] += os.pathsep + str(toolchain_bin)
-    
     return env
 
 
@@ -314,7 +329,6 @@ def create_target_environment(host_env):
 # =============================================================================
 
 HOST_ENVIRONMENT = create_host_environment()
-ensure_toolchain_if_needed(HOST_ENVIRONMENT)
 TARGET_ENVIRONMENT = create_target_environment(HOST_ENVIRONMENT)
 
 # Generate help text
@@ -347,7 +361,6 @@ if build_type == 'full':
     # Phony targets using Python scripts
     arch = TARGET_ENVIRONMENT['arch']
     target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
-    toolchain_dir = HOST_ENVIRONMENT['toolchain']
     media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
     
     PhonyTargets(
@@ -355,7 +368,7 @@ if build_type == 'full':
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
         debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
+        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )
@@ -371,7 +384,6 @@ elif build_type == 'image':
     
     arch = TARGET_ENVIRONMENT['arch']
     target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
-    toolchain_dir = HOST_ENVIRONMENT['toolchain']
     media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
     
     PhonyTargets(
@@ -379,7 +391,7 @@ elif build_type == 'image':
         run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
         debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
         bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path, '-d', 'x'],
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
+        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )
@@ -391,11 +403,10 @@ elif build_type == 'image':
 else:
     # Minimal phony targets
     target = TARGET_ENVIRONMENT.get('TARGET_TRIPLE', 'unknown')
-    toolchain_dir = HOST_ENVIRONMENT['toolchain']
     
     PhonyTargets(
         HOST_ENVIRONMENT,
-        toolchain=['python3', './scripts/base/toolchain.py', toolchain_dir, '-t', target, '--ensure'],
+        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
         fformat=['python3', './scripts/base/format.py'],
         deps=['python3', './scripts/base/dependencies.py'],
     )

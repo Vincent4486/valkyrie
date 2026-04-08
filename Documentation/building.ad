@@ -75,7 +75,7 @@ imageSize = '250m'
 toolchain = '../os_toolchain'
 outputFile = 'valeciumos'
 outputFormat = 'img'
-kernelName = 'valkyrix'
+kernelName = 'valeciumx'
 ----
 
 === Step 1: Install Dependencies
@@ -156,7 +156,7 @@ Each architecture's cross-compiler is stored separately, so switching architectu
 [source, python]
 ----
 outputFormat = 'img'
-kernelName = 'valkyrix'
+kernelName = 'valeciumx'
 ----
 
 You can edit `.config` directly to persist settings, or use command-line arguments (command-line takes precedence):
@@ -256,7 +256,7 @@ scons buildType=full
 scons buildType=kernel
 ----
 
-Output: `build/kernel/valkyrix` (ELF executable with debug symbols)
+Output: `build/kernel/valeciumx` (ELF executable with debug symbols)
 
 === Userspace Only
 

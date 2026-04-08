@@ -96,12 +96,17 @@ obj_crti = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crti.o')))
 obj_crtn = objects.pop(FindIndex(objects, lambda x: IsFileName(x, 'crtn.o')))
 
 # Build with proper CRT ordering: crti, crtbegin, ..., crtend, crtn
-toolchain_libgcc = env['TOOLCHAIN_LIBGCC']
+gcc_lib_dir = str(env.get('GCC_LIB_DIR', ''))
+crtbegin_obj = env.get('CRTBEGIN_OBJ', 'crtbegin.o')
+crtend_obj = env.get('CRTEND_OBJ', 'crtend.o')
+if gcc_lib_dir:
+    crtbegin_obj = os.path.join(gcc_lib_dir, 'crtbegin.o')
+    crtend_obj = os.path.join(gcc_lib_dir, 'crtend.o')
 objects = [
     obj_crti,
-    os.path.join(toolchain_libgcc, 'crtbegin.o'),
+    crtbegin_obj,
     *objects,
-    os.path.join(toolchain_libgcc, 'crtend.o'),
+    crtend_obj,
     obj_crtn,
 ]
 
