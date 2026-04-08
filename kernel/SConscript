@@ -24,7 +24,7 @@ env = TARGET_ENVIRONMENT.Clone()
 src_dir = Dir('#kernel').abspath
 arch = TARGET_ENVIRONMENT['arch']
 arch_dir = os.path.join(src_dir, 'arch', arch)
-linker_script = os.path.join(arch_dir, 'boot', 'linker.ld')
+linker_script = os.path.join(arch_dir, 'linker.ld')
 
 # Architecture-specific flags (kernel-only)
 arch_config = get_arch_config(arch)
