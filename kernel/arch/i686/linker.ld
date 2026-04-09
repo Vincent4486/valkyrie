@@ -12,36 +12,25 @@ PHDRS
 /* Produce ELF output (default) instead of raw binary so the bootloader can
    load an ELF image. 
    
-   Memory layout (all regions 1 KiB block-aligned):
-   - 0x00100000 - 0x00800000: Dynamic libraries (dylib) - 7 MiB
-   - 0x00930000             : g_SysInfo  (SYS_Info)
-   - 0x00931000             : s_bootInfo (BOOT_Info)  [+1 KiB block]
-   - 0x00A00000 onwards     : Kernel code and data
+   Kernel metadata (SYS_Info, BOOT_Info copies, module registry) now lives in
+   kernel-owned BSS/heap, so this script only defines the kernel image base.
    
    With dynamic linking, allow undefined symbols (will be resolved at runtime
    via PLT/GOT patching after libraries are loaded).
 */
 
-K_MEM_BLOCK_SIZE = 1024;
-
-DYLIB_START = 0x400 * K_MEM_BLOCK_SIZE;      /* 0x00100000 */
-DYLIB_SIZE  = 0x1C00 * K_MEM_BLOCK_SIZE;     /* 0x700000 (7 MiB) */
-
-SYS_INFO_START  = 0x24C0 * K_MEM_BLOCK_SIZE; /* 0x00930000 */
-SYS_INFO_SIZE   = 4 * K_MEM_BLOCK_SIZE;      /* 0x1000 (1 KiB block) */
-
-BOOT_INFO_START = (0x24C0 + 4) * K_MEM_BLOCK_SIZE; /* 0x00931000 - 4 blocks (0x1000 bytes) after SYS_INFO */
-
-/* Kernel starts at 10 MiB */
-phys = 0x00A00000;
+/* Default kernel load address (override with --defsym=KERNEL_LOAD_ADDR=...) */
+KERNEL_LOAD_ADDR = DEFINED(KERNEL_LOAD_ADDR) ? KERNEL_LOAD_ADDR : 0x00A00000;
+phys = KERNEL_LOAD_ADDR;
 
 /* Allow undefined symbols - they will be resolved at runtime by dylib loader */
 /* This lets kernel code call library functions without explicit EXTERN declarations */
 
 SECTIONS
 {
-   /* All kernel sections start at 10 MiB */
+   /* All kernel sections start at the configured physical base. */
    . = phys;
+   __kernel_image_start = .;
 
    /* Multiboot header MUST come first inside the first PT_LOAD segment so
       QEMU/GRUB can find the magic value within the first 8 KiB of the image.

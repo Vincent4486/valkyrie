@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include <cpu/process.h>
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <hal/stack.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>

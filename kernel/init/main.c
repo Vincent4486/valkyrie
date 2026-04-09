@@ -61,10 +61,20 @@ void hold(int sec)
 
 void __attribute__((noreturn)) start(BOOT_Info *boot)
 {
+   BOOT_Info boot_snapshot;
+   if (boot)
+   {
+      boot_snapshot = *boot;
+   }
+   else
+   {
+      memset(&boot_snapshot, 0, sizeof(boot_snapshot));
+   }
+
    memset(&__bss_start, 0, (&__end) - (&__bss_start));
    memset(g_SysInfo, 0, sizeof(SYS_Info));
 
-   g_SysInfo->boot = *boot;
+   g_SysInfo->boot = boot_snapshot;
 
    MEM_Initialize();
    TTY_Initialize();

@@ -2,7 +2,7 @@
 
 #include "process.h"
 #include "scheduler.h"
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <sys/sys.h>

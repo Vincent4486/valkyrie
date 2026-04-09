@@ -19,7 +19,7 @@
 
 /* ── Hardware constants ──────────────────────────────────────────────────── */
 
-#define VGA_BUFFER ((volatile uint16_t *)K_MEM_VIDEO_START)
+#define VGA_BUFFER ((volatile uint16_t *)0xb800)
 
 /* CRT controller: index port and data port */
 #define VGA_CRTC_ADDR 0x3D4

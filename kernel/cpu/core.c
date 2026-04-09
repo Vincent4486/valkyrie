@@ -3,7 +3,7 @@
 #include "process.h"
 #include "scheduler.h"
 #include <fs/vfs/vfs.h>
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <hal/scheduler.h>
 #include <hal/tss.h>
 #include <mem/mm_kernel.h>
@@ -19,8 +19,6 @@
 #ifndef EINVAL
 #define EINVAL 22
 #endif
-
-#define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
 
 static Process *g_CurrentProcess = NULL;
 static uint32_t g_NextPid = 1;

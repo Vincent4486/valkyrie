@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
@@ -12,12 +12,7 @@
 #define PAGE_ALIGN_UP(v) (((v) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
 static void *kernel_page_dir = NULL;
-static uint32_t kernel_next_vaddr =
-    0x80000000u; // Start at 2 GiB for kernel mappings
-
-#ifndef KERNEL_BASE
-#define KERNEL_BASE 0xC0000000u
-#endif
+static uint32_t kernel_next_vaddr = HAL_ARCH_BASE; // Use arch-specific kernel base
 
 void VMM_Initialize(void)
 {
@@ -46,7 +41,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
    uint32_t *bump = next_vaddr_state ? next_vaddr_state : &kernel_next_vaddr;
 
    // Find a free virtual address range (simple bump allocator)
-   if (*bump + aligned_size > KERNEL_BASE || *bump + aligned_size < *bump)
+   if (*bump + aligned_size > HAL_ARCH_BASE || *bump + aligned_size < *bump)
    {
       logfmt(LOG_ERROR,
              "[MEM] VMM_Allocate: virtual address space exhausted\n");

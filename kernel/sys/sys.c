@@ -3,13 +3,13 @@
 #include <valecium/valecium.h>
 
 #include "sys.h"
-#include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdint.h>
 
-/* Global SYS_Info structure (allocated in SYS_Initialize) */
-SYS_Info *g_SysInfo = (SYS_Info *)(uintptr_t)K_MEM_SYS_INFO_START;
+/* Global SYS_Info lives in kernel-owned BSS storage. */
+static SYS_Info s_SysInfoStorage;
+SYS_Info *g_SysInfo = &s_SysInfoStorage;
 
 void SYS_Initialize()
 {

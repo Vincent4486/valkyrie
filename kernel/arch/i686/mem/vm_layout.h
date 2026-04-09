@@ -4,6 +4,9 @@
 #define I686_VM_LAYOUT_H
 
 #include <stdint.h>
+#include <mem/mm_kernel.h>
+
+extern uint8_t __end;
 
 /**
  * x86 32-bit Virtual Memory Layout (4GB total)
@@ -19,11 +22,10 @@
 #define KERNEL_BASE 0xC0000000UL
 
 /** Kernel code/data section start (loaded at 10MiB physical) */
-#define KERNEL_CODE_START (KERNEL_BASE + 0x00A00000UL) // 3GB + 10MiB
+#define KERNEL_CODE_START (KERNEL_BASE + (uintptr_t)MEMORY_KERNEL_ADDR)
 
 /** Kernel code/data section end (before reserved area) */
-#define KERNEL_CODE_END                                                        \
-   (KERNEL_BASE + 0x00600000UL) // 3GB + 6MiB (1MiB reserved before)
+#define KERNEL_CODE_END (KERNEL_BASE + (uintptr_t)&__end)
 
 /* ========== SYSTEM RESERVED REGION (1MiB - 10MiB, mapped at 3GB + 1MiB)
  * ========== */
@@ -32,7 +34,7 @@
 #define SYSTEM_RESERVED_START (KERNEL_BASE + 0x00100000UL) // 3GB + 1MiB
 
 /** System reserved region end (before kernel code) */
-#define SYSTEM_RESERVED_END (KERNEL_BASE + 0x00A00000UL) // 3GB + 10MiB
+#define SYSTEM_RESERVED_END (KERNEL_BASE + (uintptr_t)MEMORY_KERNEL_ADDR)
 
 /* ========== VIDEO/DISPLAY BUFFER (8MiB physical) ========== */
 
@@ -43,20 +45,6 @@
 
 /** Video buffer size (text mode: 80x25 chars * 2 bytes = 4KB minimum) */
 #define VIDEO_BUFFER_SIZE 0x1000UL // 4KB
-
-/* ========== DYNAMIC LIBRARIES (1MiB - 8MiB physical) ========== */
-
-/** Dynamic library region start (physical) */
-#define DYLIB_REGION_PHYS_START 0x00100000UL // 1MiB physical
-#define DYLIB_REGION_VIRT_START                                                \
-   (KERNEL_BASE + 0x00100000UL) // 3GB + 1MiB virtual
-
-/** Dynamic library region end (before video buffer) */
-#define DYLIB_REGION_PHYS_END 0x00800000UL                 // 8MiB physical
-#define DYLIB_REGION_VIRT_END (KERNEL_BASE + 0x00800000UL) // 3GB + 8MiB virtual
-
-/** Dynamic library region size */
-#define DYLIB_REGION_SIZE (DYLIB_REGION_PHYS_END - DYLIB_REGION_PHYS_START)
 
 /* ========== KERNEL HEAP (High kernel space, just below user space) ==========
  */
@@ -69,6 +57,15 @@
 
 /** Kernel heap size (approximately 1GB) */
 #define KERNEL_HEAP_SIZE (KERNEL_HEAP_END - KERNEL_HEAP_START)
+
+/* ========== DYNAMIC LIBRARIES (heap-backed) ========== */
+
+/** Modules are allocated from the kernel heap at runtime. */
+#define DYLIB_REGION_VIRT_START KERNEL_HEAP_START
+#define DYLIB_REGION_VIRT_END KERNEL_HEAP_END
+
+/** Dynamic library region size */
+#define DYLIB_REGION_SIZE (DYLIB_REGION_VIRT_END - DYLIB_REGION_VIRT_START)
 
 /* ========== USER SPACE (Low addresses, 0 - 3GB) ========== */
 
@@ -97,9 +94,6 @@
 /** Per-process code/data region (typically loaded from 0x08048000 on x86 Linux
  * convention) */
 #define USER_CODE_START 0x08048000UL // 128MiB + 16KB (standard x86 32-bit)
-
-/* Pull in common memory constants (PAGE_SIZE, etc.) */
-#include <mem/mm_kernel.h>
 
 /* ========== PAGE ALIGNMENT ========== */
 
@@ -165,5 +159,11 @@ static inline int is_dylib_region_address(uintptr_t addr)
 {
    return addr >= DYLIB_REGION_VIRT_START && addr < DYLIB_REGION_VIRT_END;
 }
+
+/* ========== MODULE LOADING CONSTANTS ========== */
+
+/** User trampoline exit code location (exit trampoline for process termination)
+ *  Must be in user-accessible but protected region */
+#define USER_EXIT_TRAMPOLINE_VA (USER_STACK_START + PAGE_SIZE)
 
 #endif

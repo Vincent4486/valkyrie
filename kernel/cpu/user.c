@@ -2,17 +2,12 @@
 
 #include "process.h"
 #include "scheduler.h"
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <sys/sys.h>
-
-#define USER_STACK_TOP 0xBFFF0000u
-#define USER_STACK_SIZE (64u * 1024u)
-#define USER_HEAP_START 0x10000000u
-#define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
 #define USER_CODE_SELECTOR 0x1Bu
 #define USER_DATA_SELECTOR 0x23u
 

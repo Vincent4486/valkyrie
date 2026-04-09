@@ -3,7 +3,7 @@
 #include "mm_kernel.h"
 #include "mm_proc.h"
 #include <cpu/process.h>
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <std/stdio.h>
 #include <stddef.h>
 #include <stdint.h>

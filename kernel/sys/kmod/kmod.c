@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 /* Dynamic link helpers for the kernel. Supports true ELF dynamic linking
- * with PLT/GOT relocation. The bootloader (stage2) loads libraries and
- * populates a LibRecord table at LIB_REGISTRY_ADDR. The kernel loader
- * then applies relocations using the global symbol table.
+ * with PLT/GOT relocation.
+ *
+ * Library metadata lives in kernel-owned memory (BSS registry + heap-backed
+ * images) rather than fixed low-memory physical addresses.
  */
 
 #include "kmod.h"
+#include <hal/mem.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -92,12 +94,14 @@ typedef struct
    uint32_t jmprel_size; // Size of .rel.plt
    uint32_t pltgot_addr; // Address of .got.plt (for PLT patching)
 
-   int loaded; // 1 if loaded in memory, 0 if not
+   uint32_t alloc_size; // Heap bytes reserved for this module image
+   int loaded;          // 1 if loaded in memory, 0 if not
 } ExtendedLibData;
 
 // Memory allocator state
 static int kmod_mem_initialized = 0;
-static uint32_t kmod_mem_next_free = K_MEM_DYLIB_START;
+static uint32_t kmod_total_allocated = 0;
+static LibRecord s_lib_registry[LIB_REGISTRY_MAX];
 static ExtendedLibData extended_data[LIB_REGISTRY_MAX];
 
 // Global symbol table - shared across all loaded libraries and kernel
@@ -107,6 +111,7 @@ static int global_symtab_count = 0;
 // Forward declarations
 static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
                              uint32_t size);
+static int find_index(const char *name);
 
 static kmod_register_symbols_t symbol_callback = NULL;
 
@@ -114,8 +119,7 @@ int KMOD_MemoryInitialize(void)
 {
    if (kmod_mem_initialized) return 0;
 
-   // Don't memset the entire module region - it's not mapped yet
-   // Libraries will be loaded into this space as needed
+   memset(s_lib_registry, 0, sizeof(s_lib_registry));
 
    // Clear extended data
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
@@ -126,16 +130,22 @@ int KMOD_MemoryInitialize(void)
       extended_data[i].dynstr_addr = 0;
       extended_data[i].rel_addr = 0;
       extended_data[i].jmprel_addr = 0;
+      extended_data[i].alloc_size = 0;
       extended_data[i].loaded = 0;
    }
 
-   kmod_mem_next_free = K_MEM_DYLIB_START;
+   kmod_total_allocated = 0;
    kmod_mem_initialized = 1;
 
+   uint32_t heap_start = (uint32_t)mem_heap_start();
+   uint32_t heap_end = (uint32_t)mem_heap_end();
+   uint32_t heap_size =
+       (heap_end >= heap_start) ? (heap_end - heap_start + 1) : 0;
+
    logfmt(LOG_INFO,
-          "[KMOD] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
-          K_MEM_DYLIB_START, K_MEM_DYLIB_END,
-          (K_MEM_DYLIB_END - K_MEM_DYLIB_START) / 0x100000);
+          "[KMOD] Heap-backed module allocator initialized: 0x%x - 0x%x "
+          "(%d MiB)\n",
+          heap_start, heap_end, heap_size / 0x100000);
 
    return 0;
 }
@@ -346,8 +356,9 @@ int KMOD_ApplyKernelRelocations(void)
    extern char _kernel_rel_plt_end[];
    extern char _kernel_dynsym_start[];
    extern char _kernel_dynstr_start[];
+   extern char __kernel_image_start[];
 
-   uint32_t kernel_base = 0x00A00000; // Kernel load address
+   uint32_t kernel_base = (uint32_t)(uintptr_t)__kernel_image_start;
 
    // Apply .rel.dyn relocations
    {
@@ -413,7 +424,10 @@ int KMOD_ApplyKernelRelocations(void)
 
 uint32_t KMOD_MemoryAllocate(const char *lib_name, uint32_t size)
 {
-   (void)lib_name;
+   if (size == 0)
+   {
+      return 0;
+   }
 
    if (!kmod_mem_initialized)
    {
@@ -425,31 +439,30 @@ uint32_t KMOD_MemoryAllocate(const char *lib_name, uint32_t size)
       }
    }
 
-   // Validate allocator state
-   if (kmod_mem_next_free < K_MEM_DYLIB_START ||
-       kmod_mem_next_free > K_MEM_DYLIB_END)
-   {
-      logfmt(LOG_ERROR, "[KMOD] Memory allocator corrupted: next_free=0x%x\n",
-             kmod_mem_next_free);
-      return 0;
-   }
-
    // Round up to 16-byte boundary for alignment
    uint32_t aligned_size = (size + 15) & ~15;
 
-   // Check if we have enough space
-   if (kmod_mem_next_free + aligned_size > K_MEM_DYLIB_END)
+   void *alloc = kmalloc(aligned_size);
+   if (!alloc)
    {
-      logfmt(LOG_ERROR,
-             "[KMOD] Out of kmod memory! Need %d bytes, only %d available\n",
-             aligned_size, K_MEM_DYLIB_END - kmod_mem_next_free);
+      logfmt(LOG_ERROR, "[KMOD] Out of heap memory allocating %u bytes\n",
+             aligned_size);
       return 0;
    }
 
-   uint32_t alloc_addr = kmod_mem_next_free;
-   kmod_mem_next_free += aligned_size;
+   int idx = find_index(lib_name);
+   if (idx >= 0)
+   {
+      s_lib_registry[idx].base = alloc;
+      extended_data[idx].alloc_size = aligned_size;
+   }
 
-   return alloc_addr;
+   if (kmod_total_allocated <= UINT32_MAX - aligned_size)
+      kmod_total_allocated += aligned_size;
+   else
+      kmod_total_allocated = UINT32_MAX;
+
+   return (uint32_t)(uintptr_t)alloc;
 }
 
 // Helper: find index of library by name
@@ -457,7 +470,7 @@ static int find_index(const char *name)
 {
    if (!name || name[0] == '\0') return -1;
 
-   LibRecord *reg = LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
       if (reg[i].name[0] != '\0')
@@ -476,7 +489,7 @@ static int ensure_record(const char *name)
    int idx = find_index(name);
    if (idx >= 0) return idx;
 
-   LibRecord *reg = LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
       if (reg[i].name[0] != '\0')
@@ -496,13 +509,13 @@ static int ensure_record(const char *name)
 
 LibRecord *KMOD_Find(const char *name)
 {
-   if (!name || !LIB_REGISTRY_ADDR)
+   if (!name)
    {
       logfmt(LOG_ERROR, "[KMOD] Invalid parameters to KMOD_Find\n");
       return NULL;
    }
 
-   LibRecord *reg = LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
       if (reg[i].name[0] != '\0')
@@ -580,7 +593,7 @@ int KMOD_CallIfExists(const char *name)
 
 void KMOD_List(void)
 {
-   LibRecord *reg = LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
 
    logfmt(LOG_INFO, "\n[KMOD] === Loaded Libraries ===\n");
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
@@ -749,18 +762,27 @@ int KMOD_MemoryFree(const char *lib_name)
       return -1;
    }
 
-   LibRecord *lib = &LIB_REGISTRY_ADDR[idx];
+   LibRecord *lib = &s_lib_registry[idx];
    ExtendedLibData *ext = &extended_data[idx];
 
-   if (!ext->loaded)
+   if (!lib->base || ext->alloc_size == 0)
    {
-      logfmt(LOG_WARNING, "[KMOD] Library %s is not loaded\n", lib_name);
-      return -1;
+      logfmt(LOG_WARNING,
+             "[KMOD] Library %s has no tracked heap allocation\n", lib_name);
+      return 0;
    }
 
-   // Note: We don't actually free the memory in the pool since it's a linear
-   // allocator Just mark as unloaded
-   logfmt(LOG_INFO, "[KMOD] Freed 0x%x bytes for %s\n", lib->size, lib_name);
+   uint32_t freed = ext->alloc_size;
+   free(lib->base);
+   lib->base = NULL;
+   ext->alloc_size = 0;
+
+   if (kmod_total_allocated >= freed)
+      kmod_total_allocated -= freed;
+   else
+      kmod_total_allocated = 0;
+
+   logfmt(LOG_INFO, "[KMOD] Freed 0x%x bytes for %s\n", freed, lib_name);
 
    return 0;
 }
@@ -776,7 +798,7 @@ int KMOD_Load(const char *name, const void *image, uint32_t size)
       return -1;
    }
 
-   LibRecord *lib = &LIB_REGISTRY_ADDR[idx];
+   LibRecord *lib = &s_lib_registry[idx];
    ExtendedLibData *ext = &extended_data[idx];
 
    if (ext->loaded)
@@ -954,15 +976,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       }
       else
       {
-         original_base = 0x05000000;
-      }
-   }
-
-   // Find .symtab and .strtab sections
-   uint32_t symtab_addr = 0, symtab_size = 0, symtab_entsize = 0;
-   uint32_t strtab_addr = 0, strtab_size = 0;
-   int strtab_link = -1;
-
+            original_base = USER_CODE_START;  /* Fallback to user program base */
    for (int i = 0; i < e_shnum; i++)
    {
       Elf32_Shdr *sh = (Elf32_Shdr *)(elf_data + e_shoff + (i * e_shentsize));
@@ -1111,7 +1125,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
       return -1;
    }
 
-   LibRecord *lib = &LIB_REGISTRY_ADDR[idx];
+   LibRecord *lib = &s_lib_registry[idx];
    ExtendedLibData *ext = &extended_data[idx];
 
    if (ext->loaded)
@@ -1192,7 +1206,7 @@ int KMOD_Remove(const char *name)
       return -1;
    }
 
-   LibRecord *lib = &LIB_REGISTRY_ADDR[idx];
+   LibRecord *lib = &s_lib_registry[idx];
    ExtendedLibData *ext = &extended_data[idx];
 
    if (!ext->loaded)
@@ -1228,21 +1242,29 @@ void KMOD_MemoryStatus(void)
       return;
    }
 
-   uint32_t total_allocated = kmod_mem_next_free - K_MEM_DYLIB_START;
-   uint32_t total_available = K_MEM_DYLIB_END - K_MEM_DYLIB_START;
-   uint32_t remaining = total_available - total_allocated;
-   int percent_used = (total_allocated * 100) / total_available;
+   uint32_t heap_start = (uint32_t)mem_heap_start();
+   uint32_t heap_end = (uint32_t)mem_heap_end();
+   uint32_t total_available =
+       (heap_end >= heap_start) ? (heap_end - heap_start + 1) : 0;
+   uint32_t total_allocated = kmod_total_allocated;
+   uint32_t remaining =
+       (total_available > total_allocated) ? (total_available - total_allocated)
+                                           : 0;
+   int percent_used =
+       (total_available == 0)
+           ? 0
+           : (int)((total_allocated * 100) / total_available);
 
    logfmt(LOG_INFO, "[KMOD] === KMOD Memory Statistics ===");
    logfmt(LOG_INFO, "[KMOD] Total Memory:     %d MiB (0x%x - 0x%x)\n",
-          total_available / 0x100000, K_MEM_DYLIB_START, K_MEM_DYLIB_END);
+          total_available / 0x100000, heap_start, heap_end);
    logfmt(LOG_INFO, "[KMOD] Allocated:        %d KiB (%d%%)\n",
           total_allocated / 1024, percent_used);
    logfmt(LOG_INFO, "[KMOD] Available:        %d KiB\n", remaining / 1024);
 
    // List loaded libraries
    logfmt(LOG_INFO, "[KMOD] Loaded Libraries:\n");
-   LibRecord *reg = (LibRecord *)LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
       if (reg[i].name[0] == '\0') break;
@@ -1345,7 +1367,7 @@ int KMOD_IsLoaded(const char *name)
 
 void KMOD_Lsmod(void)
 {
-   LibRecord *reg = LIB_REGISTRY_ADDR;
+   LibRecord *reg = s_lib_registry;
 
    logfmt(LOG_INFO, "[KMOD] Module                  Size      State\n");
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)

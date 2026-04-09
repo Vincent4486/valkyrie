@@ -78,9 +78,8 @@ int KMOD_CallSymbol(const char *libname, const char *symname);
 // List all symbols exported by a library
 void KMOD_ListSymbols(const char *name);
 
-// Parse symbols from a pre-loaded library (already in memory via bootloader
-// registration) Call this when a library is already registered in LibRecord but
-// symbols haven't been parsed yet
+// Parse symbols from a library already present in memory and registered in
+// LibRecord (for example, early-loaded images).
 int KMOD_ParseSymbols(LibRecord *lib);
 
 // Global symbol table management functions

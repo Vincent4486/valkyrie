@@ -198,47 +198,12 @@ int Stack_SelfTest(void);
 /* Architecture page size (4 KiB) */
 #define PAGE_SIZE 0x1000u
 
-// 0x00000000 - 0x000003FF - interrupt vector table
-// 0x00000400 - 0x000004FF - BIOS data area
+extern uint8_t __kernel_image_start;
 
-// 0x00030000 - 0x00080000 - free
+/* Linker-defined kernel image start; avoids raw fixed literals in C code. */
+#define MEMORY_KERNEL_ADDR ((void *)&__kernel_image_start)
 
-// 0x00080000 - 0x0009FFFF - Extended BIOS data area
-// 0x000A0000 - 0x000C7FFF - Video
-// 0x000C8000 - 0x000FFFFF - BIOS
-
-#define MEMORY_KERNEL_ADDR ((void *)0x00A00000)
-
-/* ==========================================================================
- * Canonical 1 KiB-aligned kernel memory map
- *
- * Every region start/end must satisfy: address % K_MEM_BLOCK_SIZE == 0.
- * All fixed addresses are centralised here; no raw literals elsewhere.
- *
- * Reserved region: 0x00100000 – 0x00A00000
- *
- *  0x00100000 – 0x00800000  Dylib space          (7 MiB)
- *  0x00930000               g_SysInfo (SYS_Info)
- *  0x00931000               s_bootInfo (BOOT_Info)
- *  0x00A00000               Kernel load address
- * ========================================================================== */
-
-#define K_MEM_BLOCK_SIZE 1024 /* 0x400 */
-
-#define K_MEM_DYLIB_START (0x400u * K_MEM_BLOCK_SIZE) /* 0x00100000 */
-#define K_MEM_DYLIB_END (0x2000u * K_MEM_BLOCK_SIZE)  /* 0x00800000 */
-
-#define K_MEM_SYS_INFO_START (0x24C0u * K_MEM_BLOCK_SIZE) /* 0x00930000 */
-
-#define K_MEM_BOOT_INFO_START                                                  \
-   (K_MEM_SYS_INFO_START + 4 * K_MEM_BLOCK_SIZE) /* 0x00931000 */
-
-/* VGA text-mode VRAM window – always mapped at this physical address.
- * Must not be placed inside the kernel-reserved range (0x00100000+).     */
-#define K_MEM_VIDEO_START 0x000B8000u /* VGA text VRAM base (colour modes) */
-
-/* Library registry placed in low memory (inside FAT area). Stage2 populates
- * this with loaded modules so the kernel can find them. */
+/* Library registry entries (storage owned by kmod.c in kernel memory). */
 #define LIB_NAME_MAX 32
 typedef struct
 {
@@ -248,7 +213,6 @@ typedef struct
    uint32_t size;
 } LibRecord;
 
-#define LIB_REGISTRY_ADDR ((LibRecord *)0x00028000)
 #define LIB_REGISTRY_MAX 16
 
 #endif

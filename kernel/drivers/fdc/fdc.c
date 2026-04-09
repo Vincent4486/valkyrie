@@ -4,6 +4,7 @@
 #include <fs/devfs/devfs.h>
 #include <hal/io.h>
 #include <hal/irq.h>
+#include <hal/mem.h>
 #include <std/stdio.h>
 #include <std/string.h>
 #include <stdbool.h>

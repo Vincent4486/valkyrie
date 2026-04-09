@@ -4,13 +4,14 @@
 #define PROCESS_H
 
 #include <hal/irq.h> /* Registers – the interrupt stack frame type */
+#include <hal/mem.h>
 #include <mem/mm_kernel.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <valecium/fs.h>
 
-#define HEAP_MAX 0xC0000000u // Don't allow heap
+#define HEAP_MAX HAL_ARCH_BASE // Don't allow heap to extend into kernel space
 
 typedef enum
 {

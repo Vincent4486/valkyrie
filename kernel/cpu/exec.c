@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "process.h"
-#include <hal/paging.h>
+#include <hal/mem.h>
 #include <hal/scheduler.h>
 #include <mem/mm_kernel.h>
 #include <mem/mm_proc.h>
 #include <std/stdio.h>
 #include <std/string.h>
-
-#define USER_STACK_TOP 0xBFFF0000u
-#define USER_STACK_SIZE (64u * 1024u)
-#define USER_HEAP_START 0x10000000u
-#define USER_EXIT_TRAMPOLINE_VA 0xBFFF1000u
 
 typedef struct
 {
