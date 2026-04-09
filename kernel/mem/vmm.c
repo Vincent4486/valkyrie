@@ -13,6 +13,7 @@
 
 static void *kernel_page_dir = NULL;
 static uint32_t kernel_next_vaddr = HAL_ARCH_BASE; // Use arch-specific kernel base
+static uint32_t kernel_vaddr_limit = 0xFFFFFFFFu;
 
 void VMM_Initialize(void)
 {
@@ -24,6 +25,24 @@ void VMM_Initialize(void)
       // Skip further VMM work to avoid faults
       return;
    }
+
+   /* Derive a runtime kernel virtual allocation ceiling from detected RAM.
+    * This avoids hardcoding a fixed top while still constraining the bump
+    * allocator to a realistic window above HAL_ARCH_BASE. */
+   uint32_t total_phys = PMM_TotalMemory();
+   if (total_phys > 0)
+   {
+      uint64_t dyn_limit = (uint64_t)HAL_ARCH_BASE + (uint64_t)total_phys;
+      if (dyn_limit > 0xFFFFFFFFULL)
+      {
+         dyn_limit = 0xFFFFFFFFULL;
+      }
+      if ((uint32_t)dyn_limit > HAL_ARCH_BASE)
+      {
+         kernel_vaddr_limit = (uint32_t)dyn_limit;
+      }
+   }
+
    logfmt(LOG_INFO, "[MEM] initialized with kernel page dir at 0x%08x\n",
           (uint32_t)kernel_page_dir);
 }
@@ -39,6 +58,8 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
 
    // Choose bump pointer: per-dir state or kernel default
    uint32_t *bump = next_vaddr_state ? next_vaddr_state : &kernel_next_vaddr;
+   uint32_t limit = (bump == &kernel_next_vaddr) ? kernel_vaddr_limit
+                                                 : HAL_ARCH_BASE;
 
    // Kernel allocator must never start below kernel virtual base.
    if (bump == &kernel_next_vaddr && *bump < HAL_ARCH_BASE)
@@ -46,8 +67,10 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
       *bump = HAL_ARCH_BASE;
    }
 
-   // Detect 32-bit wraparound in the bump allocator.
-   if (*bump + aligned_size < *bump)
+   uint32_t next = *bump + aligned_size;
+
+   // Detect 32-bit wraparound and enforce virtual window limit.
+   if (next < *bump || next > limit)
    {
       logfmt(LOG_ERROR,
              "[MEM] VMM_Allocate: virtual address space exhausted\n");
@@ -55,7 +78,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
    }
 
    uint32_t vaddr = *bump;
-   *bump += aligned_size;
+   *bump = next;
 
    // Allocate and map physical pages
    uint32_t mapped_pages = 0;
