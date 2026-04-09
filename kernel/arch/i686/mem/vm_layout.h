@@ -8,6 +8,9 @@
 
 extern uint8_t __end;
 
+/** Kernel base address - identity mapped at 3GB (0xC0000000) */
+#define KERNEL_BASE 0xC0000000UL
+
 /* ========== USER SPACE (Low addresses, 0 - 3GB) ========== */
 
 /** User space end (before kernel space) */
