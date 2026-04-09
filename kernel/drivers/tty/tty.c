@@ -3,6 +3,7 @@
 #include "tty.h"
 #include <cpu/process.h>
 #include <fs/devfs/devfs.h>
+#include <hal/io.h>
 #include <hal/scheduler.h>
 #include <hal/video.h>
 #include <mem/mm_kernel.h>
@@ -367,33 +368,21 @@ int TTY_Read(TTY_Device *tty, char *buf, size_t count)
 {
    if (!tty || !buf || count == 0) return 0;
 
-   Process *current = Process_GetCurrent();
    while (tty_has_pending_read(tty) < 0)
    {
-      if (!current) return 0;
-
-      Process_BlockOn(current, tty);
-
-      /* Avoid a lost wakeup by checking availability after blocking state is
-       * visible to input IRQ handlers. */
-      if (tty_has_pending_read(tty) == 0)
+      if (!g_HalIoOperations || !g_HalIoOperations->EnableInterrupts ||
+          !g_HalIoOperations->DisableInterrupts || !g_HalIoOperations->iowait)
       {
-         Process_Unblock(current);
-         break;
-      }
-
-      if (!g_HalSchedulerOperations || !g_HalSchedulerOperations->ContextSwitch)
-      {
-         Process_Unblock(current);
          return 0;
       }
 
-      g_HalSchedulerOperations->ContextSwitch();
-      current = Process_GetCurrent();
-      if (!current) return 0;
+      uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
+      g_HalIoOperations->iowait();
+      if (!interrupts_were_enabled)
+      {
+         g_HalIoOperations->DisableInterrupts();
+      }
    }
-
-   if (current) Process_Unblock(current);
 
    if (tty->eof_pending && tty->input.count == 0)
    {
