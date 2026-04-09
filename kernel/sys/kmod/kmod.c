@@ -356,9 +356,9 @@ int KMOD_ApplyKernelRelocations(void)
    extern char _kernel_rel_plt_end[];
    extern char _kernel_dynsym_start[];
    extern char _kernel_dynstr_start[];
-   extern char __kernel_image_start[];
+   extern uint8_t __kernel_image_start;
 
-   uint32_t kernel_base = (uint32_t)(uintptr_t)__kernel_image_start;
+   uint32_t kernel_base = (uint32_t)(uintptr_t)&__kernel_image_start;
 
    // Apply .rel.dyn relocations
    {
@@ -976,7 +976,18 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       }
       else
       {
-            original_base = USER_CODE_START;  /* Fallback to user program base */
+         original_base = USER_CODE_START;  /* Fallback to user program base */
+      }
+   }
+
+   // Declare symbol table variables
+   uint32_t symtab_addr = 0;
+   uint32_t symtab_size = 0;
+   uint32_t symtab_entsize = 0;
+   uint32_t strtab_addr = 0;
+   uint32_t strtab_size = 0;
+   int strtab_link = -1;
+
    for (int i = 0; i < e_shnum; i++)
    {
       Elf32_Shdr *sh = (Elf32_Shdr *)(elf_data + e_shoff + (i * e_shentsize));
