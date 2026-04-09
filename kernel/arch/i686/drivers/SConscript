@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File
+Import('sources')
+
+sources += [
+    File('ps2.c'),
+    File('serial.c'),
+]

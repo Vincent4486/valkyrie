@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import SConscript
+Import('TARGET_ENVIRONMENT')
+Import('sources')
+
+arch = TARGET_ENVIRONMENT['arch']
+SConscript(f'{arch}/SConscript', exports='sources')

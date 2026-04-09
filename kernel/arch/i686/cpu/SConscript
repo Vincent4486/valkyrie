@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File
+Import('sources')
+
+sources += [
+    File('gdt.c'),
+    File('gdt_asm.S'),
+    File('i8253.c'),
+    File('i8259.c'),
+    File('idt.c'),
+    File('idt_asm.S'),
+    File('irq.c'),
+    File('isr.c'),
+    File('isr_asm.S'),
+    File('isrs_gen.c'),
+    File('scheduler.c'),
+    File('scheduler_asm.S'),
+    File('tss.c'),
+    File('usrmode.c'),
+]

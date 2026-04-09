@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File
+Import('sources')
+
+sources += [
+    File('heap.c'),
+    File('memory.c'),
+    File('pmm.c'),
+    File('protect.c'),
+    File('stack.c'),
+    File('vmm.c'),
+]

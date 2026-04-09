@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import SConscript
+Import('sources')
+
+SConscript('ata/SConscript', exports='sources')
+SConscript('fdc/SConscript', exports='sources')
+SConscript('keyboard/SConscript', exports='sources')
+SConscript('tty/SConscript', exports='sources')

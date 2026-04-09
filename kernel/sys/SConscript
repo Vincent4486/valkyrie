@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File, SConscript
+Import('sources')
+
+sources += [
+    File('cmdline.c'),
+    File('elf.c'),
+    File('sys.c'),
+]
+
+SConscript('kmod/SConscript', exports='sources')

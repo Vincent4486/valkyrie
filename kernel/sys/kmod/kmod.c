@@ -76,9 +76,9 @@ typedef struct
 // Extended library data (kept separately from the base LibRecord registry)
 typedef struct
 {
-   DependencyRecord deps[DYLIB_MAX_DEPS];
+   DependencyRecord deps[KMOD_MAX_DEPS];
    int dep_count;
-   SymbolRecord symbols[DYLIB_MAX_SYMBOLS];
+   SymbolRecord symbols[KMOD_MAX_SYMBOLS];
    int symbol_count;
 
    // ELF dynamic section metadata (parsed from .dynamic at load time)
@@ -96,12 +96,12 @@ typedef struct
 } ExtendedLibData;
 
 // Memory allocator state
-static int dylib_mem_initialized = 0;
-static uint32_t dylib_mem_next_free = K_MEM_DYLIB_START;
+static int kmod_mem_initialized = 0;
+static uint32_t kmod_mem_next_free = K_MEM_DYLIB_START;
 static ExtendedLibData extended_data[LIB_REGISTRY_MAX];
 
 // Global symbol table - shared across all loaded libraries and kernel
-static GlobalSymbolEntry global_symtab[DYLIB_MAX_GLOBAL_SYMBOLS];
+static GlobalSymbolEntry global_symtab[KMOD_MAX_GLOBAL_SYMBOLS];
 static int global_symtab_count = 0;
 
 // Forward declarations
@@ -112,9 +112,9 @@ static kmod_register_symbols_t symbol_callback = NULL;
 
 int KMOD_MemoryInitialize(void)
 {
-   if (dylib_mem_initialized) return 0;
+   if (kmod_mem_initialized) return 0;
 
-   // Don't memset the entire DYLIB region - it's not mapped yet
+   // Don't memset the entire module region - it's not mapped yet
    // Libraries will be loaded into this space as needed
 
    // Clear extended data
@@ -129,11 +129,11 @@ int KMOD_MemoryInitialize(void)
       extended_data[i].loaded = 0;
    }
 
-   dylib_mem_next_free = K_MEM_DYLIB_START;
-   dylib_mem_initialized = 1;
+   kmod_mem_next_free = K_MEM_DYLIB_START;
+   kmod_mem_initialized = 1;
 
    logfmt(LOG_INFO,
-          "[DYLIB] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
+          "[KMOD] Memory allocator initialized: 0x%x - 0x%x (%d MiB)\n",
           K_MEM_DYLIB_START, K_MEM_DYLIB_END,
           (K_MEM_DYLIB_END - K_MEM_DYLIB_START) / 0x100000);
 
@@ -147,10 +147,10 @@ int KMOD_MemoryInitialize(void)
 int KMOD_AddGlobalSymbol(const char *name, uint32_t address,
                           const char *lib_name, int is_kernel)
 {
-   if (global_symtab_count >= DYLIB_MAX_GLOBAL_SYMBOLS)
+   if (global_symtab_count >= KMOD_MAX_GLOBAL_SYMBOLS)
    {
       logfmt(LOG_ERROR, "[ERROR] Global symbol table full (%d entries)\n",
-             DYLIB_MAX_GLOBAL_SYMBOLS);
+             KMOD_MAX_GLOBAL_SYMBOLS);
       return -1;
    }
 
@@ -178,25 +178,25 @@ uint32_t KMOD_LookupGlobalSymbol(const char *name)
 
 void KMOD_PrintGlobalSymtab(void)
 {
-   logfmt(LOG_INFO, "\n[DYLIB] ========== Global Symbol Table ==========");
-   logfmt(LOG_INFO, "[DYLIB] %-40s 0x%-8x %s", "Symbol", "Address", "Source");
-   logfmt(LOG_INFO, "[DYLIB] ==========================================\n");
+   logfmt(LOG_INFO, "\n[KMOD] ========== Global Symbol Table ==========");
+   logfmt(LOG_INFO, "[KMOD] %-40s 0x%-8x %s", "Symbol", "Address", "Source");
+   logfmt(LOG_INFO, "[KMOD] ==========================================\n");
 
    for (int i = 0; i < global_symtab_count; i++)
    {
       GlobalSymbolEntry *e = &global_symtab[i];
       const char *source = e->is_kernel ? "[KERNEL]" : e->lib_name;
-      logfmt(LOG_INFO, "[DYLIB] %-40s 0x%08x %s\n", e->name, e->address,
+      logfmt(LOG_INFO, "[KMOD] %-40s 0x%08x %s\n", e->name, e->address,
              source);
    }
-   logfmt(LOG_INFO, "[DYLIB] ==========================================\n");
-   logfmt(LOG_INFO, "[DYLIB] Total: %d symbols\n", global_symtab_count);
+   logfmt(LOG_INFO, "[KMOD] ==========================================\n");
+   logfmt(LOG_INFO, "[KMOD] Total: %d symbols\n", global_symtab_count);
 }
 
 void KMOD_ClearGlobalSymtab(void)
 {
    global_symtab_count = 0;
-   logfmt(LOG_INFO, "[DYLIB] Global symbol table cleared\n");
+   logfmt(LOG_INFO, "[KMOD] Global symbol table cleared\n");
 }
 
 // ============================================================================
@@ -236,7 +236,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
       if (r_offset < allowed_low || r_offset > allowed_high)
       {
          logfmt(LOG_ERROR,
-                "[DYLIB] Relocation[%d] target 0x%08x outside allowed range "
+                "[KMOD] Relocation[%d] target 0x%08x outside allowed range "
                 "0x%08x-0x%08x\n",
                 i, r_offset, allowed_low, allowed_high);
          return -1;
@@ -272,7 +272,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
          else
          {
             logfmt(LOG_WARNING,
-                   "[DYLIB] R_386_RELATIVE at 0x%08x has unexpected value "
+                   "[KMOD] R_386_RELATIVE at 0x%08x has unexpected value "
                    "0x%08x (skipping)\n",
                    r_offset, addend);
             continue;
@@ -296,7 +296,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
                if (sym_addr == 0)
                {
                   logfmt(LOG_WARNING,
-                         "[DYLIB] Unresolved symbol in %s: %s (skipping "
+                         "[KMOD] Unresolved symbol in %s: %s (skipping "
                          "relocation)\n",
                          context, sym_name);
                   /* Don't abort the whole relocation pass for an unresolved
@@ -415,22 +415,22 @@ uint32_t KMOD_MemoryAllocate(const char *lib_name, uint32_t size)
 {
    (void)lib_name;
 
-   if (!dylib_mem_initialized)
+   if (!kmod_mem_initialized)
    {
-      logfmt(LOG_INFO, "[DYLIB] Initializing memory allocator...\n");
+      logfmt(LOG_INFO, "[KMOD] Initializing memory allocator...\n");
       if (KMOD_MemoryInitialize() != 0)
       {
-         logfmt(LOG_ERROR, "[DYLIB] Failed to initialize dylib memory\n");
+         logfmt(LOG_ERROR, "[KMOD] Failed to initialize kmod memory\n");
          return 0;
       }
    }
 
    // Validate allocator state
-   if (dylib_mem_next_free < K_MEM_DYLIB_START ||
-       dylib_mem_next_free > K_MEM_DYLIB_END)
+   if (kmod_mem_next_free < K_MEM_DYLIB_START ||
+       kmod_mem_next_free > K_MEM_DYLIB_END)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Memory allocator corrupted: next_free=0x%x\n",
-             dylib_mem_next_free);
+      logfmt(LOG_ERROR, "[KMOD] Memory allocator corrupted: next_free=0x%x\n",
+             kmod_mem_next_free);
       return 0;
    }
 
@@ -438,16 +438,16 @@ uint32_t KMOD_MemoryAllocate(const char *lib_name, uint32_t size)
    uint32_t aligned_size = (size + 15) & ~15;
 
    // Check if we have enough space
-   if (dylib_mem_next_free + aligned_size > K_MEM_DYLIB_END)
+   if (kmod_mem_next_free + aligned_size > K_MEM_DYLIB_END)
    {
       logfmt(LOG_ERROR,
-             "[DYLIB] Out of dylib memory! Need %d bytes, only %d available\n",
-             aligned_size, K_MEM_DYLIB_END - dylib_mem_next_free);
+             "[KMOD] Out of kmod memory! Need %d bytes, only %d available\n",
+             aligned_size, K_MEM_DYLIB_END - kmod_mem_next_free);
       return 0;
    }
 
-   uint32_t alloc_addr = dylib_mem_next_free;
-   dylib_mem_next_free += aligned_size;
+   uint32_t alloc_addr = kmod_mem_next_free;
+   kmod_mem_next_free += aligned_size;
 
    return alloc_addr;
 }
@@ -498,7 +498,7 @@ LibRecord *KMOD_Find(const char *name)
 {
    if (!name || !LIB_REGISTRY_ADDR)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to KMOD_Find\n");
+      logfmt(LOG_ERROR, "[KMOD] Invalid parameters to KMOD_Find\n");
       return NULL;
    }
 
@@ -525,7 +525,7 @@ int KMOD_CheckDependencies(const char *name)
    {
       if (!ext->deps[i].resolved)
       {
-         logfmt(LOG_WARNING, "[DYLIB] [UNRESOLVED] %s requires %s\n", name,
+         logfmt(LOG_WARNING, "[KMOD] [UNRESOLVED] %s requires %s\n", name,
                 ext->deps[i].name);
          return 0;
       }
@@ -547,13 +547,13 @@ int KMOD_ResolveDependencies(const char *name)
       if (dep)
       {
          ext->deps[i].resolved = 1;
-         logfmt(LOG_INFO, "[DYLIB] [OK] Found dependency: %s\n",
+         logfmt(LOG_INFO, "[KMOD] [OK] Found dependency: %s\n",
                 ext->deps[i].name);
       }
       else
       {
          ext->deps[i].resolved = 0;
-         logfmt(LOG_ERROR, "[DYLIB] [ERROR] Missing dependency: %s\n",
+         logfmt(LOG_ERROR, "[KMOD] [ERROR] Missing dependency: %s\n",
                 ext->deps[i].name);
          return -1;
       }
@@ -569,7 +569,7 @@ int KMOD_CallIfExists(const char *name)
    // Check dependencies before calling
    if (!KMOD_CheckDependencies(name))
    {
-      logfmt(LOG_ERROR, "[DYLIB] %s has unresolved dependencies\n", name);
+      logfmt(LOG_ERROR, "[KMOD] %s has unresolved dependencies\n", name);
       return -1;
    }
 
@@ -582,28 +582,28 @@ void KMOD_List(void)
 {
    LibRecord *reg = LIB_REGISTRY_ADDR;
 
-   logfmt(LOG_INFO, "\n[DYLIB] === Loaded Libraries ===\n");
+   logfmt(LOG_INFO, "\n[KMOD] === Loaded Libraries ===\n");
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
       if (reg[i].name[0] == '\0') break;
 
       ExtendedLibData *ext = &extended_data[i];
 
-      logfmt(LOG_INFO, "[DYLIB] [%d] %s @ 0x%x\n", i, reg[i].name,
+      logfmt(LOG_INFO, "[KMOD] [%d] %s @ 0x%x\n", i, reg[i].name,
              (unsigned int)reg[i].entry);
 
       if (ext->dep_count > 0)
       {
-         logfmt(LOG_INFO, "[DYLIB]     Dependencies (%d):\n", ext->dep_count);
+         logfmt(LOG_INFO, "[KMOD]     Dependencies (%d):\n", ext->dep_count);
          for (int j = 0; j < ext->dep_count; j++)
          {
             char status = ext->deps[j].resolved ? '+' : '-';
-            logfmt(LOG_INFO, "[DYLIB]       [%c] %s\n", status,
+            logfmt(LOG_INFO, "[KMOD]       [%c] %s\n", status,
                    ext->deps[j].name);
          }
       }
    }
-   logfmt(LOG_INFO, "[DYLIB]\n");
+   logfmt(LOG_INFO, "[KMOD]\n");
 }
 
 void KMOD_ListDependencies(const char *name)
@@ -611,25 +611,25 @@ void KMOD_ListDependencies(const char *name)
    int idx = find_index(name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", name);
       return;
    }
 
    ExtendedLibData *ext = &extended_data[idx];
 
-   logfmt(LOG_INFO, "[DYLIB] Dependencies for %s:\n", name);
+   logfmt(LOG_INFO, "[KMOD] Dependencies for %s:\n", name);
    if (ext->dep_count == 0)
    {
-      logfmt(LOG_INFO, "[DYLIB]   (none)\n");
+      logfmt(LOG_INFO, "[KMOD]   (none)\n");
       return;
    }
 
    for (int i = 0; i < ext->dep_count; i++)
    {
       const char *status = ext->deps[i].resolved ? "RESOLVED" : "UNRESOLVED";
-      logfmt(LOG_INFO, "[DYLIB]   %s: %s\n", ext->deps[i].name, status);
+      logfmt(LOG_INFO, "[KMOD]   %s: %s\n", ext->deps[i].name, status);
    }
-   logfmt(LOG_INFO, "[DYLIB]\n");
+   logfmt(LOG_INFO, "[KMOD]\n");
 }
 
 uint32_t KMOD_FindSymbol(const char *libname, const char *symname)
@@ -637,7 +637,7 @@ uint32_t KMOD_FindSymbol(const char *libname, const char *symname)
    int idx = find_index(libname);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", libname);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", libname);
       return 0;
    }
 
@@ -652,7 +652,7 @@ uint32_t KMOD_FindSymbol(const char *libname, const char *symname)
       }
    }
 
-   logfmt(LOG_ERROR, "[DYLIB] Symbol not found: %s::%s\n", libname, symname);
+   logfmt(LOG_ERROR, "[KMOD] Symbol not found: %s::%s\n", libname, symname);
    return 0;
 }
 
@@ -661,14 +661,14 @@ int KMOD_CallSymbol(const char *libname, const char *symname)
    LibRecord *lib = KMOD_Find(libname);
    if (!lib)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", libname);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", libname);
       return -1;
    }
 
    // Check dependencies before calling
    if (!KMOD_CheckDependencies(libname))
    {
-      logfmt(LOG_ERROR, "[DYLIB] %s has unresolved dependencies\n", libname);
+      logfmt(LOG_ERROR, "[KMOD] %s has unresolved dependencies\n", libname);
       return -1;
    }
 
@@ -689,39 +689,39 @@ void KMOD_ListSymbols(const char *name)
    int idx = find_index(name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", name);
       return;
    }
 
    ExtendedLibData *ext = &extended_data[idx];
 
-   logfmt(LOG_INFO, "[DYLIB] Exported symbols from %s:\n", name);
+   logfmt(LOG_INFO, "[KMOD] Exported symbols from %s:\n", name);
    if (ext->symbol_count == 0)
    {
-      logfmt(LOG_INFO, "[DYLIB]   (none)\n");
+      logfmt(LOG_INFO, "[KMOD]   (none)\n");
       return;
    }
 
    for (int i = 0; i < ext->symbol_count; i++)
    {
-      logfmt(LOG_INFO, "[DYLIB]   [%d] %s @ 0x%x\n", i, ext->symbols[i].name,
+      logfmt(LOG_INFO, "[KMOD]   [%d] %s @ 0x%x\n", i, ext->symbols[i].name,
              ext->symbols[i].address);
    }
-   logfmt(LOG_INFO, "[DYLIB]\n");
+   logfmt(LOG_INFO, "[KMOD]\n");
 }
 
 int KMOD_ParseSymbols(LibRecord *lib)
 {
    if (!lib || !lib->base)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid library record\n");
+      logfmt(LOG_ERROR, "[KMOD] Invalid library record\n");
       return -1;
    }
 
    int idx = find_index(lib->name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found in registry: %s\n",
+      logfmt(LOG_ERROR, "[KMOD] Library not found in registry: %s\n",
              lib->name);
       return -1;
    }
@@ -730,7 +730,7 @@ int KMOD_ParseSymbols(LibRecord *lib)
 
    // Parse ELF symbols from the pre-loaded library at its base address
    logfmt(LOG_INFO,
-          "[DYLIB] Parsing symbols for pre-loaded library: %s at 0x%x\n",
+          "[KMOD] Parsing symbols for pre-loaded library: %s at 0x%x\n",
           lib->name, (unsigned int)lib->base);
 
    parse_elf_symbols(ext, (uint32_t)lib->base, lib->size);
@@ -745,7 +745,7 @@ int KMOD_MemoryFree(const char *lib_name)
    int idx = find_index(lib_name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", lib_name);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", lib_name);
       return -1;
    }
 
@@ -754,25 +754,25 @@ int KMOD_MemoryFree(const char *lib_name)
 
    if (!ext->loaded)
    {
-      logfmt(LOG_WARNING, "[DYLIB] Library %s is not loaded\n", lib_name);
+      logfmt(LOG_WARNING, "[KMOD] Library %s is not loaded\n", lib_name);
       return -1;
    }
 
    // Note: We don't actually free the memory in the pool since it's a linear
    // allocator Just mark as unloaded
-   logfmt(LOG_INFO, "[DYLIB] Freed 0x%x bytes for %s\n", lib->size, lib_name);
+   logfmt(LOG_INFO, "[KMOD] Freed 0x%x bytes for %s\n", lib->size, lib_name);
 
    return 0;
 }
 
 int KMOD_Load(const char *name, const void *image, uint32_t size)
 {
-   if (!dylib_mem_initialized) KMOD_MemoryInitialize();
+   if (!kmod_mem_initialized) KMOD_MemoryInitialize();
 
    int idx = ensure_record(name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] failed to register module: %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] failed to register module: %s\n", name);
       return -1;
    }
 
@@ -781,7 +781,7 @@ int KMOD_Load(const char *name, const void *image, uint32_t size)
 
    if (ext->loaded)
    {
-      logfmt(LOG_WARNING, "[DYLIB] Library %s is already loaded\n", name);
+      logfmt(LOG_WARNING, "[KMOD] Library %s is already loaded\n", name);
       return -1;
    }
 
@@ -789,7 +789,7 @@ int KMOD_Load(const char *name, const void *image, uint32_t size)
    uint32_t load_addr = KMOD_MemoryAllocate(name, size);
    if (!load_addr)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to allocate memory for %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] Failed to allocate memory for %s\n", name);
       return -1;
    }
 
@@ -803,7 +803,7 @@ int KMOD_Load(const char *name, const void *image, uint32_t size)
    lib->size = size;
    ext->loaded = 1;
 
-   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) at 0x%x\n", name, size,
+   logfmt(LOG_INFO, "[KMOD] Loaded %s (%d bytes) at 0x%x\n", name, size,
           load_addr);
 
    // Parse ELF symbols from the loaded library
@@ -819,7 +819,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    // Validate input parameters
    if (!ext || base_addr == 0 || size == 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to KMOD_ParseELFSymbols\n");
+      logfmt(LOG_ERROR, "[KMOD] Invalid parameters to KMOD_ParseELFSymbols\n");
       return -1;
    }
 
@@ -834,7 +834,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    if (size < 52 || elf_data == NULL)
    {
       logfmt(LOG_ERROR,
-             "[DYLIB] ELF image too small or invalid (size=%d, data=%p)\n",
+             "[KMOD] ELF image too small or invalid (size=%d, data=%p)\n",
              size, elf_data);
       return -1;
    }
@@ -843,7 +843,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    if (elf_data[0] != 0x7f || elf_data[1] != 'E' || elf_data[2] != 'L' ||
        elf_data[3] != 'F')
    {
-      logfmt(LOG_ERROR, "[DYLIB] Not a valid ELF file\n");
+      logfmt(LOG_ERROR, "[KMOD] Not a valid ELF file\n");
       return -1;
    }
 
@@ -859,7 +859,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
     * section table fits inside the provided image. */
    if (e_shoff == 0 || e_shnum == 0 || e_shentsize == 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid section headers\n");
+      logfmt(LOG_ERROR, "[KMOD] Invalid section headers\n");
       return 0;
    }
 
@@ -867,7 +867,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    uint64_t sh_table_size = (uint64_t)e_shnum * (uint64_t)e_shentsize;
    if (e_shoff + sh_table_size > size)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Section header table out of bounds\n");
+      logfmt(LOG_ERROR, "[KMOD] Section header table out of bounds\n");
       return -1;
    }
 
@@ -884,7 +884,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       /* Ensure the section header itself fits inside the image */
       if (sh_off + sizeof(Elf32_Shdr) > size)
       {
-         logfmt(LOG_ERROR, "[DYLIB] Section header %d out of bounds\n", i);
+         logfmt(LOG_ERROR, "[KMOD] Section header %d out of bounds\n", i);
          return -1;
       }
 
@@ -893,7 +893,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
          /* Validate the referenced file offset is within the loaded image */
          if ((uint64_t)sh->sh_offset + sh->sh_size > size)
          {
-            logfmt(LOG_ERROR, "[DYLIB] .text section out of bounds\n");
+            logfmt(LOG_ERROR, "[KMOD] .text section out of bounds\n");
             return -1;
          }
          text_section_file_offset = sh->sh_offset;
@@ -994,7 +994,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    {
       logfmt(
           LOG_ERROR,
-          "[DYLIB] Symbol table, string table, or entsize not found/invalid\n");
+          "[KMOD] Symbol table, string table, or entsize not found/invalid\n");
       return 0;
    }
 
@@ -1003,7 +1003,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    ext->symbol_count = 0;
 
    for (uint32_t i = 0;
-        i < num_symbols && ext->symbol_count < DYLIB_MAX_SYMBOLS; i++)
+        i < num_symbols && ext->symbol_count < KMOD_MAX_SYMBOLS; i++)
    {
       Elf32_Sym *sym = (Elf32_Sym *)(symtab_addr + (i * symtab_entsize));
 
@@ -1041,7 +1041,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       }
    }
 
-   logfmt(LOG_INFO, "[DYLIB] Extracted %d symbols\n", ext->symbol_count);
+   logfmt(LOG_INFO, "[KMOD] Extracted %d symbols\n", ext->symbol_count);
 
    // NOTE: We previously had heuristic scanning that looked for embedded
    // addresses matching original_base and patched them. However, this caused
@@ -1102,12 +1102,12 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
 
 int KMOD_LoadFromDisk(const char *name, const char *filepath)
 {
-   if (!dylib_mem_initialized) KMOD_MemoryInitialize();
+   if (!kmod_mem_initialized) KMOD_MemoryInitialize();
 
    int idx = ensure_record(name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] failed to register module: %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] failed to register module: %s\n", name);
       return -1;
    }
 
@@ -1116,7 +1116,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
 
    if (ext->loaded)
    {
-      logfmt(LOG_WARNING, "[DYLIB] Library %s is already loaded\n", name);
+      logfmt(LOG_WARNING, "[KMOD] Library %s is already loaded\n", name);
       return -1;
    }
 
@@ -1124,7 +1124,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
    VFS_File *file = VFS_Open(filepath);
    if (!file)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Failed to open file: %s\n", filepath);
+      logfmt(LOG_ERROR, "[KMOD] Failed to open file: %s\n", filepath);
       return -1;
    }
 
@@ -1132,7 +1132,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
    uint32_t file_size = VFS_GetSize(file);
    if (file_size == 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library file is empty: %s\n", filepath);
+      logfmt(LOG_ERROR, "[KMOD] Library file is empty: %s\n", filepath);
       VFS_Close(file);
       return -1;
    }
@@ -1142,7 +1142,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
    if (!load_addr)
    {
       logfmt(LOG_ERROR,
-             "[DYLIB] Failed to allocate memory for %s (need %d bytes)\n", name,
+             "[KMOD] Failed to allocate memory for %s (need %d bytes)\n", name,
              file_size);
       VFS_Close(file);
       return -1;
@@ -1154,7 +1154,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
    if (bytes_read != file_size)
    {
       logfmt(LOG_ERROR,
-             "[DYLIB] Failed to read library: expected %d bytes, got %d\n",
+             "[KMOD] Failed to read library: expected %d bytes, got %d\n",
              file_size, bytes_read);
       VFS_Close(file);
       KMOD_MemoryFree(name);
@@ -1169,7 +1169,7 @@ int KMOD_LoadFromDisk(const char *name, const char *filepath)
    lib->size = file_size;
    ext->loaded = 1;
 
-   logfmt(LOG_INFO, "[DYLIB] Loaded %s (%d bytes) from disk at 0x%x\n", name,
+   logfmt(LOG_INFO, "[KMOD] Loaded %s (%d bytes) from disk at 0x%x\n", name,
           file_size, load_addr);
 
    // Parse ELF symbols from the loaded library
@@ -1188,7 +1188,7 @@ int KMOD_Remove(const char *name)
    int idx = find_index(name);
    if (idx < 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
+      logfmt(LOG_ERROR, "[KMOD] Library not found: %s\n", name);
       return -1;
    }
 
@@ -1197,7 +1197,7 @@ int KMOD_Remove(const char *name)
 
    if (!ext->loaded)
    {
-      logfmt(LOG_WARNING, "[DYLIB] Library %s is not loaded\n", name);
+      logfmt(LOG_WARNING, "[KMOD] Library %s is not loaded\n", name);
       return -1;
    }
 
@@ -1215,33 +1215,33 @@ int KMOD_Remove(const char *name)
       ext->deps[i].resolved = 0;
    }
 
-   logfmt(LOG_INFO, "[DYLIB] Removed %s from memory\n", name);
+   logfmt(LOG_INFO, "[KMOD] Removed %s from memory\n", name);
 
    return 0;
 }
 
 void KMOD_MemoryStatus(void)
 {
-   if (!dylib_mem_initialized)
+   if (!kmod_mem_initialized)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Memory allocator not initialized\n");
+      logfmt(LOG_ERROR, "[KMOD] Memory allocator not initialized\n");
       return;
    }
 
-   uint32_t total_allocated = dylib_mem_next_free - K_MEM_DYLIB_START;
+   uint32_t total_allocated = kmod_mem_next_free - K_MEM_DYLIB_START;
    uint32_t total_available = K_MEM_DYLIB_END - K_MEM_DYLIB_START;
    uint32_t remaining = total_available - total_allocated;
    int percent_used = (total_allocated * 100) / total_available;
 
-   logfmt(LOG_INFO, "[DYLIB] === Dylib Memory Statistics ===");
-   logfmt(LOG_INFO, "[DYLIB] Total Memory:     %d MiB (0x%x - 0x%x)\n",
+   logfmt(LOG_INFO, "[KMOD] === KMOD Memory Statistics ===");
+   logfmt(LOG_INFO, "[KMOD] Total Memory:     %d MiB (0x%x - 0x%x)\n",
           total_available / 0x100000, K_MEM_DYLIB_START, K_MEM_DYLIB_END);
-   logfmt(LOG_INFO, "[DYLIB] Allocated:        %d KiB (%d%%)\n",
+   logfmt(LOG_INFO, "[KMOD] Allocated:        %d KiB (%d%%)\n",
           total_allocated / 1024, percent_used);
-   logfmt(LOG_INFO, "[DYLIB] Available:        %d KiB\n", remaining / 1024);
+   logfmt(LOG_INFO, "[KMOD] Available:        %d KiB\n", remaining / 1024);
 
    // List loaded libraries
-   logfmt(LOG_INFO, "[DYLIB] Loaded Libraries:\n");
+   logfmt(LOG_INFO, "[KMOD] Loaded Libraries:\n");
    LibRecord *reg = (LibRecord *)LIB_REGISTRY_ADDR;
    for (int i = 0; i < LIB_REGISTRY_MAX; i++)
    {
@@ -1250,11 +1250,11 @@ void KMOD_MemoryStatus(void)
       ExtendedLibData *ext = &extended_data[i];
       if (ext->loaded)
       {
-         logfmt(LOG_INFO, "[DYLIB]   %s: 0x%x bytes at 0x%x\n", reg[i].name,
+         logfmt(LOG_INFO, "[KMOD]   %s: 0x%x bytes at 0x%x\n", reg[i].name,
                 reg[i].size, (uint32_t)reg[i].base);
       }
    }
-   logfmt(LOG_INFO, "[DYLIB]\n");
+   logfmt(LOG_INFO, "[KMOD]\n");
 }
 
 void KMOD_RegisterCallback(kmod_register_symbols_t callback)

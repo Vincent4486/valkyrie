@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File
+Import('sources')
+
+sources += [
+    File('core.c'),
+    File('cpu.c'),
+    File('exec.c'),
+    File('fork.c'),
+    File('kernel.c'),
+    File('scheduler.c'),
+    File('user.c'),
+]

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: BSD-3-Clause
+from SCons.Script import File
+Import('sources')
+
+sources += [
+    File('kill.c'),
+    File('sigaction.c'),
+    File('signal.c'),
+    File('sigprocmask.c'),
+]

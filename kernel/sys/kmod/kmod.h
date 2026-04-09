@@ -10,13 +10,13 @@
 #include <valecium/fs.h>
 
 // Maximum dependencies per library
-#define DYLIB_MAX_DEPS 16
+#define KMOD_MAX_DEPS 16
 
 // Maximum symbols per library
-#define DYLIB_MAX_SYMBOLS 256
+#define KMOD_MAX_SYMBOLS 256
 
 // Maximum global symbols across all loaded libraries and kernel
-#define DYLIB_MAX_GLOBAL_SYMBOLS 1024
+#define KMOD_MAX_GLOBAL_SYMBOLS 1024
 
 // Symbol record - exported function from a library
 typedef struct
@@ -109,7 +109,7 @@ int KMOD_ApplyKernelRelocations(void);
 
 // Memory management functions
 
-// Initialize the dylib memory allocator
+// Initialize the kmod memory allocator
 int KMOD_MemoryInitialize(void);
 
 // Allocate memory for a library. Returns allocated address or 0 on failure.
@@ -153,20 +153,20 @@ void KMOD_Lsmod(void);
 
 // ============================================================================
 // Helper macro for loading function symbols from a library
-// Usage: DYLIB_LOAD_SYMBOL(libname, funcname, functype);
+// Usage: KMOD_LOAD_SYMBOL(libname, funcname, functype);
 //
 // Example:
 //   typedef int (*mod_op_t)(int, int);
-//   DYLIB_LOAD_SYMBOL("mymodule", compute, mod_op_t);
+//   KMOD_LOAD_SYMBOL("mymodule", compute, mod_op_t);
 //   result = compute(9, 9);
 // ============================================================================
 
-#define DYLIB_LOAD_SYMBOL(libname, funcname, functype)                         \
+#define KMOD_LOAD_SYMBOL(libname, funcname, functype)                         \
    functype funcname = (functype)KMOD_FindSymbol(libname, #funcname);         \
    if (!funcname)                                                              \
    {                                                                           \
       logfmt(LOG_ERROR,                                                        \
-             "[DYLIB] Failed to resolve: " #libname "::" #funcname "\n");      \
+             "[KMOD] Failed to resolve: " #libname "::" #funcname "\n");      \
       goto end;                                                                \
    }
 

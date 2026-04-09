@@ -6,10 +6,9 @@ Kernel build configuration.
 import os
 
 from SCons.Environment import Environment
-from SCons.Script import Dir, Export
+from SCons.Script import Dir, Export, SConscript
 
 from scripts.scons.arch import get_arch_config
-from scripts.scons.utility import GlobSources
 
 
 Import('TARGET_ENVIRONMENT')
@@ -75,7 +74,7 @@ if os.path.exists(mkisrs_path):
     isrs_gen_c = os.path.join(arch_dir, 'cpu', 'isrs_gen.c')
     isrs_gen_inc = os.path.join(arch_dir, 'cpu', 'isrs_gen.inc')
     
-    # Run mkisrs.sh to generate the ISRs before GlobSources if they don't exist
+    # Run mkisrs.sh before recursive source collection so generated files exist.
     if not os.path.exists(isrs_gen_c) or not os.path.exists(isrs_gen_inc):
         subprocess.run(['bash', mkisrs_path, isrs_gen_c, isrs_gen_inc], check=True)
 
@@ -83,11 +82,22 @@ if os.path.exists(mkisrs_path):
 # Source Files
 # =============================================================================
 
-sources = [
-    src for src in GlobSources(src_dir)
-]
+sources = []
 
-objects = env.Object(GlobSources(src_dir))
+SConscript('arch/SConscript', exports='sources')
+SConscript('cpu/SConscript', exports='sources')
+SConscript('crypto/SConscript', exports='sources')
+SConscript('drivers/SConscript', exports='sources')
+SConscript('fs/SConscript', exports='sources')
+SConscript('hal/SConscript', exports='sources')
+SConscript('init/SConscript', exports='sources')
+SConscript('mem/SConscript', exports='sources')
+SConscript('signal/SConscript', exports='sources')
+SConscript('std/SConscript', exports='sources')
+SConscript('sys/SConscript', exports='sources')
+SConscript('syscall/SConscript', exports='sources')
+
+objects = env.Object(sources)
 
 
 # =============================================================================
