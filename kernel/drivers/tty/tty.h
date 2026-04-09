@@ -145,13 +145,13 @@ void TTY_SetFlags(TTY_Device *tty, uint32_t flags);
 uint32_t TTY_GetFlags(TTY_Device *tty);
 
 /* Mode helpers */
-static inline bool TTY_IsCanonical(TTY_Device *tty)
+static inline int TTY_IsCanonical(TTY_Device *tty)
 {
-   return (tty->flags & TTY_FLAG_ICANON) != 0;
+   return (tty->flags & TTY_FLAG_ICANON) ? 0 : -1;
 }
-static inline bool TTY_IsEcho(TTY_Device *tty)
+static inline int TTY_IsEcho(TTY_Device *tty)
 {
-   return (tty->flags & TTY_FLAG_ECHO) != 0;
+   return (tty->flags & TTY_FLAG_ECHO) ? 0 : -1;
 }
 
 /* Devfs operations */

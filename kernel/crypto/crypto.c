@@ -6,7 +6,7 @@
 
 void Crypto_SelfTest(void)
 {
-   if (MD5_SelfTest())
+   if (MD5_SelfTest() == CRYPTO_OK)
    {
       logfmt(LOG_INFO, "[CRYPTO] MD5 self-test=PASS\n");
    }
@@ -15,7 +15,7 @@ void Crypto_SelfTest(void)
       logfmt(LOG_ERROR, "[CRYPTO] MD5 self-test=FAIL\n");
    }
 
-   if (SHA1_SelfTest())
+   if (SHA1_SelfTest() == CRYPTO_OK)
    {
       logfmt(LOG_INFO, "[CRYPTO] SHA1 self-test=PASS\n");
    }

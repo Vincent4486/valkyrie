@@ -33,6 +33,10 @@ typedef struct Filesystem
    void *private_data;        /* FS-specific instance (e.g., FAT_Instance *) */
 } Filesystem;
 
-bool FS_Initialize();
+#define FS_OK 0
+#define FS_EDEVFS_INIT (-1)
+#define FS_EDISK_INIT (-2)
+
+int FS_Initialize(void);
 
 #endif

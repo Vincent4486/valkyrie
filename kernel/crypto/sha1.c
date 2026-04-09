@@ -176,7 +176,7 @@ void SHA1_ToHex(const uint8_t digest[SHA1_DIGEST_SIZE],
    out_hex[40] = '\0';
 }
 
-bool SHA1_SelfTest(void)
+int SHA1_SelfTest(void)
 {
    static const char *vectors[] = {"", "abc"};
    static const char *expected[] = {
@@ -193,9 +193,9 @@ bool SHA1_SelfTest(void)
       SHA1_ToHex(digest, hex);
       if (strcmp(hex, expected[i]) != 0)
       {
-         return false;
+         return CRYPTO_ESELFTEST;
       }
    }
 
-   return true;
+   return CRYPTO_OK;
 }

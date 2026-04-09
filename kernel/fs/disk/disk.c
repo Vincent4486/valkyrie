@@ -287,9 +287,9 @@ void DISK_LBA2CHS(DISK *disk, uint32_t lba, uint16_t *cylinderOut,
    *headOut = (lba / disk->sectors) % disk->heads;
 }
 
-bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
+int DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
 {
-   if (!disk || sectors == 0 || !dataOut) return false;
+   if (!disk || sectors == 0 || !dataOut) return DISK_EINVAL;
 
    if (disk->type == DISK_TYPE_FLOPPY)
    {
@@ -298,8 +298,8 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
        * the kernel.
        */
       int rc = FDC_ReadLba(disk, lba, (uint8_t *)dataOut, sectors);
-      if (rc != 0) return false;
-      return true;
+      if (rc != 0) return (rc < 0) ? rc : DISK_EIO;
+      return DISK_OK;
    }
    else if (disk->type == DISK_TYPE_ATA)
    {
@@ -307,17 +307,17 @@ bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors, void *dataOut)
        * channel/drive.
        */
       int rc = ATA_Read(disk, lba, (uint8_t *)dataOut, sectors);
-      if (rc != 0) return false;
-      return true;
+      if (rc != 0) return (rc < 0) ? rc : DISK_EIO;
+      return DISK_OK;
    }
 
-   return false;
+   return DISK_EUNSUPPORTED;
 }
 
-bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
-                       const void *dataIn)
+int DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
+                      const void *dataIn)
 {
-   if (!disk || sectors == 0 || !dataIn) return false;
+   if (!disk || sectors == 0 || !dataIn) return DISK_EINVAL;
 
    if (disk->type == DISK_TYPE_FLOPPY)
    {
@@ -325,8 +325,8 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
        * floppy controller.
        */
       int rc = FDC_WriteLba(disk, lba, (const uint8_t *)dataIn, sectors);
-      if (rc != 0) return false;
-      return true;
+      if (rc != 0) return (rc < 0) ? rc : DISK_EIO;
+      return DISK_OK;
    }
    else if (disk->type == DISK_TYPE_ATA)
    {
@@ -334,11 +334,11 @@ bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
        * channel/drive.
        */
       int rc = ATA_Write(disk, lba, (const uint8_t *)dataIn, sectors);
-      if (rc != 0) return false;
-      return true;
+      if (rc != 0) return (rc < 0) ? rc : DISK_EIO;
+      return DISK_OK;
    }
 
-   return false;
+   return DISK_EUNSUPPORTED;
 }
 
 /*
@@ -362,7 +362,7 @@ uint32_t DISK_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset, uint32_t size,
    if (!temp) return 0;
 
    /* Read sectors */
-   if (!DISK_ReadSectors(disk, start_sector, sectors_needed, temp))
+   if (DISK_ReadSectors(disk, start_sector, sectors_needed, temp) < 0)
    {
       free(temp);
       return 0;
@@ -402,7 +402,7 @@ uint32_t DISK_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset, uint32_t size,
    /* Read existing data if partial sector write */
    if (offset_in_sector != 0 || (size % sector_size) != 0)
    {
-      if (!DISK_ReadSectors(disk, start_sector, sectors_needed, temp))
+      if (DISK_ReadSectors(disk, start_sector, sectors_needed, temp) < 0)
       {
          free(temp);
          return 0;
@@ -413,7 +413,7 @@ uint32_t DISK_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset, uint32_t size,
    memcpy(temp + offset_in_sector, buffer, size);
 
    /* Write sectors back */
-   if (!DISK_WriteSectors(disk, start_sector, sectors_needed, temp))
+   if (DISK_WriteSectors(disk, start_sector, sectors_needed, temp) < 0)
    {
       free(temp);
       return 0;

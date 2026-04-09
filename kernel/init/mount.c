@@ -40,7 +40,7 @@
  *
  * Returns 0 on success; calls mount_panic() and does not return on failure.
  */
-bool Init_MountRoot(void)
+int Init_MountRoot(void)
 {
    for (int i = 0; i < MAX_DISKS; i++)
    {
@@ -84,12 +84,12 @@ bool Init_MountRoot(void)
                              "filesystem\n");
       }
 
-      return true;
+      return 0;
    }
 
    /* No tagged partition was mountable */
    logfmt(LOG_FATAL,
           "No root partition found or all FS_Mount attempts failed.\n");
 
-   return false; /* unreachable — satisfies the compiler */
+   return -1; /* unreachable — satisfies the compiler */
 }

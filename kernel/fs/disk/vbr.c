@@ -46,7 +46,7 @@ void VBR_ProbeIdentity(Partition *vol, const char *rootCmdVal)
     * Read the VBR — absolute LBA = partitionOffset, relative offset = 0.
     * AbsoluteOffset = (partitionOffset × 512) + 0
     */
-   if (!DISK_ReadSectors(vol->disk, vol->partitionOffset, 1, vbr))
+   if (DISK_ReadSectors(vol->disk, vol->partitionOffset, 1, vbr) < 0)
    {
       free(vbr);
       return;

@@ -1,0 +1,4 @@
+# Fix SCons misdetection as BitBake
+SConstruct linguist-language=Python
+SConscript linguist-language=Python
+*.scons linguist-language=Python

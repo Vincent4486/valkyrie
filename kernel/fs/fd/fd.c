@@ -100,7 +100,7 @@ int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
 
       if (flags & O_TRUNC) accessMask |= VFS_ACCESS_WRITE;
 
-      if (!VFS_Access(path, proc->euid, proc->egid, accessMask))
+      if (VFS_Access(path, proc->euid, proc->egid, accessMask) < 0)
       {
          VFS_Close((VFS_File *)file->inode);
          free(file);
@@ -119,12 +119,12 @@ int FD_Open(void *proc_ptr, const char *path, int flags, uint16_t mode)
          return -EACCES;
       }
 
-      if (!VFS_Chown(path, proc->euid, proc->egid))
+      if (VFS_Chown(path, proc->euid, proc->egid) < 0)
       {
          logfmt(LOG_WARNING, "[fd] open: chown metadata failed for %s\n", path);
       }
 
-      if (!VFS_Chmod(path, mode))
+      if (VFS_Chmod(path, mode) < 0)
       {
          logfmt(LOG_WARNING, "[fd] open: chmod metadata failed for %s\n", path);
       }
@@ -182,7 +182,7 @@ int FD_Read(void *proc_ptr, int fd, void *buf, uint32_t count)
    if (!file->readable) return -1; // EACCES (permission denied)
 
    // Align filesystem cursor to requested offset if needed
-   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
+   if (VFS_Seek((VFS_File *)file->inode, file->offset) < 0) return -1;
 
    // Read from filesystem
    uint32_t bytes_read = VFS_Read((VFS_File *)file->inode, count, buf);
@@ -212,7 +212,7 @@ int FD_Write(void *proc_ptr, int fd, const void *buf, uint32_t count)
    if (!file->writable) return -1; // EACCES
 
    // Align filesystem cursor to requested offset if needed
-   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
+   if (VFS_Seek((VFS_File *)file->inode, file->offset) < 0) return -1;
 
    // Write to filesystem
    uint32_t bytes_written = VFS_Write((VFS_File *)file->inode, count, buf);
@@ -249,7 +249,7 @@ int FD_Lseek(void *proc_ptr, int fd, int32_t offset, int whence)
    }
 
    // Keep filesystem cursor in sync
-   if (!VFS_Seek((VFS_File *)file->inode, file->offset)) return -1;
+   if (VFS_Seek((VFS_File *)file->inode, file->offset) < 0) return -1;
 
    return file->offset;
 }

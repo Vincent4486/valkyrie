@@ -59,6 +59,9 @@ int brk(void *addr);      /* returns 0 on success, -1 on failure */
 void *sbrk(intptr_t inc); /* returns previous break or (void*)-1 on failure */
 
 int PMM_IsInitialized(void);
+
+#define PMM_OK 0
+#define PMM_EINVAL (-1)
 /* Self-test helper */
 void Heap_SelfTest(void);
 
@@ -86,7 +89,7 @@ void PMM_FreePhysicalPage(uint32_t addr);
 
 /* Check if a physical page is free
  */
-bool PMM_IsPhysicalPageFree(uint32_t addr);
+int PMM_IsPhysicalPageFree(uint32_t addr);
 
 /* Get total physical memory tracked
  */
@@ -115,12 +118,16 @@ void PMM_SelfTest(void);
  */
 void VMM_Initialize(void);
 
+#define VMM_OK 0
+#define VMM_EINVAL (-1)
+#define VMM_EMAP (-2)
+
 /* Kernel convenience wrappers for VMM operations
  */
 void *VMM_Allocate(uint32_t size, uint32_t flags);
 void VMM_Free(void *vaddr, uint32_t size);
-bool VMM_Map(uint32_t vaddr, uint32_t paddr, uint32_t size, uint32_t flags);
-bool VMM_Unmap(uint32_t vaddr, uint32_t size);
+int VMM_Map(uint32_t vaddr, uint32_t paddr, uint32_t size, uint32_t flags);
+int VMM_Unmap(uint32_t vaddr, uint32_t size);
 uint32_t VMM_GetPhys(uint32_t vaddr);
 void *VMM_GetPageDirectory(void);
 

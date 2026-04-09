@@ -9,6 +9,9 @@
 
 #define FDC_SECTOR_SIZE 512
 
+#define FDC_OK 0
+#define FDC_EIO (-1)
+
 typedef struct FDC_DISK
 {
    uint8_t drive;
@@ -23,8 +26,8 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count);
 int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count);
 
 // Seek to specified head and track
-// Returns true on success, false on error
-bool FDC_Seek(uint8_t head, uint8_t track);
+// Returns FDC_OK on success, negative on error
+int FDC_Seek(uint8_t head, uint8_t track);
 
 void FDC_Reset(void);
 

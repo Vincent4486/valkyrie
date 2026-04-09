@@ -24,13 +24,13 @@ static void buffer_init(TTY_Buffer *buf, char *data, uint32_t size)
    buf->count = 0;
 }
 
-static bool buffer_push(TTY_Buffer *buf, char c)
+static int buffer_push(TTY_Buffer *buf, char c)
 {
-   if (buf->count >= buf->size) return false;
+   if (buf->count >= buf->size) return -1;
    buf->data[buf->tail] = c;
    buf->tail = (buf->tail + 1) % buf->size;
    buf->count++;
-   return true;
+   return 0;
 }
 
 static int buffer_pop(TTY_Buffer *buf)
@@ -80,23 +80,23 @@ static void line_flush(TTY_Device *tty)
    Process_WakeByChannel(tty);
 }
 
-static bool tty_has_pending_read(TTY_Device *tty)
+static int tty_has_pending_read(TTY_Device *tty)
 {
-   if (!tty) return false;
+   if (!tty) return -1;
 
    if (tty->eof_pending && tty->input.count == 0)
    {
-      return true;
+      return 0;
    }
 
-   if (TTY_IsCanonical(tty))
+   if (TTY_IsCanonical(tty) == 0)
    {
-      if (tty->line_ready) return true;
-      if (tty->input.count > 0) return true;
-      return false;
+      if (tty->line_ready) return 0;
+      if (tty->input.count > 0) return 0;
+      return -1;
    }
 
-   return tty->input.count > 0;
+   return (tty->input.count > 0) ? 0 : -1;
 }
 
 static void line_erase_char(TTY_Device *tty)
@@ -109,7 +109,7 @@ static void line_erase_char(TTY_Device *tty)
       tty->line_pos = tty->line_len;
    }
 
-   if (TTY_IsEcho(tty))
+   if (TTY_IsEcho(tty) == 0)
    {
       /* Linux-like erase echo sequence. */
       TTY_WriteChar(tty, '\b');
@@ -132,7 +132,7 @@ static void line_add_char(TTY_Device *tty, char c)
 
    tty->line_buf[tty->line_len++] = c;
    tty->line_pos = tty->line_len;
-   if (TTY_IsEcho(tty))
+   if (TTY_IsEcho(tty) == 0)
    {
       TTY_WriteChar(tty, c);
    }
@@ -240,7 +240,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
       if (c == TTY_CHAR_INTR)
       {
          /* TODO: Send SIGINT to foreground process. */
-         if (TTY_IsEcho(tty))
+         if (TTY_IsEcho(tty) == 0)
          {
             TTY_WriteChar(tty, '^');
             TTY_WriteChar(tty, 'C');
@@ -269,7 +269,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
       if (c == TTY_CHAR_SUSP)
       {
          /* TODO: Send SIGTSTP to foreground process. */
-         if (TTY_IsEcho(tty))
+         if (TTY_IsEcho(tty) == 0)
          {
             TTY_WriteChar(tty, '^');
             TTY_WriteChar(tty, 'Z');
@@ -279,7 +279,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
       }
    }
 
-   if (TTY_IsCanonical(tty))
+   if (TTY_IsCanonical(tty) == 0)
    {
       if (c == '\b' || c == TTY_CHAR_ERASE)
       {
@@ -295,7 +295,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
 
       if (c == '\n')
       {
-         if (TTY_IsEcho(tty))
+         if (TTY_IsEcho(tty) == 0)
          {
             TTY_WriteChar(tty, '\n');
          }
@@ -309,7 +309,7 @@ void TTY_InputChar(TTY_Device *tty, char c)
 
    buffer_push(&tty->input, c);
    Process_WakeByChannel(tty);
-   if (TTY_IsEcho(tty))
+   if (TTY_IsEcho(tty) == 0)
    {
       TTY_WriteChar(tty, c);
    }
@@ -368,7 +368,7 @@ int TTY_Read(TTY_Device *tty, char *buf, size_t count)
    if (!tty || !buf || count == 0) return 0;
 
    Process *current = Process_GetCurrent();
-   while (!tty_has_pending_read(tty))
+   while (tty_has_pending_read(tty) < 0)
    {
       if (!current) return 0;
 
@@ -376,7 +376,7 @@ int TTY_Read(TTY_Device *tty, char *buf, size_t count)
 
       /* Avoid a lost wakeup by checking availability after blocking state is
        * visible to input IRQ handlers. */
-      if (tty_has_pending_read(tty))
+      if (tty_has_pending_read(tty) == 0)
       {
          Process_Unblock(current);
          break;
@@ -409,7 +409,7 @@ int TTY_Read(TTY_Device *tty, char *buf, size_t count)
       if (c < 0) break;
 
       buf[bytes_read++] = (char)c;
-      if (TTY_IsCanonical(tty) && c == '\n')
+      if (TTY_IsCanonical(tty) == 0 && c == '\n')
       {
          break;
       }

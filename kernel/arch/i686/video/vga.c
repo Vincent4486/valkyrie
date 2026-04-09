@@ -542,16 +542,16 @@ static void vga_handle_ansi_command(char cmd)
    vga_clamp_cursor();
 }
 
-static bool vga_process_ansi(char c)
+static int vga_process_ansi(char c)
 {
    if (s_AnsiState == 0)
    {
       if (c == '\x1B')
       {
          s_AnsiState = 1;
-         return true;
+         return 0;
       }
-      return false;
+      return -1;
    }
 
    if (s_AnsiState == 1)
@@ -561,10 +561,10 @@ static bool vga_process_ansi(char c)
          s_AnsiState = 2;
          s_AnsiParamCount = 0;
          s_AnsiParams[0] = 0;
-         return true;
+         return 0;
       }
       s_AnsiState = 0;
-      return true;
+      return 0;
    }
 
    if (s_AnsiState == 2)
@@ -573,7 +573,7 @@ static bool vga_process_ansi(char c)
       {
          s_AnsiParams[s_AnsiParamCount] =
              s_AnsiParams[s_AnsiParamCount] * 10 + (c - '0');
-         return true;
+         return 0;
       }
       if (c == ';')
       {
@@ -581,32 +581,32 @@ static bool vga_process_ansi(char c)
          if (s_AnsiParamCount >= VGA_ANSI_PARAM_MAX)
             s_AnsiParamCount = VGA_ANSI_PARAM_MAX - 1;
          s_AnsiParams[s_AnsiParamCount] = 0;
-         return true;
+         return 0;
       }
       if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
       {
          s_AnsiParamCount++;
          vga_handle_ansi_command(c);
          s_AnsiState = 0;
-         return true;
+         return 0;
       }
       if (c == '?')
       {
-         return true;
+         return 0;
       }
 
       s_AnsiState = 0;
-      return true;
+      return 0;
    }
 
-   return false;
+   return -1;
 }
 
 static void vga_stream_put_char(char c)
 {
    bool repaint = false;
 
-   if (vga_process_ansi(c))
+   if (vga_process_ansi(c) == 0)
    {
       i686_VGA_SetCursor(s_TermCursorX, s_TermCursorY);
       return;

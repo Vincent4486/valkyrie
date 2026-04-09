@@ -109,9 +109,9 @@ int Stack_ProcessInitialize(Process *proc, uint32_t stack_top_va, size_t size)
       }
 
       // Map as User | RW | Present
-      if (!g_HalPagingOperations->MapPage(proc->page_directory, va, phys,
-                                          HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                              HAL_PAGE_USER))
+        if (g_HalPagingOperations->MapPage(proc->page_directory, va, phys,
+                                  HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                     HAL_PAGE_USER) < 0)
       {
          logfmt(LOG_ERROR, "[MEM] map_page failed for stack at 0x%08x\n", va);
          PMM_FreePhysicalPage(phys);

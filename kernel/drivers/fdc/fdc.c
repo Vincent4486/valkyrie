@@ -146,7 +146,7 @@ static void fdc_irq_handler(Registers *regs)
 }
 
 // Wait for FDC IRQ with timeout
-static bool fdc_wait_irq(void)
+static int fdc_wait_irq(void)
 {
    uint8_t interrupts_were_enabled = g_HalIoOperations->EnableInterrupts();
 
@@ -163,7 +163,7 @@ static bool fdc_wait_irq(void)
       {
          g_HalIoOperations->DisableInterrupts();
       }
-      return false;
+      return FDC_EIO;
    }
 
    g_fdc_irq_received = false;
@@ -173,7 +173,7 @@ static bool fdc_wait_irq(void)
       g_HalIoOperations->DisableInterrupts();
    }
 
-   return true;
+   return FDC_OK;
 }
 
 static void fdc_send_byte(uint8_t byte)
@@ -217,22 +217,22 @@ static uint8_t fdc_read_byte(void)
 }
 
 // Recalibrate a specific drive and verify cylinder 0 reached
-static bool fdc_recalibrate(uint8_t drive)
+static int fdc_recalibrate(uint8_t drive)
 {
    g_fdc_irq_received = false;
 
    fdc_send_byte(FDC_CMD_RECALIBRATE);
    fdc_send_byte(drive & 0x03);
 
-   if (!fdc_wait_irq()) return false;
+   if (fdc_wait_irq() < 0) return FDC_EIO;
 
    fdc_send_byte(FDC_CMD_SENSE_INT);
    uint8_t st0 = fdc_read_byte();
    uint8_t cyl = fdc_read_byte();
 
-   if ((st0 & 0xC0) != 0) return false;
+   if ((st0 & 0xC0) != 0) return FDC_EIO;
 
-   return cyl == 0;
+   return (cyl == 0) ? FDC_OK : FDC_EIO;
 }
 
 void FDC_Reset(void)
@@ -249,7 +249,7 @@ void FDC_Reset(void)
    g_HalIoOperations->outb(FDC_DOR, FDC_MOTOR_ON);
 
    // Wait for IRQ after reset
-   if (!fdc_wait_irq())
+   if (fdc_wait_irq() < 0)
    {
    }
 
@@ -270,7 +270,7 @@ void FDC_Reset(void)
    fdc_send_byte(0x02); // HLT=16ms, ND=0 (use DMA)
 }
 
-static bool fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
+static int fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
 {
    g_fdc_irq_received = false;
 
@@ -278,7 +278,7 @@ static bool fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
    fdc_send_byte((head << 2) | (drive & 0x03)); // head | drive
    fdc_send_byte(track);
 
-   if (!fdc_wait_irq()) return false;
+   if (fdc_wait_irq() < 0) return FDC_EIO;
 
    // Sense interrupt status
    fdc_send_byte(FDC_CMD_SENSE_INT);
@@ -287,10 +287,10 @@ static bool fdc_seek(uint8_t drive, uint8_t head, uint8_t track)
 
    if (cyl != track)
    {
-      return false;
+      return FDC_EIO;
    }
 
-   return true;
+   return FDC_OK;
 }
 
 static void lba_to_chs(uint32_t lba, uint8_t *head, uint8_t *track,
@@ -340,7 +340,7 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
          }
 
          /* Seek to correct track */
-         if (!fdc_seek(drive, head, track)) continue;
+         if (fdc_seek(drive, head, track) < 0) continue;
 
          /* Set up DMA for a single-sector read */
          fdc_dma_init(true);
@@ -358,7 +358,7 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
          fdc_send_byte(0x1B);   /* GPL */
          fdc_send_byte(0xFF);   /* DTL */
 
-         if (!fdc_wait_irq())
+         if (fdc_wait_irq() < 0)
          {
             logfmt(LOG_WARNING, "[FDC] IRQ timeout on attempt %d\n", attempt);
             continue;
@@ -394,7 +394,7 @@ int FDC_ReadLba(DISK *disk, uint32_t lba, uint8_t *buffer, size_t count)
          logfmt(LOG_ERROR, "[FDC] All retries failed for LBA=%u\n",
                 (unsigned)(lba + i));
          fdc_motor_off(drive);
-         return 1;
+         return FDC_EIO;
       }
    }
 
@@ -432,7 +432,7 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
             fdc_recalibrate(drive);
          }
 
-         if (!fdc_seek(drive, head, track)) continue;
+         if (fdc_seek(drive, head, track) < 0) continue;
 
          /* Copy data to DMA buffer before DMA init */
          uint8_t *dma_buffer = (uint8_t *)FDC_DMA_BUFFER;
@@ -453,7 +453,7 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
          fdc_send_byte(0x1B);
          fdc_send_byte(0xFF);
 
-         if (!fdc_wait_irq())
+         if (fdc_wait_irq() < 0)
          {
             logfmt(LOG_WARNING, "[FDC] Write IRQ timeout on attempt %d\n",
                    attempt);
@@ -485,7 +485,7 @@ int FDC_WriteLba(DISK *disk, uint32_t lba, const uint8_t *buffer, size_t count)
          logfmt(LOG_ERROR, "[FDC] All write retries failed for LBA=%u\n",
                 (unsigned)(lba + i));
          fdc_motor_off(drive);
-         return 1;
+         return FDC_EIO;
       }
    }
 
@@ -527,11 +527,11 @@ int FDC_Scan(DISK *disks, int maxDisks)
 
       for (volatile int i = 0; i < 100000; i++);
 
-      bool ok = fdc_recalibrate(drive);
+      int recalibrate_rc = fdc_recalibrate(drive);
 
       g_HalIoOperations->outb(FDC_DOR, fdc_make_dor(drive, false));
 
-      if (!ok)
+      if (recalibrate_rc < 0)
       {
          logfmt(LOG_WARNING, "[DISK] Floppy drive %u not responding\n", drive);
          continue;

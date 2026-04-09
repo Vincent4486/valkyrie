@@ -26,25 +26,33 @@ typedef struct Partition Partition;
 #define VFS_ACCESS_WRITE 0x2u
 #define VFS_ACCESS_READ 0x4u
 
+#define VFS_OK 0
+#define VFS_EINVAL (-1)
+#define VFS_ENOENT (-2)
+#define VFS_EIO (-3)
+#define VFS_EPERM (-4)
+#define VFS_ENOTSUP (-5)
+#define VFS_EOF (-6)
+
 /* VFS operations structure - Linux-style function pointers */
 typedef struct VFS_Operations
 {
    VFS_File *(*open)(Partition *partition, const char *path);
    VFS_File *(*create)(Partition *partition, const char *path, uint16_t mode);
-   bool (*readdir)(Partition *partition, void *fs_file, VFS_DirEntry *entryOut);
+   int (*readdir)(Partition *partition, void *fs_file, VFS_DirEntry *entryOut);
    uint32_t (*read)(Partition *partition, void *fs_file, uint32_t byteCount,
                     void *dataOut);
    uint32_t (*write)(Partition *partition, void *fs_file, uint32_t byteCount,
                      const void *dataIn);
-   bool (*seek)(Partition *partition, void *fs_file, uint32_t position);
+   int (*seek)(Partition *partition, void *fs_file, uint32_t position);
    void (*close)(void *fs_file);
    uint32_t (*get_size)(void *fs_file);
-   bool (*delete)(Partition *partition, const char *path);
-   bool (*access)(Partition *partition, const char *path, uint32_t uid,
-                  uint32_t gid, uint8_t accessMask);
-   bool (*chmod)(Partition *partition, const char *path, uint16_t mode);
-   bool (*chown)(Partition *partition, const char *path, uint32_t uid,
-                 uint32_t gid);
+   int (*delete)(Partition *partition, const char *path);
+   int (*access)(Partition *partition, const char *path, uint32_t uid,
+                 uint32_t gid, uint8_t accessMask);
+   int (*chmod)(Partition *partition, const char *path, uint16_t mode);
+   int (*chown)(Partition *partition, const char *path, uint32_t uid,
+                uint32_t gid);
 } VFS_Operations;
 
 typedef struct VFS_File
@@ -71,16 +79,16 @@ int FS_Umount(Partition *volume);
 VFS_File *VFS_Open(const char *path);
 VFS_File *VFS_OpenDir(const char *path);
 VFS_File *VFS_Create(const char *path, uint16_t mode);
-bool VFS_ReadDir(VFS_File *directory, VFS_DirEntry *entryOut);
+int VFS_ReadDir(VFS_File *directory, VFS_DirEntry *entryOut);
 uint32_t VFS_Read(VFS_File *file, uint32_t byteCount, void *dataOut);
 uint32_t VFS_Write(VFS_File *file, uint32_t byteCount, const void *dataIn);
-bool VFS_Seek(VFS_File *file, uint32_t position);
+int VFS_Seek(VFS_File *file, uint32_t position);
 void VFS_Close(VFS_File *file);
-bool VFS_Delete(const char *path);
-bool VFS_Access(const char *path, uint32_t uid, uint32_t gid,
-                uint8_t accessMask);
-bool VFS_Chmod(const char *path, uint16_t mode);
-bool VFS_Chown(const char *path, uint32_t uid, uint32_t gid);
+int VFS_Delete(const char *path);
+int VFS_Access(const char *path, uint32_t uid, uint32_t gid,
+               uint8_t accessMask);
+int VFS_Chmod(const char *path, uint16_t mode);
+int VFS_Chown(const char *path, uint32_t uid, uint32_t gid);
 
 uint32_t VFS_GetSize(VFS_File *file);
 

@@ -73,13 +73,13 @@ static int setup_initial_user_stack(Process *proc, const char *filename)
    return 0;
 }
 
-bool ELF_Load(VFS_File *file, void **entryOut)
+int ELF_Load(VFS_File *file, void **entryOut)
 {
    // read ELF header
-   if (!VFS_Seek(file, 0))
+   if (VFS_Seek(file, 0) < 0)
    {
       logfmt(LOG_ERROR, "[ELF] seek header failed\n");
-      return false;
+      return ELF_EIO;
    }
 
    /* Use a heap bounce buffer to avoid stack overwrites if a buggy driver
@@ -89,7 +89,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    if (!hdr_buf)
    {
       logfmt(LOG_ERROR, "[ELF] failed to allocate header buffer\n");
-      return false;
+      return ELF_EIO;
    }
 
    uint32_t hdr_read = VFS_Read(file, sizeof(ehdr), hdr_buf);
@@ -97,7 +97,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    {
       logfmt(LOG_ERROR, "[ELF] read header failed (got %u)\n", hdr_read);
       free(hdr_buf);
-      return false;
+      return ELF_EIO;
    }
 
    memcpy(&ehdr, hdr_buf, sizeof(ehdr));
@@ -108,26 +108,26 @@ bool ELF_Load(VFS_File *file, void **entryOut)
        ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
    {
       logfmt(LOG_ERROR, "[ELF] bad magic\n");
-      return false;
+      return ELF_EFORMAT;
    }
 
    if (ehdr.e_ident[4] != ELFCLASS32 || ehdr.e_ident[5] != ELFDATA2LSB)
    {
       logfmt(LOG_ERROR, "[ELF] unsupported ELF class or endian\n");
-      return false;
+      return ELF_EFORMAT;
    }
 
    if (ehdr.e_machine != EM_386)
    {
       logfmt(LOG_ERROR, "[ELF] unsupported machine\n");
-      return false;
+      return ELF_EFORMAT;
    }
 
    // read program headers
    if (ehdr.e_phnum == 0 || ehdr.e_phentsize != sizeof(Elf32_Phdr))
    {
       logfmt(LOG_ERROR, "[ELF] no program headers or unexpected phentsize\n");
-      return false;
+      return ELF_EFORMAT;
    }
 
    // allocate temporary buffer for program headers (small count expected)
@@ -136,17 +136,17 @@ bool ELF_Load(VFS_File *file, void **entryOut)
    for (uint16_t i = 0; i < ehdr.e_phnum; i++)
    {
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
-      if (!VFS_Seek(file, phoff))
+      if (VFS_Seek(file, phoff) < 0)
       {
          logfmt(LOG_ERROR, "[ELF] seek phdr %u failed\n", i);
-         return false;
+         return ELF_EIO;
       }
 
       void *ph_buf = kmalloc(sizeof(phdr));
       if (!ph_buf)
       {
          logfmt(LOG_ERROR, "[ELF] alloc phdr buffer failed\n");
-         return false;
+         return ELF_EIO;
       }
 
       uint32_t ph_read = VFS_Read(file, sizeof(phdr), ph_buf);
@@ -154,7 +154,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
       {
          logfmt(LOG_ERROR, "[ELF] read phdr %u failed (got %u)\n", i, ph_read);
          free(ph_buf);
-         return false;
+         return ELF_EIO;
       }
 
       memcpy(&phdr, ph_buf, sizeof(phdr));
@@ -174,10 +174,10 @@ bool ELF_Load(VFS_File *file, void **entryOut)
 
       if (remaining > 0)
       {
-         if (!VFS_Seek(file, fileOffset))
+         if (VFS_Seek(file, fileOffset) < 0)
          {
             logfmt(LOG_ERROR, "[ELF] seek segment data failed\n");
-            return false;
+            return ELF_EIO;
          }
 
          while (remaining > 0)
@@ -187,7 +187,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
             if (got == 0)
             {
                logfmt(LOG_ERROR, "[ELF] short read for segment\n");
-               return false;
+               return ELF_EIO;
             }
 
             dest += got;
@@ -205,7 +205,7 @@ bool ELF_Load(VFS_File *file, void **entryOut)
 
    // return entry point
    *entryOut = (void *)ehdr.e_entry;
-   return true;
+      return ELF_OK;
 }
 
 Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
@@ -221,7 +221,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    }
 
    // Read ELF header
-   if (!VFS_Seek(file, 0))
+   if (VFS_Seek(file, 0) < 0)
    {
       logfmt(LOG_ERROR, "[ELF] LoadProcess: seek header failed\n");
       VFS_Close(file);
@@ -273,7 +273,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
    for (uint16_t i = 0; i < ehdr.e_phnum; ++i)
    {
       uint32_t phoff = ehdr.e_phoff + i * ehdr.e_phentsize;
-      if (!VFS_Seek(file, phoff))
+      if (VFS_Seek(file, phoff) < 0)
       {
          logfmt(LOG_ERROR, "[ELF] LoadProcess: seek phdr %u failed\n", i);
          Process_Destroy(proc);
@@ -331,9 +331,10 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          }
 
          // Map page into process's page directory (user mode, read+write)
-         if (!g_HalPagingOperations->MapPage(
-                 proc->page_directory, page_va, phys,
-                 HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
+          if (g_HalPagingOperations->MapPage(proc->page_directory, page_va,
+                         phys,
+                         HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                        HAL_PAGE_USER) < 0)
          {
             logfmt(LOG_ERROR,
                    "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
@@ -346,7 +347,7 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
       }
 
       // Read segment data from file and copy to process memory
-      if (!VFS_Seek(file, phdr.p_offset))
+      if (VFS_Seek(file, phdr.p_offset) < 0)
       {
          logfmt(LOG_ERROR, "[ELF] LoadProcess: seek segment data failed\n");
          Process_Destroy(proc);

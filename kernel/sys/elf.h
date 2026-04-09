@@ -40,11 +40,15 @@ typedef struct
    uint32_t p_align;
 } __attribute__((packed)) Elf32_Phdr;
 
+#define ELF_OK 0
+#define ELF_EIO (-1)
+#define ELF_EFORMAT (-2)
+
 // Load an ELF32 file from an opened VFS_File into memory. On success returns
 // true and sets *entryOut to the ELF entry point (as a pointer). The loader
 // will read program headers (PT_LOAD) and copy them to their p_paddr (or
 // p_vaddr if p_paddr is zero), zeroing the BSS area when necessary.
-bool ELF_Load(VFS_File *file, void **entryOut);
+int ELF_Load(VFS_File *file, void **entryOut);
 
 // Load an ELF32 executable file into a new process's isolated address space.
 // Opens the file by name through VFS, parses the ELF header, allocates

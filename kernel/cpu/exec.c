@@ -65,9 +65,10 @@ static int map_user_trampoline(Process *proc)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (!phys) return -1;
 
-   if (!g_HalPagingOperations->MapPage(
-           proc->page_directory, USER_EXIT_TRAMPOLINE_VA, phys,
-           HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER))
+      if (g_HalPagingOperations->MapPage(proc->page_directory,
+                     USER_EXIT_TRAMPOLINE_VA, phys,
+                     HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                    HAL_PAGE_USER) < 0)
    {
       PMM_FreePhysicalPage(phys);
       return -1;
@@ -85,26 +86,26 @@ static int map_user_trampoline(Process *proc)
    return 0;
 }
 
-static bool load_header(VFS_File *file, Elf32_Ehdr *ehdr)
+static int load_header(VFS_File *file, Elf32_Ehdr *ehdr)
 {
-   if (!VFS_Seek(file, 0)) return false;
+   if (VFS_Seek(file, 0) < 0) return -1;
 
-   if (VFS_Read(file, sizeof(*ehdr), ehdr) != sizeof(*ehdr)) return false;
+   if (VFS_Read(file, sizeof(*ehdr), ehdr) != sizeof(*ehdr)) return -1;
 
    if (ehdr->e_ident[EI_MAG0] != ELFMAG0 || ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
        ehdr->e_ident[EI_MAG2] != ELFMAG2 || ehdr->e_ident[EI_MAG3] != ELFMAG3)
    {
-      return false;
+      return -1;
    }
 
    if (ehdr->e_ident[4] != ELFCLASS32 || ehdr->e_ident[5] != ELFDATA2LSB)
    {
-      return false;
+      return -1;
    }
 
-   if (ehdr->e_machine != EM_386) return false;
+   if (ehdr->e_machine != EM_386) return -1;
 
-   return true;
+   return 0;
 }
 
 static int load_segments_into_directory(VFS_File *file, void *page_directory,
@@ -115,7 +116,7 @@ static int load_segments_into_directory(VFS_File *file, void *page_directory,
    for (uint16_t i = 0; i < ehdr->e_phnum; ++i)
    {
       uint32_t phoff = ehdr->e_phoff + (i * ehdr->e_phentsize);
-      if (!VFS_Seek(file, phoff)) return -1;
+      if (VFS_Seek(file, phoff) < 0) return -1;
       if (VFS_Read(file, sizeof(phdr), &phdr) != sizeof(phdr)) return -1;
 
       if (phdr.p_type != PT_LOAD) continue;
@@ -134,16 +135,16 @@ static int load_segments_into_directory(VFS_File *file, void *page_directory,
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (!phys) return -1;
 
-         if (!g_HalPagingOperations->MapPage(page_directory, page_va, phys,
-                                             HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                                 HAL_PAGE_USER))
+          if (g_HalPagingOperations->MapPage(page_directory, page_va, phys,
+                                    HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                       HAL_PAGE_USER) < 0)
          {
             PMM_FreePhysicalPage(phys);
             return -1;
          }
       }
 
-      if (!VFS_Seek(file, phdr.p_offset)) return -1;
+      if (VFS_Seek(file, phdr.p_offset) < 0) return -1;
 
       uint8_t *buffer = (uint8_t *)kmalloc(512);
       if (!buffer) return -1;
@@ -315,7 +316,7 @@ int Process_Execute(Process *proc, const char *path, const char *const argv[],
    if (!proc || !path) return -1;
    if (proc->kernel_mode) return -1;
 
-   if (!VFS_Access(path, proc->euid, proc->egid, VFS_ACCESS_EXEC))
+   if (VFS_Access(path, proc->euid, proc->egid, VFS_ACCESS_EXEC) < 0)
    {
       return -3;
    }
@@ -324,7 +325,7 @@ int Process_Execute(Process *proc, const char *path, const char *const argv[],
    if (!file) return -2;
 
    Elf32_Ehdr ehdr;
-   if (!load_header(file, &ehdr))
+   if (load_header(file, &ehdr) < 0)
    {
       VFS_Close(file);
       return -3;

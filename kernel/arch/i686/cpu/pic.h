@@ -9,12 +9,15 @@
 typedef struct
 {
    const char *Name;
-   bool (*Probe)();
+   int (*Probe)(void);
    void (*Initialize)(uint8_t offsetPic1, uint8_t offsetPic2, bool autoEoi);
    void (*Disable)();
    void (*SendEndOfInterrupt)(int irq);
    void (*Mask)(int irq);
    void (*Unmask)(int irq);
 } PICDriver;
+
+#define PIC_OK 0
+#define PIC_ENODEV (-1)
 
 #endif

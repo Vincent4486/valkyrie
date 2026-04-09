@@ -196,12 +196,12 @@ static uint32_t *get_page_table(uint32_t *pd, uint32_t vaddr, bool create)
    return (uint32_t *)(pde & 0xFFFFF000u);
 }
 
-bool i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
-                         uint32_t flags)
+int i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
+                        uint32_t flags)
 {
    uint32_t *pd = (uint32_t *)page_dir;
    uint32_t *pt = get_page_table(pd, vaddr, true);
-   if (!pt) return false;
+   if (!pt) return I686_PAGING_ENOMEM;
 
    uint32_t pd_idx = vaddr >> 22;
    if (flags & PAGE_USER)
@@ -216,18 +216,18 @@ bool i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
    uint32_t pt_idx = (vaddr >> 12) & 0x3FF;
    pt[pt_idx] = (paddr & 0xFFFFF000u) | (flags & 0xFFF) | PAGE_PRESENT;
    invlpg(vaddr);
-   return true;
+   return I686_PAGING_OK;
 }
 
-bool i686_Paging_UnmapPage(void *page_dir, uint32_t vaddr)
+int i686_Paging_UnmapPage(void *page_dir, uint32_t vaddr)
 {
    uint32_t *pd = (uint32_t *)page_dir;
    uint32_t *pt = get_page_table(pd, vaddr, false);
-   if (!pt) return false;
+   if (!pt) return I686_PAGING_EINVAL;
    uint32_t pt_idx = (vaddr >> 12) & 0x3FF;
    pt[pt_idx] = 0;
    invlpg(vaddr);
-   return true;
+   return I686_PAGING_OK;
 }
 
 uint32_t i686_Paging_GetPhysicalAddress(void *page_dir, uint32_t vaddr)
@@ -241,9 +241,11 @@ uint32_t i686_Paging_GetPhysicalAddress(void *page_dir, uint32_t vaddr)
    return (pte & 0xFFFFF000u) | (vaddr & 0xFFF);
 }
 
-bool i686_Paging_IsPageMapped(void *page_dir, uint32_t vaddr)
+int i686_Paging_IsPageMapped(void *page_dir, uint32_t vaddr)
 {
-   return i686_Paging_GetPhysicalAddress(page_dir, vaddr) != 0;
+   return i686_Paging_GetPhysicalAddress(page_dir, vaddr) != 0
+              ? I686_PAGING_OK
+              : I686_PAGING_EINVAL;
 }
 
 void i686_Paging_PageFaultHandler(uint32_t fault_address, uint32_t error_code)
@@ -305,8 +307,8 @@ void i686_Paging_SelfTest(void)
       return;
    }
 
-   if (!i686_Paging_MapPage(pd, test_va, (uint32_t)phys_page,
-                            PAGE_RW | PAGE_PRESENT))
+   if (i686_Paging_MapPage(pd, test_va, (uint32_t)phys_page,
+                           PAGE_RW | PAGE_PRESENT) < 0)
    {
       logfmt(LOG_ERROR, "[PAGING] self-test: map failed\n");
       return;

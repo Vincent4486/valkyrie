@@ -222,7 +222,7 @@ void MD5_ToHex(const uint8_t digest[MD5_DIGEST_SIZE],
    out_hex[32] = '\0';
 }
 
-bool MD5_SelfTest(void)
+int MD5_SelfTest(void)
 {
    static const char *vectors[] = {"", "abc"};
    static const char *expected[] = {
@@ -240,9 +240,9 @@ bool MD5_SelfTest(void)
 
       if (strcmp(hex, expected[i]) != 0)
       {
-         return false;
+         return CRYPTO_ESELFTEST;
       }
    }
 
-   return true;
+   return CRYPTO_OK;
 }

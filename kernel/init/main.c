@@ -18,7 +18,7 @@
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
-#include <sys/dylib.h>
+#include <sys/kmod/dylib.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
 #include <valecium/fs.h>
@@ -76,18 +76,18 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    CmdLine_Initialize();
    Crypto_SelfTest();
 
-   if (!FS_Initialize())
+   if (FS_Initialize() < 0)
    {
       goto end;
    }
-   if (!Init_MountRoot())
+   if (Init_MountRoot() < 0)
    {
       goto end;
    }
    VFS_SelfTest();
    Keyboard_Initialize();
 
-   if (!Dylib_Initialize())
+   if (Dylib_Initialize() < 0)
    {
    }
 

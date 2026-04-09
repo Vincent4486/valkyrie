@@ -27,6 +27,15 @@ this file, so for external modules, include fs/fs.h instead.
 #define VBR_SIG_BYTE0 0x55u
 #define VBR_SIG_BYTE1 0xAAu
 
+#define DISK_OK 0
+#define DISK_EINVAL (-1)
+#define DISK_EIO (-2)
+#define DISK_EUNSUPPORTED (-3)
+
+#define PARTITION_OK 0
+#define PARTITION_EINVAL (-1)
+#define PARTITION_EDISK (-2)
+
 typedef struct DISK_Operations
 {
 
@@ -48,10 +57,10 @@ typedef struct
 int DISK_Initialize();
 int DISK_Scan();
 int DISK_GetDevfsIndex(); // Get volume index for devfs (-1 if not found)
-bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors,
-                      void *lowerDataOut);
-bool DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
-                       const void *dataIn);
+int DISK_ReadSectors(DISK *disk, uint32_t lba, uint8_t sectors,
+                     void *lowerDataOut);
+int DISK_WriteSectors(DISK *disk, uint32_t lba, uint8_t sectors,
+                      const void *dataIn);
 
 /* Devfs device operations for raw disk access */
 struct DEVFS_DeviceNode;
@@ -80,11 +89,11 @@ typedef struct Partition
 
 Partition **MBR_DetectPartition(DISK *disk, int *outCount);
 
-bool Partition_ReadSectors(Partition *disk, uint32_t lba, uint8_t sectors,
-                           void *lowDataOut);
+int Partition_ReadSectors(Partition *disk, uint32_t lba, uint8_t sectors,
+                          void *lowDataOut);
 
-bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
-                            const void *lowerDataIn);
+int Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
+                           const void *lowerDataIn);
 
 /* Devfs device operations for partition access */
 uint32_t Partition_DevfsRead(struct DEVFS_DeviceNode *node, uint32_t offset,

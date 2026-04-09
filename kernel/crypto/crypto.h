@@ -15,6 +15,9 @@
 #define SHA1_BLOCK_SIZE 64u
 #define SHA1_HEX_SIZE 41u
 
+#define CRYPTO_OK 0
+#define CRYPTO_ESELFTEST (-1)
+
 typedef struct
 {
    uint32_t State[4];
@@ -36,7 +39,7 @@ void MD5_Calculate(const void *data, size_t len,
                    uint8_t digest[MD5_DIGEST_SIZE]);
 void MD5_ToHex(const uint8_t digest[MD5_DIGEST_SIZE],
                char out_hex[MD5_HEX_SIZE]);
-bool MD5_SelfTest(void);
+int MD5_SelfTest(void);
 
 void SHA1_Init(SHA1_Context *ctx);
 void SHA1_Update(SHA1_Context *ctx, const void *data, size_t len);
@@ -45,7 +48,7 @@ void SHA1_Calculate(const void *data, size_t len,
                     uint8_t digest[SHA1_DIGEST_SIZE]);
 void SHA1_ToHex(const uint8_t digest[SHA1_DIGEST_SIZE],
                 char out_hex[SHA1_HEX_SIZE]);
-bool SHA1_SelfTest(void);
+int SHA1_SelfTest(void);
 
 void Crypto_SelfTest(void);
 

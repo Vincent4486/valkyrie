@@ -7,10 +7,10 @@
 #include <std/stdio.h>
 #include <sys/sys.h>
 
-bool Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
-                           void *lowerDataOut)
+int Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
+                          void *lowerDataOut)
 {
-   if (!part) return false;
+   if (!part) return PARTITION_EINVAL;
 
    /* Defensive: avoid dereferencing possibly-dangling Partition pointers.
     * Accept Partition pointers that live in the global volume table or in
@@ -27,19 +27,19 @@ bool Partition_ReadSectors(Partition *part, uint32_t lba, uint8_t sectors,
    {
       logfmt(LOG_ERROR, "[PART] Invalid partition pointer: 0x%08x\n",
              (unsigned int)p);
-      return false;
+      return PARTITION_EINVAL;
    }
 
-   if (!part->disk) return false;
+   if (!part->disk) return PARTITION_EDISK;
 
    return DISK_ReadSectors(part->disk, lba + part->partitionOffset, sectors,
                            lowerDataOut);
 }
 
-bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
-                            const void *lowerDataIn)
+int Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
+                           const void *lowerDataIn)
 {
-   if (!part) return false;
+   if (!part) return PARTITION_EINVAL;
 
    uintptr_t p = (uintptr_t)part;
    uintptr_t heap_start = mem_heap_start();
@@ -52,10 +52,10 @@ bool Partition_WriteSectors(Partition *part, uint32_t lba, uint8_t sectors,
    {
       logfmt(LOG_ERROR, "[PART] Invalid partition pointer: 0x%08x\n",
              (unsigned int)p);
-      return false;
+      return PARTITION_EINVAL;
    }
 
-   if (!part->disk) return false;
+   if (!part->disk) return PARTITION_EDISK;
 
    return DISK_WriteSectors(part->disk, lba + part->partitionOffset, sectors,
                             lowerDataIn);
@@ -90,7 +90,7 @@ uint32_t Partition_DevfsRead(DEVFS_DeviceNode *node, uint32_t offset,
    if (!temp) return 0;
 
    /* Read from partition (uses partition-relative LBA) */
-   if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp))
+   if (Partition_ReadSectors(part, start_sector, sectors_needed, temp) < 0)
    {
       free(temp);
       return 0;
@@ -138,7 +138,7 @@ uint32_t Partition_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset,
    /* Read-modify-write for partial sectors */
    if (offset_in_sector != 0 || (size % sector_size) != 0)
    {
-      if (!Partition_ReadSectors(part, start_sector, sectors_needed, temp))
+      if (Partition_ReadSectors(part, start_sector, sectors_needed, temp) < 0)
       {
          free(temp);
          return 0;
@@ -154,7 +154,7 @@ uint32_t Partition_DevfsWrite(DEVFS_DeviceNode *node, uint32_t offset,
    memcpy(temp + offset_in_sector, buffer, bytes_to_write);
 
    /* Write back */
-   if (!Partition_WriteSectors(part, start_sector, sectors_needed, temp))
+   if (Partition_WriteSectors(part, start_sector, sectors_needed, temp) < 0)
    {
       free(temp);
       return 0;

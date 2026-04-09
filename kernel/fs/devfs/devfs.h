@@ -25,6 +25,11 @@ this file, so for external modules, include fs/fs.h instead.
 // Maximum data buffer size for in-memory devices
 #define DEVFS_MAXDATA 4096
 
+#define DEVFS_OK 0
+#define DEVFS_EINVAL (-1)
+#define DEVFS_ENOENT (-2)
+#define DEVFS_ESTATE (-3)
+
 /* Device types for devfs */
 typedef enum
 {
@@ -80,9 +85,9 @@ struct DEVFS_File
  * --note: DEVFS can only be single instance, located on Reserved volume 30--
  */
 
-/* Initialize the devfs subsystem. Returns true on success.
+/* Initialize the devfs subsystem. Returns DEVFS_OK on success.
  * This should be called from FS_Initialize() before disk scanning. */
-bool DEVFS_Initialize(void);
+int DEVFS_Initialize(void);
 
 /* Return pointer to VFS operations structure for devfs. */
 const struct VFS_Operations *DEVFS_GetVFSOperations(void);
@@ -112,9 +117,9 @@ DEVFS_DeviceNode *DEVFS_RegisterDevice(const char *name, DEVFS_DeviceType type,
 
 /* Unregister a device node from devfs.
  * @param node       Node to unregister (returned from DEVFS_RegisterDevice)
- * @return           true on success, false if node not found
+ * @return           DEVFS_OK on success, DEVFS_ENOENT if node not found
  */
-bool DEVFS_UnregisterDevice(DEVFS_DeviceNode *node);
+int DEVFS_UnregisterDevice(DEVFS_DeviceNode *node);
 
 /* Find a device node by name.
  * @param name       Device name to search for
@@ -149,7 +154,7 @@ uint32_t DEVFS_Read(DEVFS_File *file, uint32_t byteCount, void *dataOut);
 uint32_t DEVFS_Write(DEVFS_File *file, uint32_t byteCount, const void *dataIn);
 
 /* Seek in a device */
-bool DEVFS_Seek(DEVFS_File *file, uint32_t position);
+int DEVFS_Seek(DEVFS_File *file, uint32_t position);
 
 /* Get file size */
 uint32_t DEVFS_GetSize(DEVFS_File *file);

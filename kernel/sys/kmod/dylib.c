@@ -1229,7 +1229,7 @@ void Dylib_RegisterCallback(dylib_register_symbols_t callback)
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <stddef.h>
-#include <sys/dylib.h>
+#include <sys/kmod/dylib.h>
 #include <valecium/fs.h>
 
 static int load_libmath(void)
@@ -1370,7 +1370,7 @@ static int load_libmath(void)
    return 0;
 }
 
-bool Dylib_Initialize(void)
+int Dylib_Initialize(void)
 {
    // Load math library with error handling
    int result = load_libmath();
@@ -1378,8 +1378,8 @@ bool Dylib_Initialize(void)
    {
       logfmt(LOG_ERROR, "[DYLIB] Failed to initialize libmath (error=%d)\n",
              result);
-      return false;
+      return DYLIB_EINIT;
    }
 
-   return true;
+   return DYLIB_OK;
 }

@@ -50,7 +50,7 @@ void i686_IRQ_Initialize()
 
    for (size_t i = 0; i < SIZE(drivers); i++)
    {
-      if (drivers[i]->Probe())
+      if (drivers[i]->Probe() == PIC_OK)
       {
          g_Driver = drivers[i];
       }

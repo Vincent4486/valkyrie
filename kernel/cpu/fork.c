@@ -27,7 +27,7 @@ static void cleanup_child_space(Process *child)
 
    for (uint32_t va = PAGE_SIZE; va < HEAP_MAX; va += PAGE_SIZE)
    {
-      if (!g_HalPagingOperations->IsPageMapped(child->page_directory, va))
+      if (g_HalPagingOperations->IsPageMapped(child->page_directory, va) < 0)
       {
          continue;
       }
@@ -94,7 +94,7 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
 
    for (uint32_t va = PAGE_SIZE; va < HEAP_MAX; va += PAGE_SIZE)
    {
-      if (!g_HalPagingOperations->IsPageMapped(parent->page_directory, va))
+      if (g_HalPagingOperations->IsPageMapped(parent->page_directory, va) < 0)
       {
          continue;
       }
@@ -110,9 +110,9 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
          return NULL;
       }
 
-      if (!g_HalPagingOperations->MapPage(child->page_directory, va, new_phys,
-                                          HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                              HAL_PAGE_USER))
+        if (g_HalPagingOperations->MapPage(child->page_directory, va, new_phys,
+                                  HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                     HAL_PAGE_USER) < 0)
       {
          PMM_FreePhysicalPage(new_phys);
          free(copy_buffer);

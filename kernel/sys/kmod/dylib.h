@@ -137,7 +137,10 @@ void Dylib_MemoryStatus(void);
 // Register a callback to load symbols when library is loaded
 void Dylib_RegisterCallback(dylib_register_symbols_t callback);
 
-bool Dylib_Initialize(void);
+#define DYLIB_OK 0
+#define DYLIB_EINIT (-1)
+
+int Dylib_Initialize(void);
 
 // ============================================================================
 // Helper macro for loading function symbols from a library

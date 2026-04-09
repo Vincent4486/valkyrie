@@ -33,7 +33,7 @@ static void bitmap_clear(uint32_t page_idx)
    if (allocated_count > 0) allocated_count--;
 }
 
-static bool bitmap_is_set(uint32_t page_idx)
+static int bitmap_is_set(uint32_t page_idx)
 {
    uint32_t byte_idx = page_idx / BITS_PER_BYTE;
    uint32_t bit_idx = page_idx % BITS_PER_BYTE;
@@ -111,12 +111,12 @@ void PMM_FreePhysicalPage(uint32_t addr)
    }
 }
 
-bool PMM_IsPhysicalPageFree(uint32_t addr)
+int PMM_IsPhysicalPageFree(uint32_t addr)
 {
-   if (!page_bitmap || (addr % PAGE_SIZE) != 0) return false;
+   if (!page_bitmap || (addr % PAGE_SIZE) != 0) return 0;
 
    uint32_t page_idx = addr / PAGE_SIZE;
-   if (page_idx >= total_pages) return false;
+   if (page_idx >= total_pages) return 0;
 
    return !bitmap_is_set(page_idx);
 }

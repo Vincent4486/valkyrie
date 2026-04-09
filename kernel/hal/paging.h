@@ -32,17 +32,21 @@
 #error "Unsupported architecture for HAL IRQ"
 #endif
 
+#define HAL_PAGING_OK 0
+#define HAL_PAGING_EINVAL (-1)
+#define HAL_PAGING_EMAP (-2)
+
 typedef struct HAL_PagingOperations
 {
    void (*Initialize)(void);
    void (*Enable)(void);
    void *(*CreatePageDirectory)(void);
    void (*DestroyPageDirectory)(void *page_dir);
-   bool (*MapPage)(void *page_dir, uint32_t vaddr, uint32_t paddr,
-                   uint32_t flags);
-   bool (*UnmapPage)(void *page_dir, uint32_t vaddr);
+   int (*MapPage)(void *page_dir, uint32_t vaddr, uint32_t paddr,
+                  uint32_t flags);
+   int (*UnmapPage)(void *page_dir, uint32_t vaddr);
    uint32_t (*GetPhysicalAddress)(void *page_dir, uint32_t vaddr);
-   bool (*IsPageMapped)(void *page_dir, uint32_t vaddr);
+   int (*IsPageMapped)(void *page_dir, uint32_t vaddr);
    void (*PageFaultHandler)(uint32_t fault_address, uint32_t error_code);
    void (*InvalidateTlbEntry)(uint32_t vaddr);
    void (*FlushTlb)(void);

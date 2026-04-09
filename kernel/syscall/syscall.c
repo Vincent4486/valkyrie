@@ -108,7 +108,7 @@ intptr_t sys_chmod(const char *path, uint16_t mode)
    if (!proc || !path) return -1;
 
    if (proc->euid != 0) return -EACCES;
-   return VFS_Chmod(path, mode) ? 0 : -1;
+   return VFS_Chmod(path, mode);
 }
 
 intptr_t sys_chown(const char *path, uint32_t uid, uint32_t gid)
@@ -117,7 +117,7 @@ intptr_t sys_chown(const char *path, uint32_t uid, uint32_t gid)
    if (!proc || !path) return -1;
 
    if (proc->euid != 0) return -EACCES;
-   return VFS_Chown(path, uid, gid) ? 0 : -1;
+   return VFS_Chown(path, uid, gid);
 }
 
 intptr_t sys_fork(const Registers *regs)

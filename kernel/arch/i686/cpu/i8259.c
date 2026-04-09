@@ -144,11 +144,11 @@ uint16_t i8259_ReadInServiceRegister()
           (((uint16_t)i686_inb(PIC2_COMMAND_PORT)) << 8);
 }
 
-bool i8259_Probe()
+int i8259_Probe(void)
 {
    i8259_Disable();
    i8259_SetMask(0x1337);
-   return i8259_GetMask() == 0x1337;
+   return (i8259_GetMask() == 0x1337) ? PIC_OK : PIC_ENODEV;
 }
 
 static const PICDriver g_PicDriver = {

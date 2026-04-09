@@ -15,6 +15,14 @@ To interact with the filesystem, use the VFS interface defined in fs/fs.h.
 /* Opaque per-volume instance — defined in fat.c */
 typedef struct FAT_Instance FAT_Instance;
 
+#define FAT_OK 0
+#define FAT_EINVAL (-1)
+#define FAT_EDISK (-2)
+#define FAT_EIO (-3)
+#define FAT_ENOENT (-4)
+#define FAT_ESTATE (-5)
+#define FAT_EPERM (-6)
+
 typedef struct
 {
    uint8_t Name[11];
@@ -60,20 +68,19 @@ FAT_Instance *FAT_Initialize(Partition *disk);
 FAT_File *FAT_Open(Partition *disk, const char *path);
 uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                   void *dataOut);
-bool FAT_ReadEntry(Partition *disk, FAT_File *file,
-                   FAT_DirectoryEntry *dirEntry);
+int FAT_ReadEntry(Partition *disk, FAT_File *file, FAT_DirectoryEntry *dirEntry);
 void FAT_Close(FAT_File *file);
 
-// Seek to a specific byte position in an opened FAT file. Returns true on
+// Seek to a specific byte position in an opened FAT file. Returns FAT_OK on
 // success. After seeking, the internal sector buffer will contain the sector
 // covering the requested position so subsequent FAT_Read calls read from the
 // requested offset.
-bool FAT_Seek(Partition *disk, FAT_File *file, uint32_t position);
+int FAT_Seek(Partition *disk, FAT_File *file, uint32_t position);
 
 // Write a directory entry to a directory at the current file position.
 // File must be opened as a directory. Advances file position to next entry.
-bool FAT_WriteEntry(Partition *disk, FAT_File *file,
-                    const FAT_DirectoryEntry *dirEntry);
+int FAT_WriteEntry(Partition *disk, FAT_File *file,
+                   const FAT_DirectoryEntry *dirEntry);
 
 // Write data to an opened file. File position is advanced by bytes written.
 // File size is updated if write extends past end. Returns bytes written.
@@ -81,12 +88,12 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                    const void *dataIn);
 
 // Truncate (shrink to 0 bytes) an opened file and free all its clusters.
-// File position and size are reset to 0. Returns true on success.
-bool FAT_Truncate(Partition *disk, FAT_File *file);
+// File position and size are reset to 0. Returns FAT_OK on success.
+int FAT_Truncate(Partition *disk, FAT_File *file);
 
 // Update the file's directory entry with current size and cluster info.
 // Must be called after writes to persist metadata to disk.
-bool FAT_UpdateEntry(Partition *disk, FAT_File *file);
+int FAT_UpdateEntry(Partition *disk, FAT_File *file);
 
 // Create a new file with the given name in the root directory.
 // Returns a file handle opened for writing. Returns NULL on failure.
@@ -94,8 +101,8 @@ FAT_File *FAT_Create(Partition *disk, const char *name, uint16_t mode);
 
 // Delete a file by name from the root directory.
 // Frees all clusters and marks the directory entry as deleted (0xE5).
-// Returns true on success.
-bool FAT_Delete(Partition *disk, const char *name);
+// Returns FAT_OK on success.
+int FAT_Delete(Partition *disk, const char *name);
 
 /* Invalidate FAT cache and reset file handles for the given instance */
 void FAT_InvalidateCache(FAT_Instance *inst);

@@ -110,7 +110,8 @@ void interact(void)
                uint32_t entry_count = 0;
                uint32_t max_entries = 4096;
 
-               while (entry_count < max_entries && VFS_ReadDir(dir, &entry))
+                while (entry_count < max_entries &&
+                   VFS_ReadDir(dir, &entry) == VFS_OK)
                {
                   printf("%s%s  (%u bytes)\n", entry.name,
                          entry.is_directory ? "/" : "", entry.size);

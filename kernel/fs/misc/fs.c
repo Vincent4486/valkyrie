@@ -13,12 +13,13 @@
  * Initialize the devfs filesystem on reserved volume slot
  * This creates an in-memory filesystem for device nodes.
  */
-static void InitializeDevfs(void)
+static int InitializeDevfs(void)
 {
-   if (!DEVFS_Initialize())
+   int rc = DEVFS_Initialize();
+   if (rc < 0)
    {
       logfmt(LOG_ERROR, "[FS] Failed to initialize devfs\n");
-      return;
+      return FS_EDEVFS_INIT;
    }
 
    /* Mount devfs at /dev */
@@ -27,14 +28,16 @@ static void InitializeDevfs(void)
    {
       FS_Mount(devfs_part, "/dev");
    }
+
+   return FS_OK;
 }
 
 /**
  * Initialize storage system: scan and initialize all disks
  *
- * @return true on success, false on failure
+ * @return FS_OK on success, negative FS_* error on failure
  */
-bool FS_Initialize()
+int FS_Initialize(void)
 {
    VFS_Init();
 
@@ -42,7 +45,8 @@ bool FS_Initialize()
     * on the reserved volume slot (DEVFS_VOLUME = 30) and mounts
     * it at /dev. Drivers will register their devices during
     * DISK_Initialize(). */
-   InitializeDevfs();
+   int rc = InitializeDevfs();
+   if (rc < 0) return rc;
 
    /* Call DISK_Initialize to scan and populate all volumes.
     * This will also trigger drivers to register their devices
@@ -51,7 +55,7 @@ bool FS_Initialize()
    if (disksDetected < 0)
    {
       logfmt(LOG_ERROR, "[FS] Disk initialization failed\n");
-      return false;
+      return FS_EDISK_INIT;
    }
-   return true;
+   return FS_OK;
 }

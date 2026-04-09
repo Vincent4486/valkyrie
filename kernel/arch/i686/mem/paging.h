@@ -12,6 +12,10 @@
 #define PAGE_RW 0x002
 #define PAGE_USER 0x004
 
+#define I686_PAGING_OK 0
+#define I686_PAGING_EINVAL (-1)
+#define I686_PAGING_ENOMEM (-2)
+
 // Page table initialization
 void i686_Paging_Initialize(void);
 void i686_Paging_Enable(void);
@@ -21,13 +25,13 @@ void *i686_Paging_CreatePageDirectory(void);
 void i686_Paging_DestroyPageDirectory(void *page_dir);
 
 // Page mapping
-bool i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
-                         uint32_t flags);
-bool i686_Paging_UnmapPage(void *page_dir, uint32_t vaddr);
+int i686_Paging_MapPage(void *page_dir, uint32_t vaddr, uint32_t paddr,
+                        uint32_t flags);
+int i686_Paging_UnmapPage(void *page_dir, uint32_t vaddr);
 
 // Page lookup
 uint32_t i686_Paging_GetPhysicalAddress(void *page_dir, uint32_t vaddr);
-bool i686_Paging_IsPageMapped(void *page_dir, uint32_t vaddr);
+int i686_Paging_IsPageMapped(void *page_dir, uint32_t vaddr);
 
 // Page fault handling
 void i686_Paging_PageFaultHandler(uint32_t fault_address, uint32_t error_code);

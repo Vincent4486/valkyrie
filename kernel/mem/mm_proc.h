@@ -34,12 +34,12 @@ void VMM_FreeInDir(void *page_dir, void *vaddr, uint32_t size);
 
 /* Map existing physical memory in a page directory
  */
-bool VMM_MapInDir(void *page_dir, uint32_t vaddr, uint32_t paddr, uint32_t size,
-                  uint32_t flags);
+int VMM_MapInDir(void *page_dir, uint32_t vaddr, uint32_t paddr, uint32_t size,
+                 uint32_t flags);
 
 /* Unmap virtual memory in a page directory (does not free physical pages)
  */
-bool VMM_UnmapInDir(void *page_dir, uint32_t vaddr, uint32_t size);
+int VMM_UnmapInDir(void *page_dir, uint32_t vaddr, uint32_t size);
 
 /* Get physical address of a virtual address in a page directory
  */
