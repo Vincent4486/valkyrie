@@ -3,7 +3,7 @@
 #include "hal.h"
 #include "io.h"
 #include "irq.h"
-#include "paging.h"
+#include "mem.h"
 #include "scheduler.h"
 #include "stack.h"
 #include "syscall.h"
