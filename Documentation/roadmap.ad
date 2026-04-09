@@ -14,6 +14,8 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 * [ ] Fix usermode programs not able to read from stdin
 * [ ] Create custom bootloader
 * [ ] DMA mode hardware drivers
+* [ ] External runtime dependencies compiled during build not toolchain
+** [ ] Musl should not be compiled as a part of the toolchain
 
 == Phase 1: Core OS Infrastructure (Current)
 
