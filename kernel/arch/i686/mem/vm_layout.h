@@ -23,6 +23,9 @@ extern uint8_t __end;
  *  Each process has its own stack */
 #define USER_STACK_START 0xBFFF0000UL // Just below kernel space, ~3GB - 64KB
 
+/** Per-process stack top (initial ESP before first push) */
+#define USER_STACK_TOP USER_STACK_START
+
 /** Per-process stack size (default, can be adjusted per process) */
 #define USER_STACK_SIZE 0x10000UL // 64KB
 

@@ -46,6 +46,7 @@
 #define HAL_ARCH_Paging_SelfTest i686_Paging_SelfTest
 
 /* Memory layout constants */
+#define HAL_ARCH_CODE_START USER_CODE_START
 #define HAL_ARCH_SPACE_END USER_SPACE_END
 #define HAL_ARCH_PAGE_SIZE PAGE_SIZE
 
