@@ -6,7 +6,7 @@
  * then applies relocations using the global symbol table.
  */
 
-#include "dylib.h"
+#include "kmod.h"
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
 #include <std/string.h>
@@ -108,9 +108,9 @@ static int global_symtab_count = 0;
 static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
                              uint32_t size);
 
-static dylib_register_symbols_t symbol_callback = NULL;
+static kmod_register_symbols_t symbol_callback = NULL;
 
-int Dylib_MemoryInitialize(void)
+int KMOD_MemoryInitialize(void)
 {
    if (dylib_mem_initialized) return 0;
 
@@ -144,7 +144,7 @@ int Dylib_MemoryInitialize(void)
 // Global Symbol Table Management
 // ============================================================================
 
-int Dylib_AddGlobalSymbol(const char *name, uint32_t address,
+int KMOD_AddGlobalSymbol(const char *name, uint32_t address,
                           const char *lib_name, int is_kernel)
 {
    if (global_symtab_count >= DYLIB_MAX_GLOBAL_SYMBOLS)
@@ -166,7 +166,7 @@ int Dylib_AddGlobalSymbol(const char *name, uint32_t address,
    return 0;
 }
 
-uint32_t Dylib_LookupGlobalSymbol(const char *name)
+uint32_t KMOD_LookupGlobalSymbol(const char *name)
 {
    for (int i = 0; i < global_symtab_count; i++)
    {
@@ -176,7 +176,7 @@ uint32_t Dylib_LookupGlobalSymbol(const char *name)
    return 0; // Not found
 }
 
-void Dylib_PrintGlobalSymtab(void)
+void KMOD_PrintGlobalSymtab(void)
 {
    logfmt(LOG_INFO, "\n[DYLIB] ========== Global Symbol Table ==========");
    logfmt(LOG_INFO, "[DYLIB] %-40s 0x%-8x %s", "Symbol", "Address", "Source");
@@ -193,7 +193,7 @@ void Dylib_PrintGlobalSymtab(void)
    logfmt(LOG_INFO, "[DYLIB] Total: %d symbols\n", global_symtab_count);
 }
 
-void Dylib_ClearGlobalSymtab(void)
+void KMOD_ClearGlobalSymtab(void)
 {
    global_symtab_count = 0;
    logfmt(LOG_INFO, "[DYLIB] Global symbol table cleared\n");
@@ -292,7 +292,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
                const char *sym_name =
                    (const char *)(dynstr_addr + st_name_offset);
 
-               uint32_t sym_addr = Dylib_LookupGlobalSymbol(sym_name);
+               uint32_t sym_addr = KMOD_LookupGlobalSymbol(sym_name);
                if (sym_addr == 0)
                {
                   logfmt(LOG_WARNING,
@@ -337,7 +337,7 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
    return 0;
 }
 
-int Dylib_ApplyKernelRelocations(void)
+int KMOD_ApplyKernelRelocations(void)
 {
    // Kernel relocation sections are exposed by linker script
    extern char _kernel_rel_dyn_start[];
@@ -411,14 +411,14 @@ int Dylib_ApplyKernelRelocations(void)
    return 0;
 }
 
-uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
+uint32_t KMOD_MemoryAllocate(const char *lib_name, uint32_t size)
 {
    (void)lib_name;
 
    if (!dylib_mem_initialized)
    {
       logfmt(LOG_INFO, "[DYLIB] Initializing memory allocator...\n");
-      if (Dylib_MemoryInitialize() != 0)
+      if (KMOD_MemoryInitialize() != 0)
       {
          logfmt(LOG_ERROR, "[DYLIB] Failed to initialize dylib memory\n");
          return 0;
@@ -453,7 +453,7 @@ uint32_t Dylib_MemoryAllocate(const char *lib_name, uint32_t size)
 }
 
 // Helper: find index of library by name
-static int dylib_find_index(const char *name)
+static int find_index(const char *name)
 {
    if (!name || name[0] == '\0') return -1;
 
@@ -469,11 +469,11 @@ static int dylib_find_index(const char *name)
 }
 
 // Helper: create module record if it does not already exist
-static int dylib_ensure_record(const char *name)
+static int ensure_record(const char *name)
 {
    if (!name || name[0] == '\0') return KMOD_EINVAL;
 
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx >= 0) return idx;
 
    LibRecord *reg = LIB_REGISTRY_ADDR;
@@ -494,11 +494,11 @@ static int dylib_ensure_record(const char *name)
    return KMOD_ENOSLOT;
 }
 
-LibRecord *Dylib_Find(const char *name)
+LibRecord *KMOD_Find(const char *name)
 {
    if (!name || !LIB_REGISTRY_ADDR)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to Dylib_Find\n");
+      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to KMOD_Find\n");
       return NULL;
    }
 
@@ -513,9 +513,9 @@ LibRecord *Dylib_Find(const char *name)
    return NULL;
 }
 
-int Dylib_CheckDependencies(const char *name)
+int KMOD_CheckDependencies(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0) return 0;
 
    ExtendedLibData *ext = &extended_data[idx];
@@ -533,9 +533,9 @@ int Dylib_CheckDependencies(const char *name)
    return 1;
 }
 
-int Dylib_ResolveDependencies(const char *name)
+int KMOD_ResolveDependencies(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0) return -1;
 
    ExtendedLibData *ext = &extended_data[idx];
@@ -543,7 +543,7 @@ int Dylib_ResolveDependencies(const char *name)
    // Resolve each dependency
    for (int i = 0; i < ext->dep_count; i++)
    {
-      LibRecord *dep = Dylib_Find(ext->deps[i].name);
+      LibRecord *dep = KMOD_Find(ext->deps[i].name);
       if (dep)
       {
          ext->deps[i].resolved = 1;
@@ -561,13 +561,13 @@ int Dylib_ResolveDependencies(const char *name)
    return 0;
 }
 
-int Dylib_CallIfExists(const char *name)
+int KMOD_CallIfExists(const char *name)
 {
-   LibRecord *lib = Dylib_Find(name);
+   LibRecord *lib = KMOD_Find(name);
    if (!lib || !lib->entry) return -1;
 
    // Check dependencies before calling
-   if (!Dylib_CheckDependencies(name))
+   if (!KMOD_CheckDependencies(name))
    {
       logfmt(LOG_ERROR, "[DYLIB] %s has unresolved dependencies\n", name);
       return -1;
@@ -578,7 +578,7 @@ int Dylib_CallIfExists(const char *name)
    return ((entry_t)lib->entry)();
 }
 
-void Dylib_List(void)
+void KMOD_List(void)
 {
    LibRecord *reg = LIB_REGISTRY_ADDR;
 
@@ -606,9 +606,9 @@ void Dylib_List(void)
    logfmt(LOG_INFO, "[DYLIB]\n");
 }
 
-void Dylib_ListDependencies(const char *name)
+void KMOD_ListDependencies(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
@@ -632,9 +632,9 @@ void Dylib_ListDependencies(const char *name)
    logfmt(LOG_INFO, "[DYLIB]\n");
 }
 
-uint32_t Dylib_FindSymbol(const char *libname, const char *symname)
+uint32_t KMOD_FindSymbol(const char *libname, const char *symname)
 {
-   int idx = dylib_find_index(libname);
+   int idx = find_index(libname);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", libname);
@@ -656,9 +656,9 @@ uint32_t Dylib_FindSymbol(const char *libname, const char *symname)
    return 0;
 }
 
-int Dylib_CallSymbol(const char *libname, const char *symname)
+int KMOD_CallSymbol(const char *libname, const char *symname)
 {
-   LibRecord *lib = Dylib_Find(libname);
+   LibRecord *lib = KMOD_Find(libname);
    if (!lib)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", libname);
@@ -666,14 +666,14 @@ int Dylib_CallSymbol(const char *libname, const char *symname)
    }
 
    // Check dependencies before calling
-   if (!Dylib_CheckDependencies(libname))
+   if (!KMOD_CheckDependencies(libname))
    {
       logfmt(LOG_ERROR, "[DYLIB] %s has unresolved dependencies\n", libname);
       return -1;
    }
 
    // Find the symbol
-   uint32_t symbol_addr = Dylib_FindSymbol(libname, symname);
+   uint32_t symbol_addr = KMOD_FindSymbol(libname, symname);
    if (!symbol_addr)
    {
       return -1;
@@ -684,9 +684,9 @@ int Dylib_CallSymbol(const char *libname, const char *symname)
    return ((func_t)symbol_addr)();
 }
 
-void Dylib_ListSymbols(const char *name)
+void KMOD_ListSymbols(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
@@ -710,7 +710,7 @@ void Dylib_ListSymbols(const char *name)
    logfmt(LOG_INFO, "[DYLIB]\n");
 }
 
-int Dylib_ParseSymbols(LibRecord *lib)
+int KMOD_ParseSymbols(LibRecord *lib)
 {
    if (!lib || !lib->base)
    {
@@ -718,7 +718,7 @@ int Dylib_ParseSymbols(LibRecord *lib)
       return -1;
    }
 
-   int idx = dylib_find_index(lib->name);
+   int idx = find_index(lib->name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found in registry: %s\n",
@@ -740,9 +740,9 @@ int Dylib_ParseSymbols(LibRecord *lib)
    return 0;
 }
 
-int Dylib_MemoryFree(const char *lib_name)
+int KMOD_MemoryFree(const char *lib_name)
 {
-   int idx = dylib_find_index(lib_name);
+   int idx = find_index(lib_name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", lib_name);
@@ -765,11 +765,11 @@ int Dylib_MemoryFree(const char *lib_name)
    return 0;
 }
 
-int Dylib_Load(const char *name, const void *image, uint32_t size)
+int KMOD_Load(const char *name, const void *image, uint32_t size)
 {
-   if (!dylib_mem_initialized) Dylib_MemoryInitialize();
+   if (!dylib_mem_initialized) KMOD_MemoryInitialize();
 
-   int idx = dylib_ensure_record(name);
+   int idx = ensure_record(name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] failed to register module: %s\n", name);
@@ -786,7 +786,7 @@ int Dylib_Load(const char *name, const void *image, uint32_t size)
    }
 
    // Allocate memory for the library
-   uint32_t load_addr = Dylib_MemoryAllocate(name, size);
+   uint32_t load_addr = KMOD_MemoryAllocate(name, size);
    if (!load_addr)
    {
       logfmt(LOG_ERROR, "[DYLIB] Failed to allocate memory for %s\n", name);
@@ -819,7 +819,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    // Validate input parameters
    if (!ext || base_addr == 0 || size == 0)
    {
-      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to parse_elf_symbols\n");
+      logfmt(LOG_ERROR, "[DYLIB] Invalid parameters to KMOD_ParseELFSymbols\n");
       return -1;
    }
 
@@ -1100,11 +1100,11 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    return 0;
 }
 
-int Dylib_LoadFromDisk(const char *name, const char *filepath)
+int KMOD_LoadFromDisk(const char *name, const char *filepath)
 {
-   if (!dylib_mem_initialized) Dylib_MemoryInitialize();
+   if (!dylib_mem_initialized) KMOD_MemoryInitialize();
 
-   int idx = dylib_ensure_record(name);
+   int idx = ensure_record(name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] failed to register module: %s\n", name);
@@ -1138,7 +1138,7 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    }
 
    // Allocate memory for the library
-   uint32_t load_addr = Dylib_MemoryAllocate(name, file_size);
+   uint32_t load_addr = KMOD_MemoryAllocate(name, file_size);
    if (!load_addr)
    {
       logfmt(LOG_ERROR,
@@ -1157,7 +1157,7 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
              "[DYLIB] Failed to read library: expected %d bytes, got %d\n",
              file_size, bytes_read);
       VFS_Close(file);
-      Dylib_MemoryFree(name);
+      KMOD_MemoryFree(name);
       return -1;
    }
 
@@ -1183,9 +1183,9 @@ int Dylib_LoadFromDisk(const char *name, const char *filepath)
    return 0;
 }
 
-int Dylib_Remove(const char *name)
+int KMOD_Remove(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0)
    {
       logfmt(LOG_ERROR, "[DYLIB] Library not found: %s\n", name);
@@ -1202,7 +1202,7 @@ int Dylib_Remove(const char *name)
    }
 
    // Free memory
-   if (Dylib_MemoryFree(name) != 0) return -1;
+   if (KMOD_MemoryFree(name) != 0) return -1;
 
    // Mark as unloaded
    ext->loaded = 0;
@@ -1220,7 +1220,7 @@ int Dylib_Remove(const char *name)
    return 0;
 }
 
-void Dylib_MemoryStatus(void)
+void KMOD_MemoryStatus(void)
 {
    if (!dylib_mem_initialized)
    {
@@ -1257,22 +1257,22 @@ void Dylib_MemoryStatus(void)
    logfmt(LOG_INFO, "[DYLIB]\n");
 }
 
-void Dylib_RegisterCallback(dylib_register_symbols_t callback)
+void KMOD_RegisterCallback(kmod_register_symbols_t callback)
 {
    symbol_callback = callback;
 }
 
-int Kmod_Initialize(void)
+int KMOD_Initialize(void)
 {
-   if (Dylib_MemoryInitialize() < 0)
+   if (KMOD_MemoryInitialize() < 0)
    {
       logfmt(LOG_ERROR, "[KMOD] failed to initialize module memory\n");
       return KMOD_EINIT;
    }
 
-   Dylib_ClearGlobalSymtab();
+   KMOD_ClearGlobalSymtab();
 
-   if (Dylib_ApplyKernelRelocations() < 0)
+   if (KMOD_ApplyKernelRelocations() < 0)
    {
       logfmt(LOG_ERROR, "[KMOD] failed to apply kernel relocations\n");
       return KMOD_EINIT;
@@ -1281,33 +1281,33 @@ int Kmod_Initialize(void)
    return KMOD_OK;
 }
 
-int Kmod_Insmod(const char *name, const char *filepath)
+int KMOD_Insmod(const char *name, const char *filepath)
 {
    if (!name || name[0] == '\0' || !filepath || filepath[0] == '\0')
    {
       return KMOD_EINVAL;
    }
 
-   if (Dylib_LoadFromDisk(name, filepath) < 0)
+   if (KMOD_LoadFromDisk(name, filepath) < 0)
    {
       logfmt(LOG_ERROR, "[KMOD] insmod failed for %s from %s\n", name,
              filepath);
       return KMOD_ELOAD;
    }
 
-   if (Dylib_ResolveDependencies(name) < 0)
+   if (KMOD_ResolveDependencies(name) < 0)
    {
-      Dylib_Remove(name);
+      KMOD_Remove(name);
       logfmt(LOG_ERROR, "[KMOD] unresolved dependencies for %s\n", name);
       return KMOD_EDEPEND;
    }
 
-   LibRecord *lib = Dylib_Find(name);
+   LibRecord *lib = KMOD_Find(name);
    if (lib && lib->entry)
    {
-      if (Dylib_CallIfExists(name) < 0)
+      if (KMOD_CallIfExists(name) < 0)
       {
-         Dylib_Remove(name);
+         KMOD_Remove(name);
          logfmt(LOG_ERROR, "[KMOD] module init failed for %s\n", name);
          return KMOD_EINITCALL;
       }
@@ -1317,14 +1317,14 @@ int Kmod_Insmod(const char *name, const char *filepath)
    return KMOD_OK;
 }
 
-int Kmod_Rmmod(const char *name)
+int KMOD_Rmmod(const char *name)
 {
    if (!name || name[0] == '\0')
    {
       return KMOD_EINVAL;
    }
 
-   if (Dylib_Remove(name) < 0)
+   if (KMOD_Remove(name) < 0)
    {
       return KMOD_ENOTFOUND;
    }
@@ -1333,9 +1333,9 @@ int Kmod_Rmmod(const char *name)
    return KMOD_OK;
 }
 
-int Kmod_IsLoaded(const char *name)
+int KMOD_IsLoaded(const char *name)
 {
-   int idx = dylib_find_index(name);
+   int idx = find_index(name);
    if (idx < 0)
    {
       return 0;
@@ -1343,7 +1343,7 @@ int Kmod_IsLoaded(const char *name)
    return extended_data[idx].loaded ? 1 : 0;
 }
 
-void Kmod_Lsmod(void)
+void KMOD_Lsmod(void)
 {
    LibRecord *reg = LIB_REGISTRY_ADDR;
 
@@ -1364,9 +1364,4 @@ void Kmod_Lsmod(void)
       logfmt(LOG_INFO, "[KMOD] %-22s 0x%08x loaded\n", reg[i].name,
              reg[i].size);
    }
-}
-
-int Dylib_Initialize(void)
-{
-   return Kmod_Initialize();
 }

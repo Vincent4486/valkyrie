@@ -85,10 +85,9 @@ if os.path.exists(mkisrs_path):
 
 sources = [
     src for src in GlobSources(src_dir)
-    if os.path.basename(str(src)) not in ('crti.S', 'crtn.S')
 ]
 
-objects = env.Object(sources)
+objects = env.Object(GlobSources(src_dir))
 
 
 # =============================================================================

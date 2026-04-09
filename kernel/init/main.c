@@ -18,13 +18,11 @@
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
-#include <sys/kmod/dylib.h>
+#include <sys/kmod/kmod.h>
 #include <sys/elf.h>
 #include <sys/sys.h>
 #include <valecium/fs.h>
 #include <valecium/system.h>
-
-#include <libmath/math.h>
 
 extern int Init_MountRoot(void);
 extern void interact();
@@ -87,8 +85,10 @@ void __attribute__((noreturn)) start(BOOT_Info *boot)
    VFS_SelfTest();
    Keyboard_Initialize();
 
-   if (Dylib_Initialize() < 0)
+   if (KMOD_Initialize() < 0)
    {
+      logfmt(LOG_ERROR, "[INIT] failed to initialize kernel module handler\n");
+      goto end;
    }
 
    SYS_Finalize();
