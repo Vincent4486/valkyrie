@@ -40,8 +40,14 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
    // Choose bump pointer: per-dir state or kernel default
    uint32_t *bump = next_vaddr_state ? next_vaddr_state : &kernel_next_vaddr;
 
-   // Find a free virtual address range (simple bump allocator)
-   if (*bump + aligned_size > HAL_ARCH_BASE || *bump + aligned_size < *bump)
+   // Kernel allocator must never start below kernel virtual base.
+   if (bump == &kernel_next_vaddr && *bump < HAL_ARCH_BASE)
+   {
+      *bump = HAL_ARCH_BASE;
+   }
+
+   // Detect 32-bit wraparound in the bump allocator.
+   if (*bump + aligned_size < *bump)
    {
       logfmt(LOG_ERROR,
              "[MEM] VMM_Allocate: virtual address space exhausted\n");
