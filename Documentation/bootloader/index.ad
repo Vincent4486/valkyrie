@@ -1,0 +1,19 @@
+= Bootloader Documentation
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:../index.html[Home], link:../devel.html[Developer Guide], link:../roadmap.html[Roadmap]
+
+This is the documentation about the bootlaoder of Valecium OS.
+
+== Boot Processes
+
+* link:BIOS Boot Process[bios-boot.html] - The boot process that the BIOS use to load the kernel.
+* link:EFI Boot Process[efi-boot.html] - The process that EFI bootloader uses to load.
+
+== Revision History
+
+=== v1.0
+
+Added the boot process maps.

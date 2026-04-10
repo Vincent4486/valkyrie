@@ -12,7 +12,8 @@ Valecium OS is a Unix-like, multi-architecture operating system kernel designed 
 * **Want to build the project?** → See link:building.html[Building the Project]
 * **Want to contribute code?** → See link:devel.html[Developer Guide]
 * **Want to try running it?** → See link:usage/index.html[Usage Guides]
-* **Curious about the architecture?** → See link:kernel/index.html[Kernel Documentation]
+* **Curious about the architecture?** → See link:kernel/index.html[Bootloader Documentation]
+* **Know about the boot process?** → See link:bootloader/index.html[Kernel Documentation]
 
 == Project Overview
 
@@ -32,6 +33,7 @@ These documents cover everything needed to participate in Valecium OS developmen
 
 * **link:devel.html[devel.ad]** — Coding standards, naming conventions, assembly strategy, and git workflow
 * **link:kernel/index.html[kernel/index.ad]** — Deep dives into kernel subsystems, memory management, scheduling, and device drivers
+* **link:bootloader/index.html[bootloader/index.ad]** — Understand how does the legacy BIOS and new UEFI boot works
 * **link:roadmap.html[roadmap.ad]** — Planned features, known limitations, and architectural goals
 
 New contributors should start with **devel.ad** to understand the project's coding standards and build system.
@@ -60,6 +62,7 @@ Building applications or utilities for Valecium OS?
 | Running on QEMU | usage/index.ad
 | Contributing patches | devel.ad
 | Supported architectures | kernel/index.ad
+| BIOS and EFI boot | bootloader/index.ad
 |===
 
 == Getting Help

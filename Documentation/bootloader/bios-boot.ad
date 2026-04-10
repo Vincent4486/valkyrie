@@ -1,0 +1,47 @@
+[cols=",,,",]
+|===
+|[.s1]#*Phase*# |[.s1]#*Component*# |[.s1]#*Brief Description*#
+|[.s1]#*Hardware/Software Mechanism*#
+
+|[.s1]#*Stage 1*# |[.s1]#*MBR / Boot Sector*# |[.s1]#The first 512 bytes
+on disk. Loads the stage2 bootloader in the reserved space of the MBR to 
+RAM.# |[.s1]#BIOS INT 0x13h (LBA); Signature 0xAA55 at byte 510.#
+
+|[.s1]#*Stage 2*# |[.s1]#*Memory Detection*# |[.s1]#Queries the BIOS for
+a list of all usable RAM regions. This is the source for your
+memMapAddr.# |[.s1]#BIOS INT 0x15, EAX=0xE820.#
+
+|[.s1]#*Stage 2*# |[.s1]#*A20 Gate*# |[.s1]#Disables the "wraparound" at
+1MB to allow access to higher memory which is where the kernel will load
+normally.# |[.s1]#"Fast A20" via I/O Port 0x92 or BIOS INT 0x15, 
+AX=0x2401.#
+
+|[.s1]#*Stage 2*# |[.s1]#*Video Setup*# |[.s1]#(Optional) Sets a
+graphical mode (e.g., 1024x768) before BIOS interrupts become
+unavailable (reserved for future).# |[.s1]#VESA BIOS Extensions (VBE).#
+
+|[.s1]#*Transition*# |[.s1]#*GDT Setup*# |[.s1]#Defines Global
+Descriptor Table with Flat 4GB segments for Code and Data.# |[.s1]#LGDT
+instruction; Segment limit 0xFFFFFFFF.#
+
+|[.s1]#*Transition*# |[.s1]#*Protected Mode Switch*# |[.s1]#Flips the
+CPU from 16-bit Real Mode to 32-bit Protected Mode.# |[.s1]#Set Bit 0 in
+CR0 register; Far JMP to flush pipeline.#
+
+|[.s1]#*Stage 3*# |[.s1]#*Filesystem Parser*# |[.s1]#Navigates the
+storage (e.g., FAT32) to find the valeciumx-(version) file under `/boot`
+of the host filesystem.# |[.s1]#Custom code to read Root Directory and 
+Clusters/Extents.#
+
+|[.s1]#*Stage 3*# |[.s1]#*Executable Loader*# |[.s1]#Copies the kernel
+binary to its linked destination at 0xa00000.#
+|[.s1]#Memory copy; ELF Program Header parsing if using ELF.#
+
+|[.s1]#*Handoff*# |[.s1]#*Info Structure*# |[.s1]#Packs the memory map
+and boot parameters into a struct for the C parser.# |[.s1]#Populating a
+memory region (e.g., 0x7000) with packed data.#
+
+|[.s1]#*Handoff*# |[.s1]#*Final Jump*# |[.s1]#Sets EAX to your magic
+value, EBX to the info pointer, and jumps to the kernel.# |[.s1]#mov
+eax, MAGIC; mov ebx, INFO++_++PTR; jmp KERNEL++_++ENTRY.#
+|===
