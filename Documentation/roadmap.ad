@@ -7,15 +7,14 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 
 * [ ] Add Rust compilation support for kernel
 * [x] Refactor kernel dylib system to kernel modules
-* [ ] Add dynamic linker support
+* [ ] Add dynamic linker support for kernel
 * [x] Make kernel not use the reserved memory region and only BSS + Heap
 * [ ] FAT LFN support
 * [ ] ATAPI and ISO9660 optical driver support
 * [x] Fix usermode programs not able to read from stdin
 * [ ] Create custom bootloader
 * [ ] DMA mode hardware drivers
-* [ ] External runtime dependencies compiled during build not toolchain
-** [ ] Musl should not be compiled as a part of the toolchain
+* [x] External runtime dependencies compiled during build not toolchain
 * [ ] Make kernel PIC & PIE
 * [ ] Smart heap allocation for kernel that actually "frees" the memory
 
