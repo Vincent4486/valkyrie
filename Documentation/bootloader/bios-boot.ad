@@ -4,7 +4,7 @@
 :icons: font
 :sectlinks:
 
-See also: link:sindex.html[Main Boot Page], link:efi-boot.html[EFI Boot Process], link:../roadmap.html[Roadmap]
+See also: link:index.html[Main Boot Page], link:efi-boot.html[EFI Boot Process], link:../roadmap.html[Roadmap]
 
 [cols=",,,",]
 |===
