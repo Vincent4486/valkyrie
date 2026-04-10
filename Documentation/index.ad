@@ -12,8 +12,8 @@ Valecium OS is a Unix-like, multi-architecture operating system kernel designed 
 * **Want to build the project?** → See link:building.html[Building the Project]
 * **Want to contribute code?** → See link:devel.html[Developer Guide]
 * **Want to try running it?** → See link:usage/index.html[Usage Guides]
-* **Curious about the architecture?** → See link:kernel/index.html[Bootloader Documentation]
-* **Know about the boot process?** → See link:bootloader/index.html[Kernel Documentation]
+* **Curious about the architecture?** → See link:kernel/index.html[Kernel Documentation]
+* **Know about the boot process?** → See link:bootloader/index.html[Bootloader Documentation]
 
 == Project Overview
 
