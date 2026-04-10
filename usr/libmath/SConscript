@@ -12,7 +12,7 @@ Import('runtime_dependencies')
 
 env = usermode_env.Clone()
 
-src_dir = Dir('#usr/libmath').abspath
+srcpath = Dir('#usr/libmath').abspath
 
 # Shared library compilation flags
 env.Append(
@@ -23,12 +23,12 @@ env.Append(
         '-shared',
         '-Wl,-soname,libmath.so',
     ],
-    CPATH=[src_dir],
-    CPPPATH=[src_dir],
-    ASFLAGS=['-I', src_dir + '/', '-f', 'elf'],
+    CPATH=[srcpath],
+    CPPPATH=[srcpath],
+    ASFLAGS=['-I', srcpath + '/', '-f', 'elf'],
 )
 
-sources = GlobSources(src_dir)
+sources = GlobSources(srcpath)
 objects = env.SharedObject(sources)
 env.Depends(objects, runtime_dependencies)
 

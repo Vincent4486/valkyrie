@@ -12,16 +12,16 @@ Import('runtime_dependencies')
 
 env = usermode_env.Clone()
 
-src_dir = Dir('#usr/selftest').abspath
+srcpath = Dir('#usr/selftest').abspath
 
 env.Append(
-    CPATH=[src_dir],
-    CPPPATH=[src_dir],
+    CPATH=[srcpath],
+    CPPPATH=[srcpath],
     CCFLAGS=['-ffreestanding', '-fno-builtin', '-fno-pie', '-fno-stack-protector'],
     LINKFLAGS=['-nostdlib', '-nostartfiles', '-nodefaultlibs', '-static', '-Wl,-e,_start', '-no-pie'],
 )
 
-sources = GlobSources(src_dir)
+sources = GlobSources(srcpath)
 objects = env.Object(sources)
 env.Depends(objects, runtime_dependencies)
 

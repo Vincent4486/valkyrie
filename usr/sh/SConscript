@@ -12,14 +12,14 @@ Import('runtime_dependencies')
 
 env = usermode_env.Clone()
 
-src_dir = Dir('#usr/sh').abspath
+srcpath = Dir('#usr/sh').abspath
 
 env.Append(
-    CPATH=[src_dir],
-    CPPPATH=[src_dir],
+    CPATH=[srcpath],
+    CPPPATH=[srcpath],
 )
 
-sources = GlobSources(src_dir)
+sources = GlobSources(srcpath)
 objects = env.Object(sources)
 env.Depends(objects, runtime_dependencies)
 

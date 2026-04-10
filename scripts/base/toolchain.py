@@ -111,7 +111,7 @@ class ToolchainBuilder:
         self.bin_dir = self.prefix / 'bin'
         
         # Source/build directories
-        self.src_dir = self.prefix / 'src'
+        self.srcpath = self.prefix / 'src'
         self.build_dir = self.prefix / 'build'
         
         # Environment for builds
@@ -122,7 +122,7 @@ class ToolchainBuilder:
     def setup_directories(self):
         """Create necessary directories."""
         self.prefix.mkdir(parents=True, exist_ok=True)
-        self.src_dir.mkdir(exist_ok=True)
+        self.srcpath.mkdir(exist_ok=True)
         self.build_dir.mkdir(exist_ok=True)
     
     def download_sources(self):
@@ -130,7 +130,7 @@ class ToolchainBuilder:
         for pkg, version in VERSIONS.items():
             url = URLS[pkg].format(version=version)
             filename = url.split('/')[-1]
-            dest = self.src_dir / filename
+            dest = self.srcpath / filename
             
             if dest.exists():
                 print(f"Already downloaded: {filename}")
@@ -143,18 +143,18 @@ class ToolchainBuilder:
         for pkg, version in VERSIONS.items():
             url = URLS[pkg].format(version=version)
             filename = url.split('/')[-1]
-            archive = self.src_dir / filename
+            archive = self.srcpath / filename
             
             # Determine extracted directory name
             src_name = f"{pkg}-{version}"
             
-            src_path = self.src_dir / src_name
+            src_path = self.srcpath / src_name
             if src_path.exists():
                 print(f"Already extracted: {src_name}")
                 continue
             
             try:
-                extract_archive(str(archive), str(self.src_dir))
+                extract_archive(str(archive), str(self.srcpath))
             except (EOFError, Exception) as e:
                 # If extraction fails, remove the corrupted archive
                 print(f"Error extracting {filename}: {e}")
@@ -173,7 +173,7 @@ class ToolchainBuilder:
         print("=" * 60)
         
         version = VERSIONS['binutils']
-        src_path = self.src_dir / f"binutils-{version}"
+        src_path = self.srcpath / f"binutils-{version}"
         build_path = self.build_dir / f"binutils-{self.target}"
         
         if (self.bin_dir / f"{self.target}-as").exists():
@@ -217,7 +217,7 @@ class ToolchainBuilder:
         print("=" * 60)
         
         version = VERSIONS['gcc']
-        src_path = self.src_dir / f"gcc-{version}"
+        src_path = self.srcpath / f"gcc-{version}"
         build_path = self.build_dir / f"gcc-stage1-{self.target}"
         
         if (self.bin_dir / f"{self.target}-gcc").exists():
@@ -286,7 +286,7 @@ class ToolchainBuilder:
     def clean_all(self):
         """Remove all build artifacts and sources."""
         print("Cleaning everything...")
-        for path in [self.build_dir, self.src_dir]:
+        for path in [self.build_dir, self.srcpath]:
             if path.exists():
                 shutil.rmtree(path)
                 print(f"Removed: {path}")

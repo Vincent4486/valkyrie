@@ -18,9 +18,9 @@ TARGET_ENVIRONMENT: Environment
 # =============================================================================
 
 env = TARGET_ENVIRONMENT.Clone()
-src_dir = Dir('#bootloader').abspath
+srcpath = Dir('#bootloader').abspath
 arch = TARGET_ENVIRONMENT['arch']
 boot = TARGET_ENVIRONMENT['boot']
 
-arch_dir = os.path.join(src_dir, f'{arch}-{boot}')
-linker_script = os.path.join(arch_dir, 'linker.ld')
+archpath = os.path.join(srcpath, f'{arch}-{boot}')
+linkerscript = os.path.join(archpath, 'linker.ld')

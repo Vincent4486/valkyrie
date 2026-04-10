@@ -20,10 +20,10 @@ TARGET_ENVIRONMENT: Environment
 
 env = TARGET_ENVIRONMENT.Clone()
 
-src_dir = Dir('#kernel').abspath
+srcpath = Dir('#kernel').abspath
 arch = TARGET_ENVIRONMENT['arch']
-arch_dir = os.path.join(src_dir, 'arch', arch)
-linker_script = os.path.join(arch_dir, 'linker.ld')
+archpath = os.path.join(srcpath, 'arch', arch)
+linkerscript = os.path.join(archpath, 'linker.ld')
 
 # Architecture-specific flags (kernel-only)
 arch_config = get_arch_config(arch)
@@ -45,17 +45,17 @@ env.Append(
     ],
     LINKFLAGS=[
         '-nostdlib',
-        '-Wl,-T', linker_script,
-        '-Wl,-Map=' + env.File('core.map').path,
+        '-Wl,-T', linkerscript,
+        '-Wl,-Map=' + env.File('kernel.map').path,
         '-Wl,-z,relro,-z,now',   # Security: read-only relocations
         '-Wl,-z,noexecstack',    # No executable stack
         '-Wl,--as-needed',
         '-Wl,--export-dynamic',
     ],
-    CPATH=[src_dir, '#include'],
-    CPPPATH=[src_dir, '#include'],
+    CPATH=[srcpath, '#include'],
+    CPPPATH=[srcpath, '#include'],
     ASFLAGS=[
-        '-I', arch_dir,
+        '-I', archpath,
         '-g',
         '-Wa,--noexecstack',
     ],
@@ -69,10 +69,10 @@ env.Append(
 
 import subprocess
 
-mkisrs_path = os.path.join(arch_dir, 'cpu', 'mkisrs.sh')
+mkisrs_path = os.path.join(archpath, 'cpu', 'mkisrs.sh')
 if os.path.exists(mkisrs_path):
-    isrs_gen_c = os.path.join(arch_dir, 'cpu', 'isrs_gen.c')
-    isrs_gen_inc = os.path.join(arch_dir, 'cpu', 'isrs_gen.inc')
+    isrs_gen_c = os.path.join(archpath, 'cpu', 'isrs_gen.c')
+    isrs_gen_inc = os.path.join(archpath, 'cpu', 'isrs_gen.inc')
     
     # Run mkisrs.sh before recursive source collection so generated files exist.
     if not os.path.exists(isrs_gen_c) or not os.path.exists(isrs_gen_inc):
@@ -104,6 +104,6 @@ objects = env.Object(sources)
 # Build Target
 # =============================================================================
 
-core = env.Program(env['kernelOutputName'], objects)
+kernel = env.Program(env['kernelOutputName'], objects)
 
-Export('core')
+Export('kernel')

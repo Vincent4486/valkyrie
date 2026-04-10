@@ -20,7 +20,7 @@ from scripts.scons.disk import (
     generate_grub_config,
 )
 
-Import('core')
+Import('kernel')
 Import('user_libraries')
 Import('user_applications')
 Import('TARGET_ENVIRONMENT')
@@ -286,7 +286,7 @@ def build_image_action(target, source, env):
 root = env.Dir('root')
 root_content = GlobRecursive(env, '*', root)
 
-inputs = [core] + user_libraries + user_applications + root_content
+inputs = [kernel] + user_libraries + user_applications + root_content
 
 output_fmt = env["outputFormat"]
 output = f'{env["outputFile"]}-{env["kernelVersion"]}_{env["config"]}_{env["arch"]}.{output_fmt}'

@@ -41,13 +41,13 @@ def GlobRecursive(env: Environment, pattern: str, node: str = '.') -> list:
     return globs
 
 
-def GlobSources(src_dir: str, extensions: tuple = ('.c', '.cpp', '.S')) -> list:
+def GlobSources(srcpath: str, extensions: tuple = ('.c', '.cpp', '.S')) -> list:
     sources = []
-    for root, dirs, files in os.walk(src_dir):
+    for root, dirs, files in os.walk(srcpath):
         for file in files:
             if file.endswith(extensions):
                 full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, src_dir)
+                rel_path = os.path.relpath(full_path, srcpath)
                 sources.append(rel_path)
     return sources
 
@@ -73,13 +73,13 @@ def RemoveSuffix(s: str, suffix: str) -> str:
     return s
 
 
-def CreateBuildEnv(base_env: Environment, src_dir: str, **kwargs) -> Environment:
+def CreateBuildEnv(base_env: Environment, srcpath: str, **kwargs) -> Environment:
     env = base_env.Clone()
     
     # Set up include paths
     env.Append(
-        CPATH=[src_dir],
-        CPPPATH=[src_dir],
+        CPATH=[srcpath],
+        CPPPATH=[srcpath],
     )
     
     # Apply any additional settings
