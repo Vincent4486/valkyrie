@@ -103,7 +103,7 @@ void Parser_Multiboot(uint32_t magic, multiboot_info_t *mbi)
    if (mbi->flags & (1u << 2))
    {
       CopyString(s_bootInfo.commandLine, (const char *)(uintptr_t)mbi->cmdline,
-          sizeof(s_bootInfo.commandLine));
+                 sizeof(s_bootInfo.commandLine));
    }
 
    /* --- Bootloader name (Multiboot flags bit 9) ------------------------- */

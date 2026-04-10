@@ -18,8 +18,8 @@
  */
 
 #if defined(I686)
-#include <arch/i686/mem/vm_layout.h>
 #include <arch/i686/mem/paging.h>
+#include <arch/i686/mem/vm_layout.h>
 
 /* Paging flags */
 #define HAL_PAGE_PRESENT 0x001
@@ -46,7 +46,7 @@
 #define HAL_ARCH_Paging_SelfTest i686_Paging_SelfTest
 
 /* Memory layout constants */
-#define HAL_ARCH_KERNEL_IMAGE_START ((uint32_t)&__kernel_image_start)
+#define HAL_ARCH_KERNEL_IMAGE_START ((uint32_t) & __kernel_image_start)
 #define HAL_ARCH_BASE KERNEL_BASE
 #define HAL_ARCH_CODE_START USER_CODE_START
 #define HAL_ARCH_SPACE_END USER_SPACE_END

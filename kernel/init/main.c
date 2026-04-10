@@ -18,8 +18,8 @@
 #include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
-#include <sys/kmod/kmod.h>
 #include <sys/elf.h>
+#include <sys/kmod/kmod.h>
 #include <sys/sys.h>
 #include <valecium/fs.h>
 #include <valecium/system.h>

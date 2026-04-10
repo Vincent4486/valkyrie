@@ -155,7 +155,7 @@ int KMOD_MemoryInitialize(void)
 // ============================================================================
 
 int KMOD_AddGlobalSymbol(const char *name, uint32_t address,
-                          const char *lib_name, int is_kernel)
+                         const char *lib_name, int is_kernel)
 {
    if (global_symtab_count >= KMOD_MAX_GLOBAL_SYMBOLS)
    {
@@ -196,8 +196,7 @@ void KMOD_PrintGlobalSymtab(void)
    {
       GlobalSymbolEntry *e = &global_symtab[i];
       const char *source = e->is_kernel ? "[KERNEL]" : e->lib_name;
-      logfmt(LOG_INFO, "[KMOD] %-40s 0x%08x %s\n", e->name, e->address,
-             source);
+      logfmt(LOG_INFO, "[KMOD] %-40s 0x%08x %s\n", e->name, e->address, source);
    }
    logfmt(LOG_INFO, "[KMOD] ==========================================\n");
    logfmt(LOG_INFO, "[KMOD] Total: %d symbols\n", global_symtab_count);
@@ -767,8 +766,8 @@ int KMOD_MemoryFree(const char *lib_name)
 
    if (!lib->base || ext->alloc_size == 0)
    {
-      logfmt(LOG_WARNING,
-             "[KMOD] Library %s has no tracked heap allocation\n", lib_name);
+      logfmt(LOG_WARNING, "[KMOD] Library %s has no tracked heap allocation\n",
+             lib_name);
       return 0;
    }
 
@@ -856,8 +855,8 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    if (size < 52 || elf_data == NULL)
    {
       logfmt(LOG_ERROR,
-             "[KMOD] ELF image too small or invalid (size=%d, data=%p)\n",
-             size, elf_data);
+             "[KMOD] ELF image too small or invalid (size=%d, data=%p)\n", size,
+             elf_data);
       return -1;
    }
 
@@ -976,7 +975,7 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
       }
       else
       {
-         original_base = USER_CODE_START;  /* Fallback to user program base */
+         original_base = USER_CODE_START; /* Fallback to user program base */
       }
    }
 
@@ -1027,8 +1026,8 @@ static int parse_elf_symbols(ExtendedLibData *ext, uint32_t base_addr,
    uint32_t num_symbols = symtab_size / symtab_entsize;
    ext->symbol_count = 0;
 
-   for (uint32_t i = 0;
-        i < num_symbols && ext->symbol_count < KMOD_MAX_SYMBOLS; i++)
+   for (uint32_t i = 0; i < num_symbols && ext->symbol_count < KMOD_MAX_SYMBOLS;
+        i++)
    {
       Elf32_Sym *sym = (Elf32_Sym *)(symtab_addr + (i * symtab_entsize));
 
@@ -1258,13 +1257,12 @@ void KMOD_MemoryStatus(void)
    uint32_t total_available =
        (heap_end >= heap_start) ? (heap_end - heap_start + 1) : 0;
    uint32_t total_allocated = kmod_total_allocated;
-   uint32_t remaining =
-       (total_available > total_allocated) ? (total_available - total_allocated)
-                                           : 0;
-   int percent_used =
-       (total_available == 0)
-           ? 0
-           : (int)((total_allocated * 100) / total_available);
+   uint32_t remaining = (total_available > total_allocated)
+                            ? (total_available - total_allocated)
+                            : 0;
+   int percent_used = (total_available == 0)
+                          ? 0
+                          : (int)((total_allocated * 100) / total_available);
 
    logfmt(LOG_INFO, "[KMOD] === KMOD Memory Statistics ===");
    logfmt(LOG_INFO, "[KMOD] Total Memory:     %d MiB (0x%x - 0x%x)\n",

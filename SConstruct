@@ -33,18 +33,30 @@ def get_git_short_hash() -> str:
         return ''
 
 
-def query_compiler_value(compiler: str, flag: str) -> str:
-    """Query a compiler for a single value and return a stripped string."""
-    try:
-        result = subprocess.run(
-            [compiler, flag],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return ''
+def build_runtime_dependencies_action(target, source, env):
+    """Build runtime dependencies (musl) into the build output tree."""
+    output_dir = Path(str(target[0].abspath)).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    target_triple = env['TARGET_TRIPLE']
+    jobs = os.cpu_count() or 1
+
+    subprocess.run(
+        [
+            'python3',
+            './scripts/base/dependencies.py',
+            '--build-runtime',
+            '--target',
+            target_triple,
+            '--output',
+            str(output_dir),
+            '--jobs',
+            str(jobs),
+        ],
+        check=True,
+    )
+
+    Path(str(target[0].abspath)).touch()
 
 
 def resolve_build_tools(arch: str):
@@ -231,9 +243,6 @@ def create_target_environment(host_env):
 
     tools, tool_paths, selected_prefix = resolve_build_tools(arch)
 
-    cc = tools['CC']
-    target_sysroot = query_compiler_value(cc, '-print-sysroot')
-
     selected_desc = selected_prefix if selected_prefix else 'unprefixed host tools'
     print(f"Using build tool prefix for {arch}: {selected_desc}")
     print('Resolved build tools:')
@@ -243,9 +252,6 @@ def create_target_environment(host_env):
     env = host_env.Clone(
         # Cross-compiler or native tools
         **tools,
-
-        # Runtime paths resolved from the selected compiler
-        TARGET_SYSROOT=target_sysroot,
 
         # Architecture info
         ARCH_CONFIG=arch_config,
@@ -297,6 +303,20 @@ Export('TARGET_ENVIRONMENT')
 # Build directory
 variant_dir = f'build/{TARGET_ENVIRONMENT["arch"]}_{TARGET_ENVIRONMENT["config"]}'
 build_type = TARGET_ENVIRONMENT['buildType']
+
+runtime_musl_dir = os.path.abspath(os.path.join(variant_dir, 'dependencies', 'musl'))
+TARGET_ENVIRONMENT['RUNTIME_DEP_MUSL_DIR'] = runtime_musl_dir
+
+runtime_dependencies = None
+if build_type in ('full', 'usr', 'image'):
+    runtime_stamp = os.path.join(runtime_musl_dir, '.stamp')
+    runtime_dependencies = HOST_ENVIRONMENT.Command(
+        runtime_stamp,
+        ['scripts/base/dependencies.py'],
+        build_runtime_dependencies_action,
+        TARGET_TRIPLE=TARGET_ENVIRONMENT['TARGET_TRIPLE'],
+    )
+    Export('runtime_dependencies')
 
 
 # =============================================================================

@@ -3,8 +3,8 @@
 """
 Cross-compiler toolchain builder for Valecium OS.
 
-Builds binutils, GCC, and musl libc for the specified target architecture.
-This replaces the shell-based toolchain.sh with a more flexible Python version.
+Builds binutils and GCC for the specified target architecture.
+Runtime libraries (musl) are built by the main OS build flow.
 """
 
 import argparse
@@ -30,13 +30,11 @@ from scripts.scons.arch import get_arch_config, get_supported_archs
 VERSIONS = {
     'binutils': '2.45',
     'gcc': '15.2.0',
-    'musl': '1.2.5',
 }
 
 URLS = {
     'binutils': 'https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz',
     'gcc': 'https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz',
-    'musl': 'https://musl.libc.org/releases/musl-{version}.tar.gz',
 }
 
 
@@ -110,7 +108,6 @@ class ToolchainBuilder:
         self.jobs = jobs or get_cpu_count()
         
         # Derived paths
-        self.sysroot = self.prefix / target / 'sysroot'
         self.bin_dir = self.prefix / 'bin'
         
         # Source/build directories
@@ -127,7 +124,6 @@ class ToolchainBuilder:
         self.prefix.mkdir(parents=True, exist_ok=True)
         self.src_dir.mkdir(exist_ok=True)
         self.build_dir.mkdir(exist_ok=True)
-        self.sysroot.mkdir(parents=True, exist_ok=True)
     
     def download_sources(self):
         """Download all source tarballs."""
@@ -150,10 +146,7 @@ class ToolchainBuilder:
             archive = self.src_dir / filename
             
             # Determine extracted directory name
-            if pkg == 'musl':
-                src_name = f"musl-{version}"
-            else:
-                src_name = f"{pkg}-{version}"
+            src_name = f"{pkg}-{version}"
             
             src_path = self.src_dir / src_name
             if src_path.exists():
@@ -204,7 +197,6 @@ class ToolchainBuilder:
         configure_opts = [
             f"--prefix={self.prefix}",
             f"--target={self.target}",
-            f"--with-sysroot={self.sysroot}",
             '--disable-nls',
             '--disable-werror',
         ] + self._get_configure_opts('binutils')
@@ -237,7 +229,6 @@ class ToolchainBuilder:
         configure_opts = [
             f"--prefix={self.prefix}",
             f"--target={self.target}",
-            f"--with-sysroot={self.sysroot}",
             '--disable-nls',
             '--enable-languages=c',
             '--without-headers',
@@ -262,127 +253,10 @@ class ToolchainBuilder:
             cwd=str(build_path),
         )
     
-    def build_musl(self):
-        """Build and install musl libc."""
-        print("\n" + "=" * 60)
-        print("Building musl libc")
-        print("=" * 60)
-        
-        version = VERSIONS['musl']
-        src_path = self.src_dir / f"musl-{version}"
-        build_path = self.build_dir / f"musl-{self.target}"
-        
-        musl_dest = self.sysroot / 'usr'
-        if (musl_dest / 'lib' / 'libc.so').exists():
-            print("musl already installed, skipping...")
-            return
-        
-        build_path.mkdir(exist_ok=True)
-        
-        # Set up cross-compilation environment
-        cross_env = {
-            'PATH': f"{self.bin_dir}:{os.environ.get('PATH', '')}",
-            'CC': f"{self.target}-gcc --sysroot={self.sysroot}",
-            'CXX': f"{self.target}-g++ --sysroot={self.sysroot}",
-            'AS': f"{self.target}-as",
-            'LD': f"{self.target}-ld",
-            'AR': f"{self.target}-ar",
-            'RANLIB': f"{self.target}-ranlib",
-            'STRIP': f"{self.target}-strip",
-        }
-        
-        run_command(
-            [
-                str(src_path / 'configure'),
-                f"--prefix={musl_dest}",
-                f"--host={self.target}",
-                '--enable-static',
-                '--enable-shared',
-            ],
-            env=cross_env,
-            cwd=str(build_path),
-        )
-        
-        run_command(['make', f'-j{self.jobs}'], env=cross_env, cwd=str(build_path))
-        run_command(['make', 'install'], env=cross_env, cwd=str(build_path))
-    
-    def build_gcc_stage2(self):
-        """Build GCC stage 2 (full C/C++ with libc support)."""
-        print("\n" + "=" * 60)
-        print("Building GCC Stage 2")
-        print("=" * 60)
-        
-        version = VERSIONS['gcc']
-        src_path = self.src_dir / f"gcc-{version}"
-        build_path = self.build_dir / f"gcc-stage2-{self.target}"
-        
-        # Check if already complete. Stage 2 is considered installed when the
-        # target compiler is runnable and stage-2 target runtime libraries are
-        # present. Do not require g++ here because this toolchain is configured
-        # as C-only (`--enable-languages=c`).
-        gcc_bin = self.bin_dir / f"{self.target}-gcc"
-        stage2_marker = self.prefix / self.target / 'lib' / 'libatomic.a'
-        if gcc_bin.exists() and stage2_marker.exists():
-            result = subprocess.run(
-                [str(gcc_bin), '--version'],
-                capture_output=True,
-            )
-            if result.returncode == 0:
-                print("GCC stage 2 already installed, skipping...")
-                return
-        
-        build_path.mkdir(exist_ok=True)
-        
-        # Get build triple
-        result = subprocess.run(
-            [str(src_path / 'config.guess')],
-            capture_output=True,
-            text=True,
-        )
-        build_triple = result.stdout.strip()
-        
-        # Cross-compilation environment for target libraries
-        target_env = {
-            'PATH': f"{self.bin_dir}:{os.environ.get('PATH', '')}",
-            'CC_FOR_TARGET': f"{self.target}-gcc --sysroot={self.sysroot}",
-            'CXX_FOR_TARGET': f"{self.target}-g++ --sysroot={self.sysroot}",
-            'AR_FOR_TARGET': f"{self.target}-ar",
-            'RANLIB_FOR_TARGET': f"{self.target}-ranlib",
-            'STRIP_FOR_TARGET': f"{self.target}-strip",
-            'CFLAGS_FOR_TARGET': '-O2',
-            'CXXFLAGS_FOR_TARGET': '-O2',
-        }
-        
-        # Unset host compiler vars to use system compiler
-        for var in ['CC', 'CXX', 'CPPFLAGS', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS']:
-            target_env[var] = ''
-        
-        configure_opts = [
-            f"--build={build_triple}",
-            f"--host={build_triple}",
-            f"--prefix={self.prefix}",
-            f"--target={self.target}",
-            f"--with-sysroot={self.sysroot}",
-            '--disable-nls',
-            '--enable-languages=c',
-            '--disable-isl',
-            '--disable-libsanitizer',
-        ] + self._get_configure_opts('gcc')
-        
-        run_command(
-            [str(src_path / 'configure')] + configure_opts,
-            env=target_env,
-            cwd=str(build_path),
-        )
-        
-        run_command(['make', f'-j{self.jobs}'], env=target_env, cwd=str(build_path))
-        run_command(['make', 'install'], env=target_env, cwd=str(build_path))
-    
     def build_all(self):
         """Build the complete toolchain."""
         print(f"Building toolchain for {self.target}")
         print(f"  Prefix: {self.prefix}")
-        print(f"  Sysroot: {self.sysroot}")
         print(f"  Jobs: {self.jobs}")
         print()
         
@@ -392,8 +266,6 @@ class ToolchainBuilder:
         
         self.build_binutils()
         self.build_gcc_stage1()
-        self.build_musl()
-        self.build_gcc_stage2()
         
         print("\n" + "=" * 60)
         print("Toolchain build complete!")
@@ -420,7 +292,7 @@ class ToolchainBuilder:
                 print(f"Removed: {path}")
     
     def is_installed(self) -> bool:
-        """Check if toolchain is already installed for this target and architecture.
+        """Check if base cross toolchain is already installed.
         
         Returns:
             True if all key toolchain components are found, False otherwise.
@@ -429,22 +301,7 @@ class ToolchainBuilder:
             self.bin_dir / f"{self.target}-as",
             self.bin_dir / f"{self.target}-gcc",
         ]
-        
-        # Check sysroot libraries
-        required_libs = [
-            self.sysroot / 'usr' / 'lib' / 'libc.so',
-            self.sysroot / 'usr' / 'lib' / 'crt1.o',
-        ]
-
-        # Stage-2 marker (built by full GCC stage 2 even for C-only toolchain).
-        stage2_markers = [
-            self.prefix / self.target / 'lib' / 'libatomic.a',
-            self.prefix / 'lib' / 'gcc' / self.target / VERSIONS['gcc'] / 'libgcc.a',
-        ]
-        
-        base_ok = all(path.exists() for path in required_tools + required_libs)
-        stage2_ok = any(path.exists() for path in stage2_markers)
-        return base_ok and stage2_ok
+        return all(path.exists() for path in required_tools)
 
 
 # =============================================================================
@@ -484,10 +341,6 @@ Examples:
                         help='Build only binutils')
     parser.add_argument('--gcc-stage1-only', action='store_true',
                         help='Build only GCC stage 1')
-    parser.add_argument('--musl-only', action='store_true',
-                        help='Build only musl')
-    parser.add_argument('--gcc-stage2-only', action='store_true',
-                        help='Build only GCC stage 2')
     parser.add_argument('--check', action='store_true',
                         help='Check toolchain: exit if installed, build if missing')
     parser.add_argument('--check-only', action='store_true',
@@ -544,16 +397,6 @@ Examples:
             builder.download_sources()
             builder.extract_sources()
             builder.build_gcc_stage1()
-        elif args.musl_only:
-            builder.setup_directories()
-            builder.download_sources()
-            builder.extract_sources()
-            builder.build_musl()
-        elif args.gcc_stage2_only:
-            builder.setup_directories()
-            builder.download_sources()
-            builder.extract_sources()
-            builder.build_gcc_stage2()
         else:
             builder.build_all()
     except subprocess.CalledProcessError as e:

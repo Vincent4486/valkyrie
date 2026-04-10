@@ -42,8 +42,8 @@ int Heap_ProcessInitialize(Process *proc, uint32_t heap_start_va)
    }
 
    // Map to process page directory
-   if (g_HalPagingOperations->MapPage(proc->page_directory, heap_start_va,
-                                      phys, 0x007) < 0)
+   if (g_HalPagingOperations->MapPage(proc->page_directory, heap_start_va, phys,
+                                      0x007) < 0)
    { // RW, Present
       logfmt(LOG_ERROR, "[MEM] Heap_Initialize: map_page failed\n");
       PMM_FreePhysicalPage(phys);

@@ -110,9 +110,9 @@ Process *Process_Clone(Process *parent, const Registers *parent_regs)
          return NULL;
       }
 
-        if (g_HalPagingOperations->MapPage(child->page_directory, va, new_phys,
-                                  HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                     HAL_PAGE_USER) < 0)
+      if (g_HalPagingOperations->MapPage(child->page_directory, va, new_phys,
+                                         HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                             HAL_PAGE_USER) < 0)
       {
          PMM_FreePhysicalPage(new_phys);
          free(copy_buffer);

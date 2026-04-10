@@ -12,7 +12,8 @@
 #define PAGE_ALIGN_UP(v) (((v) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
 static void *kernel_page_dir = NULL;
-static uint32_t kernel_next_vaddr = HAL_ARCH_BASE; // Use arch-specific kernel base
+static uint32_t kernel_next_vaddr =
+    HAL_ARCH_BASE; // Use arch-specific kernel base
 static uint32_t kernel_vaddr_limit = 0xFFFFFFFFu;
 
 void VMM_Initialize(void)
@@ -58,8 +59,8 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
 
    // Choose bump pointer: per-dir state or kernel default
    uint32_t *bump = next_vaddr_state ? next_vaddr_state : &kernel_next_vaddr;
-   uint32_t limit = (bump == &kernel_next_vaddr) ? kernel_vaddr_limit
-                                                 : HAL_ARCH_BASE;
+   uint32_t limit =
+       (bump == &kernel_next_vaddr) ? kernel_vaddr_limit : HAL_ARCH_BASE;
 
    // Kernel allocator must never start below kernel virtual base.
    if (bump == &kernel_next_vaddr && *bump < HAL_ARCH_BASE)
@@ -95,7 +96,7 @@ void *VMM_AllocateInDir(void *page_dir, uint32_t *next_vaddr_state,
 
       uint32_t va = vaddr + (i * PAGE_SIZE);
       if (g_HalPagingOperations->MapPage(page_dir, va, paddr,
-                          flags | HAL_PAGE_PRESENT) < 0)
+                                         flags | HAL_PAGE_PRESENT) < 0)
       {
          logfmt(LOG_ERROR, "[MEM] VMM_Allocate: failed to map page at 0x%08x\n",
                 va);
@@ -173,7 +174,7 @@ int VMM_MapInDir(void *page_dir, uint32_t vaddr, uint32_t paddr, uint32_t size,
       uint32_t pa = paddr + (i * PAGE_SIZE);
 
       if (g_HalPagingOperations->MapPage(page_dir, va, pa,
-                          flags | HAL_PAGE_PRESENT) < 0)
+                                         flags | HAL_PAGE_PRESENT) < 0)
       {
          logfmt(LOG_ERROR, "[MEM] VMM_Map: failed at offset 0x%x\n",
                 i * PAGE_SIZE);

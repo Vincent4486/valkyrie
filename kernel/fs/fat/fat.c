@@ -332,8 +332,8 @@ FAT_Instance *FAT_Initialize(Partition *disk)
       inst->RootDirectory.CurrentSectorInCluster = 0;
 
       // Read first sector of root cluster into buffer
-      if (Partition_ReadSectors(disk, FAT_ClusterToLba(inst, rootDirCluster),
-                    1, inst->RootDirectory.Buffer) < 0)
+      if (Partition_ReadSectors(disk, FAT_ClusterToLba(inst, rootDirCluster), 1,
+                                inst->RootDirectory.Buffer) < 0)
       {
          logfmt(LOG_WARNING,
                 "[FAT] Warning: could not pre-load FAT32 root dir sector\n");
@@ -348,7 +348,7 @@ FAT_Instance *FAT_Initialize(Partition *disk)
 
       // Read first sector of root directory from disk
       if (Partition_ReadSectors(disk, rootDirLba, 1,
-                    inst->RootDirectory.Buffer) < 0)
+                                inst->RootDirectory.Buffer) < 0)
       {
          logfmt(LOG_WARNING,
                 "[FAT] Warning: could not pre-load FAT12/16 root dir sector\n");
@@ -417,7 +417,7 @@ static int FAT_WriteFatEntry(FAT_Instance *inst, Partition *disk,
       {
          if (Partition_ReadSectors(disk, fatSectorLba + 1, 1,
                                    fatBuffer + SECTOR_SIZE) < 0)
-         return FAT_EIO;
+            return FAT_EIO;
       }
 
       if (inst->FatType == 12)
@@ -455,7 +455,7 @@ static int FAT_WriteFatEntry(FAT_Instance *inst, Partition *disk,
       {
          if (Partition_WriteSectors(disk, fatSectorLba + 1, 1,
                                     fatBuffer + SECTOR_SIZE) < 0)
-         return FAT_EIO;
+            return FAT_EIO;
       }
    }
 
@@ -736,8 +736,7 @@ static int fat_metadata_lookup_latest(Partition *disk, const char *path,
 }
 
 static int fat_check_access_path(Partition *disk, const char *path,
-                                 uint32_t uid, uint32_t gid,
-                                 uint8_t accessMask)
+                                 uint32_t uid, uint32_t gid, uint8_t accessMask)
 {
    if (!disk || !path) return FAT_EINVAL;
    if (uid == 0) return FAT_OK;
@@ -825,7 +824,8 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
    }
 
    // don't read past the end of the file (once size is known)
-   // For directories, Size becomes > 0 only after hitting the end of the cluster chain.
+   // For directories, Size becomes > 0 only after hitting the end of the
+   // cluster chain.
    if (fd->Public.Size > 0)
    {
       if (fd->Public.Position >= fd->Public.Size) return 0;
@@ -897,10 +897,11 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
                   break;
                }
 
-                  if (Partition_ReadSectors(disk,
-                                     FAT_ClusterToLba(inst, fd->CurrentCluster) +
-                                        fd->CurrentSectorInCluster,
-                                     1, fd->Buffer) < 0)
+               if (Partition_ReadSectors(
+                       disk,
+                       FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                           fd->CurrentSectorInCluster,
+                       1, fd->Buffer) < 0)
                {
                   logfmt(LOG_ERROR, "[FAT] read error!\n");
                   break;
@@ -958,10 +959,11 @@ uint32_t FAT_Read(Partition *disk, FAT_File *file, uint32_t byteCount,
             }
 
             // read next sector
-            if (Partition_ReadSectors(disk,
-                                FAT_ClusterToLba(inst, fd->CurrentCluster) +
-                                   fd->CurrentSectorInCluster,
-                                1, fd->Buffer) < 0)
+            if (Partition_ReadSectors(
+                    disk,
+                    FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                        fd->CurrentSectorInCluster,
+                    1, fd->Buffer) < 0)
             {
                logfmt(LOG_ERROR, "[FAT] read error!\n");
                break;
@@ -1015,7 +1017,7 @@ int FAT_FindFile(Partition *disk, FAT_File *file, const char *name,
           LOG_WARNING,
           "[FAT] FAT_FindFile: received path '%s', expected single component\n",
           name);
-        return FAT_EINVAL;
+      return FAT_EINVAL;
    }
 
    char fatName[12];
@@ -1276,10 +1278,10 @@ int FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
          fd->CurrentCluster = cluster;
          fd->CurrentSectorInCluster = sectorInCluster;
 
-          if (Partition_ReadSectors(disk,
-                              FAT_ClusterToLba(inst, fd->CurrentCluster) +
-                                 fd->CurrentSectorInCluster,
-                              1, fd->Buffer) < 0)
+         if (Partition_ReadSectors(disk,
+                                   FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                                       fd->CurrentSectorInCluster,
+                                   1, fd->Buffer) < 0)
          {
             logfmt(LOG_ERROR, "[FAT] seek read error (root)\n");
             return FAT_EIO;
@@ -1300,8 +1302,7 @@ int FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
          fd->CurrentSectorInCluster = 0;
 
          if (needsRead &&
-             Partition_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer) <
-                 0)
+             Partition_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer) < 0)
          {
             logfmt(LOG_ERROR, "[FAT] seek read error (root)\n");
             return FAT_EIO;
@@ -1319,7 +1320,7 @@ int FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
          logfmt(LOG_ERROR,
                 "[FAT] FAT_Seek: cannot seek to non-zero offset on empty "
                 "regular file\n");
-             return FAT_EINVAL;
+         return FAT_EINVAL;
       }
 
       if (fd->FirstCluster == 0)
@@ -1328,7 +1329,7 @@ int FAT_Seek(Partition *disk, FAT_File *file, uint32_t position)
              LOG_ERROR,
              "[FAT] FAT_Seek: FirstCluster is 0 for non-empty file (size=%u)\n",
              fd->Public.Size);
-          return FAT_ESTATE;
+         return FAT_ESTATE;
       }
 
       uint32_t clusterIndex = position / clusterBytes;
@@ -1602,9 +1603,9 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                                  : (inst->FatType == 16) ? 0xFFFF
                                                          : 0x0FFFFFFF;
 
-                  if (FAT_WriteFatEntry(inst, disk, fd->CurrentCluster,
-                                  newCluster) < 0 ||
-                     FAT_WriteFatEntry(inst, disk, newCluster, eofVal) < 0)
+               if (FAT_WriteFatEntry(inst, disk, fd->CurrentCluster,
+                                     newCluster) < 0 ||
+                   FAT_WriteFatEntry(inst, disk, newCluster, eofVal) < 0)
                {
                   logfmt(LOG_ERROR, "[FAT] FAT_Write: FAT write error "
                                     "linking/marking cluster\n");
@@ -1623,9 +1624,9 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
                }
 
                fd->CurrentCluster = newCluster;
-                      if (Partition_ReadSectors(disk,
-                            FAT_ClusterToLba(inst, newCluster), 1,
-                            fd->Buffer) < 0)
+               if (Partition_ReadSectors(disk,
+                                         FAT_ClusterToLba(inst, newCluster), 1,
+                                         fd->Buffer) < 0)
                {
                   logfmt(LOG_ERROR,
                          "[FAT] FAT_Write: failed to read new cluster\n");
@@ -1635,9 +1636,9 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
             else
             {
                fd->CurrentCluster = nextCluster;
-                      if (Partition_ReadSectors(disk,
-                            FAT_ClusterToLba(inst, fd->CurrentCluster),
-                            1, fd->Buffer) < 0)
+               if (Partition_ReadSectors(
+                       disk, FAT_ClusterToLba(inst, fd->CurrentCluster), 1,
+                       fd->Buffer) < 0)
                {
                   logfmt(LOG_ERROR,
                          "[FAT] FAT_Write: failed to read next cluster\n");
@@ -1647,10 +1648,11 @@ uint32_t FAT_Write(Partition *disk, FAT_File *file, uint32_t byteCount,
          }
          else
          {
-            if (Partition_ReadSectors(disk,
-                                FAT_ClusterToLba(inst, fd->CurrentCluster) +
-                                   fd->CurrentSectorInCluster,
-                                1, fd->Buffer) < 0)
+            if (Partition_ReadSectors(
+                    disk,
+                    FAT_ClusterToLba(inst, fd->CurrentCluster) +
+                        fd->CurrentSectorInCluster,
+                    1, fd->Buffer) < 0)
             {
                logfmt(LOG_ERROR,
                       "[FAT] FAT_Write: failed to read next sector\n");
@@ -1793,14 +1795,14 @@ int FAT_UpdateEntry(Partition *disk, FAT_File *file)
               sec++, sectorsScanned++)
          {
             uint8_t *sectorBuffer = kmalloc(SECTOR_SIZE);
-               if (!sectorBuffer) return FAT_EIO;
+            if (!sectorBuffer) return FAT_EIO;
             uint32_t lba = FAT_ClusterToLba(inst, cluster) + sec;
-               if (Partition_ReadSectors(disk, lba, 1, sectorBuffer) < 0)
+            if (Partition_ReadSectors(disk, lba, 1, sectorBuffer) < 0)
             {
                logfmt(LOG_ERROR, "[FAT] FAT_UpdateEntry: failed to read "
                                  "directory cluster sector\n");
                free(sectorBuffer);
-                  return FAT_EIO;
+               return FAT_EIO;
             }
 
             for (uint32_t i = 0; i < SECTOR_SIZE;
@@ -1818,10 +1820,10 @@ int FAT_UpdateEntry(Partition *disk, FAT_File *file)
                   updated.FirstClusterHigh = (fd->FirstCluster >> 16) & 0xFFFF;
                   memcpy(sectorBuffer + i, &updated,
                          sizeof(FAT_DirectoryEntry));
-                    int result =
+                  int result =
                       Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                   free(sectorBuffer);
-                    return (result < 0) ? FAT_EIO : FAT_OK;
+                  return (result < 0) ? FAT_EIO : FAT_OK;
                }
             }
             free(sectorBuffer);
@@ -1996,8 +1998,8 @@ FAT_File *FAT_Create(Partition *disk, const char *path, uint16_t mode)
                         ? inst->BS.BootSector.DirEntryCount
                         : 65536;
 
-      while (FAT_ReadEntry(disk, parentFile, &dirEntry) == FAT_OK &&
-         entryCount < maxEntries)
+   while (FAT_ReadEntry(disk, parentFile, &dirEntry) == FAT_OK &&
+          entryCount < maxEntries)
    {
       entryCount++;
       entryPos = parentFile->Position - sizeof(FAT_DirectoryEntry);
@@ -2192,7 +2194,7 @@ int FAT_Delete(Partition *disk, const char *name)
          }
 
          uint32_t nextCluster = FAT_NextCluster(inst, disk, currentCluster);
-           if (FAT_WriteFatEntry(inst, disk, currentCluster, 0) < 0)
+         if (FAT_WriteFatEntry(inst, disk, currentCluster, 0) < 0)
          {
             logfmt(LOG_ERROR,
                    "[FAT] FAT_Delete: FAT write error freeing cluster %u\n",
@@ -2237,8 +2239,8 @@ int FAT_Delete(Partition *disk, const char *name)
                sectorBuffer[off] = 0xE5;
                Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                free(sectorBuffer);
-                  if (fat_metadata_append_record(disk, metadataPath, 0,
-                                         FAT_METADATA_FLAG_DELETED) < 0)
+               if (fat_metadata_append_record(disk, metadataPath, 0,
+                                              FAT_METADATA_FLAG_DELETED) < 0)
                {
                   logfmt(
                       LOG_WARNING,
@@ -2289,9 +2291,8 @@ int FAT_Delete(Partition *disk, const char *name)
                   sectorBuffer[off] = 0xE5;
                   Partition_WriteSectors(disk, lba, 1, sectorBuffer);
                   free(sectorBuffer);
-                    if (fat_metadata_append_record(disk, metadataPath, 0,
-                                           FAT_METADATA_FLAG_DELETED) <
-                       0)
+                  if (fat_metadata_append_record(disk, metadataPath, 0,
+                                                 FAT_METADATA_FLAG_DELETED) < 0)
                   {
                      logfmt(LOG_WARNING,
                             "[FAT] FAT_Delete: metadata tombstone failed for "
@@ -2410,7 +2411,7 @@ int FAT_Truncate(Partition *disk, FAT_File *file)
          clusterCount++;
 
          uint32_t tempNextCluster = FAT_NextCluster(inst, disk, currentCluster);
-           if (FAT_WriteFatEntry(inst, disk, currentCluster, 0) < 0)
+         if (FAT_WriteFatEntry(inst, disk, currentCluster, 0) < 0)
          {
             logfmt(LOG_ERROR,
                    "[FAT] FAT_Truncate: FAT write error freeing cluster %u\n",
@@ -2615,13 +2616,13 @@ static const VFS_Operations fat_vfs_ops = {
         fat_vfs_open, /* Open an existing file (returns NULL if not found) */
     .create = fat_vfs_create, /* Create a new file */
     .readdir = fat_vfs_readdir,
-    .read = (uint32_t (*)(Partition *, void *, uint32_t, void *))FAT_Read,
+    .read = (uint32_t(*)(Partition *, void *, uint32_t, void *))FAT_Read,
     .write =
-        (uint32_t (*)(Partition *, void *, uint32_t, const void *))FAT_Write,
-   .seek = (int (*)(Partition *, void *, uint32_t))FAT_Seek,
+        (uint32_t(*)(Partition *, void *, uint32_t, const void *))FAT_Write,
+    .seek = (int (*)(Partition *, void *, uint32_t))FAT_Seek,
     .close = (void (*)(void *))FAT_Close,
     .get_size = fat_vfs_get_size, /* Simple wrapper for size extraction */
-   .delete = (int (*)(Partition *, const char *))FAT_Delete,
+    .delete = (int (*)(Partition *, const char *))FAT_Delete,
     .access = fat_vfs_access,
     .chmod = fat_vfs_chmod,
     .chown = fat_vfs_chown};

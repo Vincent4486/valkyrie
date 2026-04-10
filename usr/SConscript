@@ -14,6 +14,7 @@ from SCons.Script import Export
 from scripts.scons.arch import get_arch_config
 
 Import('TARGET_ENVIRONMENT')
+Import('runtime_dependencies')
 TARGET_ENVIRONMENT: Environment
 
 
@@ -23,18 +24,14 @@ TARGET_ENVIRONMENT: Environment
 
 arch = TARGET_ENVIRONMENT['arch']
 arch_config = get_arch_config(arch)
-
-# Build sysroot path from compiler-reported sysroot
-target_sysroot = str(TARGET_ENVIRONMENT.get('TARGET_SYSROOT', ''))
-sysroot = os.path.join(target_sysroot, 'usr') if target_sysroot else ''
-
-musl_include = os.path.join(sysroot, 'include')
-musl_lib = os.path.join(sysroot, 'lib')
+runtime_musl_dir = os.path.abspath(str(TARGET_ENVIRONMENT.get('RUNTIME_DEP_MUSL_DIR', '')))
 
 # Create usermode environment with musl support
 usermode_env = TARGET_ENVIRONMENT.Clone()
 usermode_env.Append(
     CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
+    CCFLAGS=[f'--sysroot={runtime_musl_dir}'],
+    LINKFLAGS=[f'--sysroot={runtime_musl_dir}'],
 )
 
 # Architecture-specific flags for userland
@@ -49,8 +46,7 @@ usermode_env['SHLIBPREFIX'] = 'lib'
 usermode_env['SHLIBSUFFIX'] = '.so'
 
 Export('usermode_env')
-Export('musl_include')
-Export('musl_lib')
+Export('runtime_dependencies')
 
 
 # =============================================================================

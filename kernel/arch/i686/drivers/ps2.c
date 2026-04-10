@@ -33,4 +33,3 @@ void i686_PS2_Initialize(void)
 {
    i686_IRQ_RegisterHandler(1, ps2_keyboard_irq);
 }
-

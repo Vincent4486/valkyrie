@@ -60,10 +60,9 @@ static int map_user_trampoline(Process *proc)
    uint32_t phys = PMM_AllocatePhysicalPage();
    if (!phys) return -1;
 
-      if (g_HalPagingOperations->MapPage(proc->page_directory,
-                     USER_EXIT_TRAMPOLINE_VA, phys,
-                     HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                    HAL_PAGE_USER) < 0)
+   if (g_HalPagingOperations->MapPage(
+           proc->page_directory, USER_EXIT_TRAMPOLINE_VA, phys,
+           HAL_PAGE_PRESENT | HAL_PAGE_RW | HAL_PAGE_USER) < 0)
    {
       PMM_FreePhysicalPage(phys);
       return -1;
@@ -130,9 +129,9 @@ static int load_segments_into_directory(VFS_File *file, void *page_directory,
          uint32_t phys = PMM_AllocatePhysicalPage();
          if (!phys) return -1;
 
-          if (g_HalPagingOperations->MapPage(page_directory, page_va, phys,
-                                    HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                                       HAL_PAGE_USER) < 0)
+         if (g_HalPagingOperations->MapPage(page_directory, page_va, phys,
+                                            HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                                HAL_PAGE_USER) < 0)
          {
             PMM_FreePhysicalPage(phys);
             return -1;

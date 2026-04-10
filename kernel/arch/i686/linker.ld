@@ -20,7 +20,7 @@ PHDRS
 */
 
 /* Default kernel load address (override with --defsym=KERNEL_LOAD_ADDR=...) */
-KERNEL_LOAD_ADDR = DEFINED(KERNEL_LOAD_ADDR) ? KERNEL_LOAD_ADDR : 0x00A00000;
+KERNEL_LOAD_ADDR = DEFINED(KERNEL_LOAD_ADDR) ? KERNEL_LOAD_ADDR : 0x00100000;
 phys = KERNEL_LOAD_ADDR;
 
 /* Allow undefined symbols - they will be resolved at runtime by dylib loader */

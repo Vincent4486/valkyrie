@@ -345,7 +345,8 @@ void TTY_WriteChar(TTY_Device *tty, char c)
 {
    if (!tty) return;
 
-   if ((tty->flags & TTY_FLAG_OPOST) && (tty->flags & TTY_FLAG_ONLCR) && c == '\n')
+   if ((tty->flags & TTY_FLAG_OPOST) && (tty->flags & TTY_FLAG_ONLCR) &&
+       c == '\n')
    {
       tty_emit_to_display(tty, '\r');
    }

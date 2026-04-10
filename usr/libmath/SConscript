@@ -8,6 +8,7 @@ from SCons.Script import Dir, Export
 from scripts.scons.utility import GlobSources
 
 Import('usermode_env')
+Import('runtime_dependencies')
 
 env = usermode_env.Clone()
 
@@ -29,6 +30,7 @@ env.Append(
 
 sources = GlobSources(src_dir)
 objects = env.SharedObject(sources)
+env.Depends(objects, runtime_dependencies)
 
 libmath_library = env.SharedLibrary('math', objects)
 

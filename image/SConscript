@@ -13,7 +13,7 @@ from SCons.Script import Flatten
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
     VOLUME_LABEL,
-    copy_toolchain_runtime_to_staging,
+    copy_runtime_dependencies_to_staging,
     create_bootable_iso,
     format_partition_image,
     get_grub_modules,
@@ -26,6 +26,7 @@ Import('core')
 Import('user_libraries')
 Import('user_applications')
 Import('TARGET_ENVIRONMENT')
+Import('runtime_dependencies')
 
 TARGET_ENVIRONMENT: Environment
 env: Environment = TARGET_ENVIRONMENT
@@ -51,7 +52,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     size = env['imageSize']
     filesystem = env['imageFS']
     output_format = env.get('outputFormat', 'hd')
-    target_sysroot = env.get('TARGET_SYSROOT', '')
+    runtime_musl_root = env.get('RUNTIME_DEP_MUSL_DIR', '')
     arch = env.get('arch', 'i686')
     config = env.get('config', 'release')
 
@@ -96,7 +97,7 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     )
 
     # Shared C runtime libraries (no CRT startup objects)
-    copy_toolchain_runtime_to_staging(staging_dir, target_sysroot, arch_config)
+    copy_runtime_dependencies_to_staging(staging_dir, runtime_musl_root, arch_config)
 
     # User libraries
     if libraries:
@@ -283,5 +284,6 @@ image = env.Command(
     action=Action(build_image_action, '   CREATING DISK'),
     BASEDIR=root.srcnode().path,
 )
+env.Depends(image, runtime_dependencies)
 
 Export('image')

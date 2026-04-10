@@ -68,7 +68,7 @@ static Process *find_process_by_pid(uint32_t pid)
 }
 
 static int process_matches_wait_target(const Process *child,
-                                        uint32_t parent_pid, int32_t pid)
+                                       uint32_t parent_pid, int32_t pid)
 {
    if (!child) return -1;
    if (child->ppid != parent_pid) return -1;
@@ -202,8 +202,7 @@ int Process_Wait(Process *parent, int32_t pid, int *status, int options)
       for (uint32_t i = 0; i < count; ++i)
       {
          Process *child = Scheduler_GetProcessAt(i);
-         if (process_matches_wait_target(child, parent->pid, pid) < 0)
-            continue;
+         if (process_matches_wait_target(child, parent->pid, pid) < 0) continue;
 
          has_child = true;
          if (child->state != STATE_ZOMBIE) continue;

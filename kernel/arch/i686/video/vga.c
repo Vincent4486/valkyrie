@@ -39,7 +39,7 @@
 
 /* Attribute Controller address/data port and Palette Address Source bit */
 #define VGA_AC_ADDR 0x3C0 /* write index then data; read: index register    */
-#define VGA_AC_PAS 0x20   /* Palette Address Source – set to re-enable video */
+#define VGA_AC_PAS 0x20 /* Palette Address Source – set to re-enable video */
 
 /* CRTC register indices – horizontal */
 #define VGA_CRTC_HTOTAL 0x00  /* Horizontal Total                          */
@@ -89,8 +89,7 @@ static int s_AnsiState = 0;
 static int s_AnsiParamCount = 0;
 static int s_AnsiParams[VGA_ANSI_PARAM_MAX];
 
-static const uint8_t s_AnsiToVgaFg[] = {0x0, 0x4, 0x2, 0x6,
-                                        0x1, 0x5, 0x3, 0x7};
+static const uint8_t s_AnsiToVgaFg[] = {0x0, 0x4, 0x2, 0x6, 0x1, 0x5, 0x3, 0x7};
 static const uint8_t s_AnsiToVgaBg[] = {0x00, 0x40, 0x20, 0x60,
                                         0x10, 0x50, 0x30, 0x70};
 
@@ -456,19 +455,23 @@ static void vga_handle_ansi_sgr(void)
       }
       else if (code >= 30 && code <= 37)
       {
-         s_TermColor = (uint8_t)((s_TermColor & 0xF0) | s_AnsiToVgaFg[code - 30]);
+         s_TermColor =
+             (uint8_t)((s_TermColor & 0xF0) | s_AnsiToVgaFg[code - 30]);
       }
       else if (code == 39)
       {
-         s_TermColor = (uint8_t)((s_TermColor & 0xF0) | (s_TermDefaultColor & 0x0F));
+         s_TermColor =
+             (uint8_t)((s_TermColor & 0xF0) | (s_TermDefaultColor & 0x0F));
       }
       else if (code >= 40 && code <= 47)
       {
-         s_TermColor = (uint8_t)((s_TermColor & 0x0F) | s_AnsiToVgaBg[code - 40]);
+         s_TermColor =
+             (uint8_t)((s_TermColor & 0x0F) | s_AnsiToVgaBg[code - 40]);
       }
       else if (code == 49)
       {
-         s_TermColor = (uint8_t)((s_TermColor & 0x0F) | (s_TermDefaultColor & 0xF0));
+         s_TermColor =
+             (uint8_t)((s_TermColor & 0x0F) | (s_TermDefaultColor & 0xF0));
       }
       else if (code >= 90 && code <= 97)
       {
@@ -862,4 +865,3 @@ void i686_VGA_GetCursor(int *x, int *y)
    if (x) *x = s_TermCursorX;
    if (y) *y = s_TermCursorY;
 }
-

@@ -98,20 +98,22 @@ def format_partition_image(partition_path: str, filesystem: str, volume_label: s
         raise ValueError(f'Unsupported mkfs command for filesystem {filesystem}: {mkfs_command}')
 
 
-def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, arch_config: dict):
-    """Copy required shared C runtime libraries to staging without root permissions."""
+def copy_runtime_dependencies_to_staging(staging_root: str, runtime_musl_root: str, arch_config: dict):
+    """Copy required musl runtime libraries from build dependency output."""
     ld_name = arch_config['ld_musl_name']
 
-    if not target_sysroot:
-        print('   WARNING: compiler sysroot is empty; skipping runtime copy')
+    if not runtime_musl_root:
+        print('   WARNING: runtime dependency path is empty; skipping runtime copy')
         return
 
-    sysroot = os.path.join(target_sysroot, 'usr')
+    musl_usr = os.path.join(runtime_musl_root, 'usr')
+    sysroot = musl_usr if os.path.exists(musl_usr) else runtime_musl_root
+
     if not os.path.exists(sysroot):
-        print(f"   WARNING: compiler sysroot not found at {sysroot}")
+        print(f"   WARNING: runtime dependency path not found at {sysroot}")
         return
 
-    print("   CP toolchain C shared runtime")
+    print("   CP musl shared runtime")
 
     sysroot_lib = os.path.join(sysroot, 'lib')
     target_lib = os.path.join(staging_root, 'lib')
@@ -128,6 +130,11 @@ def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, ar
         if os.path.exists(lib_libc):
             print(f"   CP /lib/{ld_name}")
             shutil.copy2(lib_libc, lib_ld)
+
+
+def copy_toolchain_runtime_to_staging(staging_root: str, target_sysroot: str, arch_config: dict):
+    """Backward-compatible wrapper for older call sites."""
+    copy_runtime_dependencies_to_staging(staging_root, target_sysroot, arch_config)
 
 
 def create_bootable_iso(staging_dir: str, output_iso: str, volume_label: str = 'VALECIUM'):

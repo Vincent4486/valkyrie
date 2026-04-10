@@ -351,13 +351,12 @@ int VFS_Delete(const char *path)
       return VFS_ENOTSUP;
    }
 
-   int result = part->fs->ops->delete(part, relative);
+   int result = part->fs->ops->delete (part, relative);
    free(relative);
    return result;
 }
 
-int VFS_Access(const char *path, uint32_t uid, uint32_t gid,
-               uint8_t accessMask)
+int VFS_Access(const char *path, uint32_t uid, uint32_t gid, uint8_t accessMask)
 {
    Partition *part = NULL;
    char *relative = kmalloc(VFS_MAX_PATH);

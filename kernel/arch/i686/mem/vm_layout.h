@@ -3,8 +3,8 @@
 #ifndef I686_VM_LAYOUT_H
 #define I686_VM_LAYOUT_H
 
-#include <stdint.h>
 #include <mem/mm_kernel.h>
+#include <stdint.h>
 
 extern uint8_t __end;
 

@@ -87,7 +87,7 @@ int KMOD_ParseSymbols(LibRecord *lib);
 // Add a symbol to the global registry. Symbols are extracted from .dynsym
 // when libraries are loaded and registered here for relocation resolution.
 int KMOD_AddGlobalSymbol(const char *name, uint32_t address,
-                          const char *lib_name, int is_kernel);
+                         const char *lib_name, int is_kernel);
 
 // Look up a symbol in the global registry by name.
 // Returns the absolute address or 0 if not found.
@@ -160,12 +160,12 @@ void KMOD_Lsmod(void);
 //   result = compute(9, 9);
 // ============================================================================
 
-#define KMOD_LOAD_SYMBOL(libname, funcname, functype)                         \
-   functype funcname = (functype)KMOD_FindSymbol(libname, #funcname);         \
+#define KMOD_LOAD_SYMBOL(libname, funcname, functype)                          \
+   functype funcname = (functype)KMOD_FindSymbol(libname, #funcname);          \
    if (!funcname)                                                              \
    {                                                                           \
       logfmt(LOG_ERROR,                                                        \
-             "[KMOD] Failed to resolve: " #libname "::" #funcname "\n");      \
+             "[KMOD] Failed to resolve: " #libname "::" #funcname "\n");       \
       goto end;                                                                \
    }
 

@@ -205,7 +205,7 @@ int ELF_Load(VFS_File *file, void **entryOut)
 
    // return entry point
    *entryOut = (void *)ehdr.e_entry;
-      return ELF_OK;
+   return ELF_OK;
 }
 
 Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
@@ -331,10 +331,9 @@ Process *ELF_LoadProcess(const char *filename, bool kernel_mode)
          }
 
          // Map page into process's page directory (user mode, read+write)
-          if (g_HalPagingOperations->MapPage(proc->page_directory, page_va,
-                         phys,
-                         HAL_PAGE_PRESENT | HAL_PAGE_RW |
-                        HAL_PAGE_USER) < 0)
+         if (g_HalPagingOperations->MapPage(proc->page_directory, page_va, phys,
+                                            HAL_PAGE_PRESENT | HAL_PAGE_RW |
+                                                HAL_PAGE_USER) < 0)
          {
             logfmt(LOG_ERROR,
                    "[ELF] LoadProcess: HAL_Paging_MapPage failed at 0x%08x\n",
