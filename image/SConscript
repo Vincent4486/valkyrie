@@ -269,6 +269,9 @@ def build_image_action(target, source, env):
 # Build Target
 # =============================================================================
 
+Depend('usr')
+Depend('kernel')
+
 root = env.Dir('root')
 root_content = GlobRecursive(env, '*', root)
 
