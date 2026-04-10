@@ -84,7 +84,7 @@ $(PDF_DIR)/%.pdf: %.ad | check-tools $(PDF_DIR)
 # HTML targets
 $(HTML_DIR)/%.html: %.ad | check-asciidoctor $(HTML_DIR)
 	@echo "$(YELLOW)Building HTML: $@$(NC)"
-	@$(ASCIIDOCTOR) -a toc -o $@ $<
+	@$(ASCIIDOCTOR) -a toc -a favicon=https://static.vyang.org/valeciumos.ico -o $@ $<
 
 # PDF build target
 pdf: $(PDF_TARGETS)
