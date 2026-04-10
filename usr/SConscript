@@ -24,14 +24,19 @@ TARGET_ENVIRONMENT: Environment
 
 arch = TARGET_ENVIRONMENT['arch']
 arch_config = get_arch_config(arch)
-runtime_musl_dir = os.path.abspath(str(TARGET_ENVIRONMENT.get('RUNTIME_DEP_MUSL_DIR', '')))
+runtime_sysroot = os.path.abspath(str(
+    TARGET_ENVIRONMENT.get(
+        'RUNTIME_DEP_SYSROOT',
+        TARGET_ENVIRONMENT.get('RUNTIME_DEP_MUSL_DIR', ''),
+    )
+))
 
 # Create usermode environment with musl support
 usermode_env = TARGET_ENVIRONMENT.Clone()
 usermode_env.Append(
     CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
-    CCFLAGS=[f'--sysroot={runtime_musl_dir}'],
-    LINKFLAGS=[f'--sysroot={runtime_musl_dir}'],
+    CCFLAGS=[f'--sysroot={runtime_sysroot}'],
+    LINKFLAGS=[f'--sysroot={runtime_sysroot}'],
 )
 
 # Architecture-specific flags for userland

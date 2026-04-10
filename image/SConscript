@@ -13,14 +13,12 @@ from SCons.Script import Flatten
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
     VOLUME_LABEL,
-    copy_runtime_dependencies_to_staging,
     create_bootable_iso,
     format_partition_image,
     get_grub_modules,
     get_partition_type_id,
     generate_grub_config,
 )
-from scripts.scons.arch import get_arch_config
 
 Import('core')
 Import('user_libraries')
@@ -52,7 +50,6 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     size = env['imageSize']
     filesystem = env['imageFS']
     output_format = env.get('outputFormat', 'hd')
-    runtime_musl_root = env.get('RUNTIME_DEP_MUSL_DIR', '')
     arch = env.get('arch', 'i686')
     config = env.get('config', 'release')
 
@@ -63,8 +60,6 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     boot_head_name = 'boot_head.img'
     grub_path = '/usr/lib/grub/i386-pc'
 
-    arch_config = get_arch_config(arch)
-
     total_size_mb = max(1, (size + (1024 * 1024 - 1)) // (1024 * 1024))
     part_size_mb = total_size_mb - part_start_mb
     if part_size_mb <= 0:
@@ -72,12 +67,33 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
     part_start_sector = part_start_mb * 2048
 
     # -------------------------------------------------------------------------
-    # Stage all files into build/{arch}_{config}/{img|iso}
+    # Stage all files into build/{arch}_{config}/img for all output formats.
     # -------------------------------------------------------------------------
     build_type = f'{arch}_{config}'
-    staging_dir = os.path.join('build', build_type, output_format)
-    shutil.rmtree(staging_dir, ignore_errors=True)
+    staging_dir = env.get('IMAGE_STAGING_DIR', os.path.join('build', build_type, 'img'))
+
+    # Keep runtime dependency sysroot content under /usr and /lib.
     os.makedirs(staging_dir, exist_ok=True)
+    for entry in os.listdir(staging_dir):
+        if entry == 'usr':
+            usr_path = os.path.join(staging_dir, 'usr')
+            if os.path.isdir(usr_path):
+                for sub_entry in os.listdir(usr_path):
+                    if sub_entry in ('include', 'lib'):
+                        continue
+                    sub_path = os.path.join(usr_path, sub_entry)
+                    if os.path.isdir(sub_path):
+                        shutil.rmtree(sub_path)
+                    else:
+                        os.remove(sub_path)
+            continue
+        if entry == 'lib':
+            continue
+        entry_path = os.path.join(staging_dir, entry)
+        if os.path.isdir(entry_path):
+            shutil.rmtree(entry_path)
+        else:
+            os.remove(entry_path)
 
     print(f"   STAGE -> {staging_dir}")
 
@@ -95,9 +111,6 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
         kernel_name=env['kernelOutputName'],
         volume_label=disk_label,
     )
-
-    # Shared C runtime libraries (no CRT startup objects)
-    copy_runtime_dependencies_to_staging(staging_dir, runtime_musl_root, arch_config)
 
     # User libraries
     if libraries:
@@ -269,9 +282,6 @@ def build_image_action(target, source, env):
 # =============================================================================
 # Build Target
 # =============================================================================
-
-Depend('usr')
-Depend('kernel')
 
 root = env.Dir('root')
 root_content = GlobRecursive(env, '*', root)

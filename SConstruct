@@ -309,12 +309,18 @@ Export('TARGET_ENVIRONMENT')
 variant_dir = f'build/{TARGET_ENVIRONMENT["arch"]}_{TARGET_ENVIRONMENT["config"]}'
 build_type = TARGET_ENVIRONMENT['buildType']
 
-runtime_musl_dir = os.path.abspath(os.path.join(variant_dir, 'dependencies', 'musl'))
-TARGET_ENVIRONMENT['RUNTIME_DEP_MUSL_DIR'] = runtime_musl_dir
+# Runtime sysroot is the shared image staging root. Runtime dependencies
+# install directly into {staging}/usr and can be used by userland builds.
+image_staging_dir = os.path.abspath(os.path.join(variant_dir, 'img'))
+runtime_dep_sysroot = image_staging_dir
+
+TARGET_ENVIRONMENT['IMAGE_STAGING_DIR'] = image_staging_dir
+TARGET_ENVIRONMENT['RUNTIME_DEP_SYSROOT'] = runtime_dep_sysroot
+TARGET_ENVIRONMENT['RUNTIME_DEP_MUSL_DIR'] = runtime_dep_sysroot
 
 runtime_dependencies = None
 if build_type in ('full', 'usr', 'image'):
-    runtime_stamp = os.path.join(runtime_musl_dir, '.stamp')
+    runtime_stamp = os.path.join(runtime_dep_sysroot, '.runtime_dependencies.stamp')
     runtime_dependencies = HOST_ENVIRONMENT.Command(
         runtime_stamp,
         ['scripts/base/dependencies.py'],
@@ -323,23 +329,15 @@ if build_type in ('full', 'usr', 'image'):
     )
     Export('runtime_dependencies')
 
-
-# =============================================================================
-# Sub-builds
-# =============================================================================
-
-if build_type 'usr':
+# Build graph routing
+if build_type in ('full', 'usr', 'image'):
     SConscript('usr/SConscript', variant_dir=f'{variant_dir}/usr', duplicate=0)
 
-if build_type == 'kernel':
+if build_type in ('full', 'kernel', 'image'):
     SConscript('kernel/SConscript', variant_dir=f'{variant_dir}/kernel', duplicate=0)
 
-elif build_type == 'image':
+if build_type in ('full', 'image'):
     SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
 
-if build_type == 'full':
-    SConscript('usr/SConscript', variant_dir=f'{variant_dir}/usr', duplicate=0)
-    SConscript('kernel/SConscript', variant_dir=f'{variant_dir}/kernel', duplicate=0)
-    SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
-
-Sconscript(f'{build_type}/SConscript', variant_dir=f'{variant_dir}/{build_type}', duplicate=0)
+if build_type == 'bootloader':
+    SConscript('bootloader/Sconscript', variant_dir=f'{variant_dir}/bootloader', duplicate=0)
