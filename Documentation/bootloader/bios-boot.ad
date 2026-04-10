@@ -1,3 +1,11 @@
+= Boot Process for BIOS
+
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:sindex.html[Main Boot Page], link:efi-boot.html[EFI Boot Process], link:../roadmap.html[Roadmap]
+
 [cols=",,,",]
 |===
 |[.s1]#*Phase*# |[.s1]#*Component*# |[.s1]#*Brief Description*#
