@@ -1,0 +1,52 @@
+= EFI Process for BIOS
+
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Main Boot Page], link:bios-boot.html[BIOS Boot Process], link:../roadmap.html[Roadmap]
+
+[cols=",,,",]
+|===
+|[.s1]#*Phase*# |[.s1]#*Component*# |[.s1]#*Brief Description*#
+|[.s1]#*Mechanism / UEFI Protocol*#
+
+|[.s1]#*Preparation*# |[.s1]#*GPT Partitioning*# |[.s1]#The disk must
+use a GUID Partition Table. The bootloader lives in the EFI System
+Partition (ESP).# |[.s1]#Hardware Standard (GPT); FAT32 filesystem.#
+
+|[.s1]#*Entry*# |[.s1]#*EFI Main*# |[.s1]#The entry point of the
+loader. It will receive a "Handle" to the image and a pointer to the
+"System Table."# |[.s1]#EFI++_++STATUS efi++_++main(EFI++_++HANDLE
+image, EFI++_++SYSTEM++_++TABLE ++*++sys)#
+
+|[.s1]#*System Info*# |[.s1]#*Memory Map*# |[.s1]#UEFI maintains a much
+more detailed memory map than BIOS. The bootloader "exit boot services" 
+later to own it.# |[.s1]#GetMemoryMap() via Boot Services.#
+
+|[.s1]#*Graphics*# |[.s1]#*GOP (Graphics Output)*# |[.s1]#UEFI does not
+use VGA. It must request a pointer to the linear framebuffer to draw
+pixels.# |[.s1]#EFI++_++GRAPHICS++_++OUTPUT++_++PROTOCOL#
+
+|[.s1]#*File Access*# |[.s1]#*Simple File System*# |[.s1]#It does not need
+to write a FAT32 driver; the firmware already has one. It just "Open"
+the kernel file.#
+|[.s1]#EFI++_++SIMPLE++_++FILE++_++SYSTEM++_++PROTOCOL#
+
+|[.s1]#*Kernel Prep*# |[.s1]#*Memory Allocation*# |[.s1]#it must
+allocate specific memory pages for the kernel segments.#
+|[.s1]#AllocatePages() with AllocateAddress.#
+
+|[.s1]#*The Hand-off*# |[.s1]#*Exit Boot Services*# |[.s1]#*CRITICAL:*
+This shuts down firmware drivers and gives the kernel 100% control of
+the CPU.# |[.s1]#ExitBootServices()#
+
+|[.s1]#*Transition*# |[.s1]#*Virtual Mapping*# |[.s1]#(Optional but
+common) UEFI runs in identity-mapped long mode; it may set up its own
+page tables here.# |[.s1]#MOV CR3, ++<++table++_++address++>++#
+
+|[.s1]#*Handoff*# |[.s1]#*Final Jump*# |[.s1]#Since UEFI is already in
+64-bit (or 32-bit) mode, it simply cast your kernel address to a
+function pointer.# |[.s1]#((void
+(++*++)(BOOT++_++Info++*++))kernel++_++entry)(s++_++bootInfo);#
+|===

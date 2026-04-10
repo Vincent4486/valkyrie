@@ -127,6 +127,7 @@ if not config_path.exists():
         'outputFile': 'valeciumos',
         'outputFormat': 'img',
         'kernelName': 'valeciumx',
+        'boot': 'bios'
     }
     with open(config_path, 'w') as cf:
         for k, v in default_config.items():
@@ -153,12 +154,16 @@ VARS.AddVariables(
     EnumVariable('buildType',
                  help='What to build',
                  default='full',
-                 allowed_values=('full', 'kernel', 'usr', 'image')),
+                 allowed_values=('full', 'kernel', 'usr', 'image', 'bootloader')),
 
     EnumVariable('outputFormat',
                  help='Output image format',
                  default='img',
                  allowed_values=('img', 'iso')),
+    EnumVariable('boot',
+                 help='Boot type',
+                 default='bios',
+                 allowed_values=('bios', 'efi')),
 )
 
 VARS.Add('imageSize',
@@ -323,66 +328,18 @@ if build_type in ('full', 'usr', 'image'):
 # Sub-builds
 # =============================================================================
 
-if build_type in ('full', 'usr'):
+if build_type 'usr':
     SConscript('usr/SConscript', variant_dir=f'{variant_dir}/usr', duplicate=0)
 
-if build_type in ('full', 'kernel'):
+if build_type == 'kernel':
     SConscript('kernel/SConscript', variant_dir=f'{variant_dir}/kernel', duplicate=0)
-
-if build_type == 'full':
-    SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
-    Import('image')
-    Import('core')
-    
-    # Phony targets using Python scripts
-    arch = TARGET_ENVIRONMENT['arch']
-    target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
-    media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
-    
-    PhonyTargets(
-        HOST_ENVIRONMENT,
-        run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
-        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path],
-        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
-        fformat=['python3', './scripts/base/format.py'],
-        deps=['python3', './scripts/base/dependencies.py'],
-    )
-    
-    Depends('run', image)
-    Depends('debug', image)
-    Depends('bochs', image)
 
 elif build_type == 'image':
     SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
-    Import('image')
-    Import('core')
-    
-    arch = TARGET_ENVIRONMENT['arch']
-    target = TARGET_ENVIRONMENT['TARGET_TRIPLE']
-    media_kind = 'cdrom' if TARGET_ENVIRONMENT['outputFormat'] == 'iso' else 'disk'
-    
-    PhonyTargets(
-        HOST_ENVIRONMENT,
-        run=['python3', './scripts/base/qemu.py', '-a', arch, media_kind, image[0].path],
-        debug=['python3', './scripts/base/gdb.py', '-a', arch, media_kind, image[0].path, core[0].path],
-        bochs=['python3', './scripts/base/bochs.py', media_kind, image[0].path, '-d', 'x'],
-        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
-        fformat=['python3', './scripts/base/format.py'],
-        deps=['python3', './scripts/base/dependencies.py'],
-    )
-    
-    Depends('run', image)
-    Depends('debug', image)
-    Depends('bochs', image)
 
-else:
-    # Minimal phony targets
-    target = TARGET_ENVIRONMENT.get('TARGET_TRIPLE', 'unknown')
-    
-    PhonyTargets(
-        HOST_ENVIRONMENT,
-        toolchain=['python3', './scripts/base/toolchain.py', 'toolchain/', '-t', target, '--ensure'],
-        fformat=['python3', './scripts/base/format.py'],
-        deps=['python3', './scripts/base/dependencies.py'],
-    )
+if build_type == 'full':
+    SConscript('usr/SConscript', variant_dir=f'{variant_dir}/usr', duplicate=0)
+    SConscript('kernel/SConscript', variant_dir=f'{variant_dir}/kernel', duplicate=0)
+    SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
+
+Sconscript(f'{build_type}/SConscript', variant_dir=f'{variant_dir}/{build_type}', duplicate=0)
