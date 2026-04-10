@@ -75,7 +75,7 @@ imageSize = '250m'
 toolchain = '../os_toolchain'
 outputFile = 'valeciumos'
 outputFormat = 'img'
-kernelName = 'valeciumx'
+kernel.name = 'valeciumx'
 ----
 
 === Step 1: Install Dependencies
@@ -156,7 +156,7 @@ Each architecture's cross-compiler is stored separately, so switching architectu
 [source, python]
 ----
 outputFormat = 'img'
-kernelName = 'valeciumx'
+kernel.name = 'valeciumx'
 ----
 
 You can edit `.config` directly to persist settings, or use command-line arguments (command-line takes precedence):

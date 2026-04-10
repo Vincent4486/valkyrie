@@ -7,23 +7,23 @@ from SCons.Script import Dir, Export
 
 from scripts.scons.utility import GlobSources
 
-Import('usermode_env')
-Import('runtime_dependencies')
+Import('UsermodeEnv')
+Import('RuntimeDependencies')
 
-env = usermode_env.Clone()
+Env = UsermodeEnv.Clone()
 
-srcpath = Dir('#usr/sh').abspath
+Srcpath = Dir('#usr/sh').abspath
 
-env.Append(
-    CPATH=[srcpath],
-    CPPPATH=[srcpath],
+Env.Append(
+    CPATH=[Srcpath],
+    CPPPATH=[Srcpath],
 )
 
-sources = GlobSources(srcpath)
-objects = env.Object(sources)
-env.Depends(objects, runtime_dependencies)
+Sources = GlobSources(Srcpath)
+Objects = Env.Object(Sources)
+Env.Depends(Objects, RuntimeDependencies)
 
-sh_executable = env.Program('sh', objects)
+ShExecutable = Env.Program('sh', Objects)
 
-sh_module = sh_executable
-Export('sh_module')
+ShModule = ShExecutable
+Export('ShModule')

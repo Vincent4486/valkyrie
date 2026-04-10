@@ -288,7 +288,7 @@ def extract_archive(archive: Path, dest_dir: Path):
         tar.extractall(str(dest_dir))
 
 
-def build_runtime_dependencies(output_dir: str, target: str, jobs: int = None) -> int:
+def build_RuntimeDependencies(output_dir: str, target: str, jobs: int = None) -> int:
     """Build runtime dependencies (musl) into a build-local path.
 
     Args:
@@ -495,7 +495,7 @@ def main():
             sys.exit(1)
 
         try:
-            sys.exit(build_runtime_dependencies(
+            sys.exit(build_RuntimeDependencies(
                 output_dir=args.output,
                 target=args.target,
                 jobs=args.jobs,

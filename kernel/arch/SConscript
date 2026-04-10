@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import SConscript
-Import('TARGET_ENVIRONMENT')
-Import('sources')
+Import('TargetEnvironment')
+Import('Sources')
 
-arch = TARGET_ENVIRONMENT['arch']
-SConscript(f'{arch}/SConscript', exports='sources')
+Architecture = TargetEnvironment['build.arch']
+SConscript(f'{Architecture}/SConscript', exports='Sources')

@@ -20,7 +20,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.scons.arch import get_arch_config, get_supported_archs
+from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 
 
 # =============================================================================
@@ -327,7 +327,7 @@ Examples:
     
     parser.add_argument('prefix',
                         help='Toolchain installation prefix')
-    parser.add_argument('-a', '--arch', choices=get_supported_archs(),
+    parser.add_argument('-a', '--arch', choices=GetSupportedArchitectures(),
                         help='Target architecture (uses predefined target triple)')
     parser.add_argument('-t', '--target',
                         help='Custom target triple (overrides --arch)')
@@ -354,9 +354,9 @@ Examples:
     if args.target:
         target = args.target
     elif args.arch:
-        target = get_arch_config(args.arch)['target_triple']
+        target = GetArchConfig(args.arch)['TargetTriple']
     else:
-        target = get_arch_config('i686')['target_triple']
+        target = GetArchConfig('i686')['TargetTriple']
     
     builder = ToolchainBuilder(
         prefix=args.prefix,

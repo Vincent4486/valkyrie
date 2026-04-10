@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('sources')
+Import('Sources')
 
-sources += [
+Sources += [
     File('io.c'),
     File('io_asm.S'),
 ]

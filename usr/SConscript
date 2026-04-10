@@ -11,47 +11,44 @@ import os
 from SCons.Environment import Environment
 from SCons.Script import Export
 
-from scripts.scons.arch import get_arch_config
+from scripts.scons.arch import GetArchConfig
 
-Import('TARGET_ENVIRONMENT')
-Import('runtime_dependencies')
-TARGET_ENVIRONMENT: Environment
+Import('TargetEnvironment')
+Import('RuntimeDependencies')
+TargetEnvironment: Environment
 
 
 # =============================================================================
 # Usermode Environment Setup
 # =============================================================================
 
-arch = TARGET_ENVIRONMENT['arch']
-arch_config = get_arch_config(arch)
-runtime_sysroot = os.path.abspath(str(
-    TARGET_ENVIRONMENT.get(
-        'RUNTIME_DEP_SYSROOT',
-        TARGET_ENVIRONMENT.get('RUNTIME_DEP_MUSL_DIR', ''),
+Architecture = TargetEnvironment['build.arch']
+ArchitectureConfig = GetArchConfig(Architecture)
+RuntimeSysroot = os.path.abspath(str(
+    TargetEnvironment.get(
+        'RuntimeDependencySysroot',
+        TargetEnvironment.get('RuntimeDependencyMuslDirectory', ''),
     )
 ))
 
-# Create usermode environment with musl support
-usermode_env = TARGET_ENVIRONMENT.Clone()
-usermode_env.Append(
+UsermodeEnv = TargetEnvironment.Clone()
+UsermodeEnv.Append(
     CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
-    CCFLAGS=[f'--sysroot={runtime_sysroot}'],
-    LINKFLAGS=[f'--sysroot={runtime_sysroot}'],
+    CCFLAGS=[f'--sysroot={RuntimeSysroot}'],
+    LINKFLAGS=[f'--sysroot={RuntimeSysroot}'],
 )
 
-# Architecture-specific flags for userland
-usermode_env.Append(
-    ASFLAGS=arch_config.get('asflags', []),
-    CCFLAGS=arch_config.get('ccflags', []),
-    LINKFLAGS=arch_config.get('linkflags', []),
+UsermodeEnv.Append(
+    ASFLAGS=ArchitectureConfig.get('AssemblyFlags', []),
+    CCFLAGS=ArchitectureConfig.get('CompilerFlags', []),
+    LINKFLAGS=ArchitectureConfig.get('LinkerFlags', []),
 )
 
-# Configure shared library naming
-usermode_env['SHLIBPREFIX'] = 'lib'
-usermode_env['SHLIBSUFFIX'] = '.so'
+UsermodeEnv['SHLIBPREFIX'] = 'lib'
+UsermodeEnv['SHLIBSUFFIX'] = '.so'
 
-Export('usermode_env')
-Export('runtime_dependencies')
+Export('UsermodeEnv')
+Export('RuntimeDependencies')
 
 
 # =============================================================================
@@ -67,12 +64,12 @@ SConscript('selftest/SConscript', variant_dir='selftest_build', duplicate=0)
 # Export Build Products
 # =============================================================================
 
-Import('libmath_module')
-Import('sh_module')
-Import('selftest_module')
+Import('LibmathModule')
+Import('ShModule')
+Import('SelftestModule')
 
-user_libraries = [libmath_module]
-user_applications = [sh_module, selftest_module]
+UserLibraries = [LibmathModule]
+UserApplications = [ShModule, SelftestModule]
 
-Export('user_libraries')
-Export('user_applications')
+Export('UserLibraries')
+Export('UserApplications')

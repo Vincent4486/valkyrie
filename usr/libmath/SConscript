@@ -7,15 +7,14 @@ from SCons.Script import Dir, Export
 
 from scripts.scons.utility import GlobSources
 
-Import('usermode_env')
-Import('runtime_dependencies')
+Import('UsermodeEnv')
+Import('RuntimeDependencies')
 
-env = usermode_env.Clone()
+Env = UsermodeEnv.Clone()
 
-srcpath = Dir('#usr/libmath').abspath
+Srcpath = Dir('#usr/libmath').abspath
 
-# Shared library compilation flags
-env.Append(
+Env.Append(
     CCFLAGS=['-fPIC'],
     CFLAGS=['-fPIC'],
     CXXFLAGS=['-fPIC'],
@@ -23,16 +22,16 @@ env.Append(
         '-shared',
         '-Wl,-soname,libmath.so',
     ],
-    CPATH=[srcpath],
-    CPPPATH=[srcpath],
-    ASFLAGS=['-I', srcpath + '/', '-f', 'elf'],
+    CPATH=[Srcpath],
+    CPPPATH=[Srcpath],
+    ASFLAGS=['-I', Srcpath + '/', '-f', 'elf'],
 )
 
-sources = GlobSources(srcpath)
-objects = env.SharedObject(sources)
-env.Depends(objects, runtime_dependencies)
+Sources = GlobSources(Srcpath)
+Objects = Env.SharedObject(Sources)
+Env.Depends(Objects, RuntimeDependencies)
 
-libmath_library = env.SharedLibrary('math', objects)
+LibmathLibrary = Env.SharedLibrary('math', Objects)
 
-libmath_module = libmath_library
-Export('libmath_module')
+LibmathModule = LibmathLibrary
+Export('LibmathModule')

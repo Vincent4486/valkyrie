@@ -4,7 +4,6 @@ Disk image build configuration.
 """
 
 import os
-import re
 
 from SCons.Action import Action
 from SCons.Environment import Environment
@@ -12,200 +11,175 @@ from SCons.Script import Flatten
 
 from scripts.scons.utility import GlobRecursive
 from scripts.scons.disk import (
-    VOLUME_LABEL,
-    create_bootable_iso,
-    format_partition_image,
-    get_grub_modules,
-    get_partition_type_id,
-    generate_grub_config,
+    VolumeLabel,
+    CreateBootableIso,
+    FormatPartitionImage,
+    GenerateGrubConfig,
+    GetGrubModules,
+    GetPartitionTypeIdentifier,
 )
 
-Import('kernel')
-Import('user_libraries')
-Import('user_applications')
-Import('TARGET_ENVIRONMENT')
-Import('runtime_dependencies')
+Import('Kernel')
+Import('UserLibraries')
+Import('UserApplications')
+Import('TargetEnvironment')
+Import('RuntimeDependencies')
 
-TARGET_ENVIRONMENT: Environment
-env: Environment = TARGET_ENVIRONMENT
+TargetEnvironment: Environment
+Env: Environment = TargetEnvironment
 
 
-def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
-    """Build the complete disk image with all components.
-
-    All files are first collected into a staging directory at build/{arch}_{config}/{img|iso},
-    then that tree is used to produce the final image.
-
-    Args:
-        image_path: Output disk image path
-        core_exe: Kernel executable path
-        libraries: List of user library paths
-        applications: List of user application paths
-        extra_files: Additional files to copy (image/root contents)
-        env: SCons environment
-    """
+def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFiles, EnvironmentObject):
     import sh
     import shutil
 
-    size = env['imageSize']
-    filesystem = env['imageFS']
-    output_format = env.get('outputFormat', 'hd')
-    arch = env.get('arch', 'i686')
-    config = env.get('config', 'release')
+    ImageSize = EnvironmentObject['imageSize']
+    Filesystem = EnvironmentObject['image.fs']
+    OutputFormat = EnvironmentObject.get('image.format', 'img')
+    Architecture = EnvironmentObject.get('build.arch', 'i686')
+    BuildConfig = EnvironmentObject.get('build.config', 'release')
 
-    disk_label = VOLUME_LABEL
-    part_start_mb = 1
-    part_type_id = get_partition_type_id(filesystem)
-    grub_core_name = 'grub.core'
-    boot_head_name = 'boot_head.img'
-    grub_path = '/usr/lib/grub/i386-pc'
+    Volume = VolumeLabel
+    PartStartMb = 1
+    PartitionTypeIdentifier = GetPartitionTypeIdentifier(Filesystem)
+    GrubCoreName = 'grub.core'
+    BootHeadName = 'boot_head.img'
+    GrubPath = '/usr/lib/grub/i386-pc'
 
-    total_size_mb = max(1, (size + (1024 * 1024 - 1)) // (1024 * 1024))
-    part_size_mb = total_size_mb - part_start_mb
-    if part_size_mb <= 0:
+    TotalMb = max(1, (ImageSize + (1024 * 1024 - 1)) // (1024 * 1024))
+    PartMb = TotalMb - PartStartMb
+    if PartMb <= 0:
         raise RuntimeError('Invalid partition sizing: partSizeMB must be > 0')
-    part_start_sector = part_start_mb * 2048
+    PartStartSector = PartStartMb * 2048
 
-    # -------------------------------------------------------------------------
-    # Stage all files into build/{arch}_{config}/img for all output formats.
-    # -------------------------------------------------------------------------
-    build_type = f'{arch}_{config}'
-    staging_dir = env.get('IMAGE_STAGING_DIR', os.path.join('build', build_type, 'img'))
+    BuildTag = f'{Architecture}_{BuildConfig}'
+    Stage = EnvironmentObject.get('ImageStagingDirectory', os.path.join('build', BuildTag, 'img'))
 
-    # Keep runtime dependency sysroot content under /usr and /lib.
-    os.makedirs(staging_dir, exist_ok=True)
-    for entry in os.listdir(staging_dir):
-        if entry == 'usr':
-            usr_path = os.path.join(staging_dir, 'usr')
-            if os.path.isdir(usr_path):
-                for sub_entry in os.listdir(usr_path):
-                    if sub_entry in ('include', 'lib'):
+    os.makedirs(Stage, exist_ok=True)
+    for Entry in os.listdir(Stage):
+        if Entry == 'usr':
+            Usr = os.path.join(Stage, 'usr')
+            if os.path.isdir(Usr):
+                for Sub in os.listdir(Usr):
+                    if Sub in ('include', 'lib'):
                         continue
-                    sub_path = os.path.join(usr_path, sub_entry)
-                    if os.path.isdir(sub_path):
-                        shutil.rmtree(sub_path)
+                    SubPath = os.path.join(Usr, Sub)
+                    if os.path.isdir(SubPath):
+                        shutil.rmtree(SubPath)
                     else:
-                        os.remove(sub_path)
+                        os.remove(SubPath)
             continue
-        if entry == 'lib':
+        if Entry == 'lib':
             continue
-        entry_path = os.path.join(staging_dir, entry)
-        if os.path.isdir(entry_path):
-            shutil.rmtree(entry_path)
+        EntryPath = os.path.join(Stage, Entry)
+        if os.path.isdir(EntryPath):
+            shutil.rmtree(EntryPath)
         else:
-            os.remove(entry_path)
+            os.remove(EntryPath)
 
-    print(f"   STAGE -> {staging_dir}")
+    print(f"   STAGE -> {Stage}")
 
-    # Kernel
-    bootdir = os.path.join(staging_dir, 'boot')
-    os.makedirs(bootdir, exist_ok=True)
-    print(f"   STAGE {os.path.basename(core_exe)} -> /boot")
-    shutil.copy2(core_exe, bootdir)
+    BootDir = os.path.join(Stage, 'boot')
+    os.makedirs(BootDir, exist_ok=True)
+    print(f"   STAGE {os.path.basename(KernelExecutablePath)} -> /boot")
+    shutil.copy2(KernelExecutablePath, BootDir)
 
-    # GRUB config (single grub.cfg, content varies by format and build config)
-    generate_grub_config(
-        os.path.join(bootdir, 'grub'),
-        output_format,
-        config=env['config'],
-        kernel_name=env['kernelOutputName'],
-        volume_label=disk_label,
+    GenerateGrubConfig(
+        os.path.join(BootDir, 'grub'),
+        OutputFormat,
+        Config=EnvironmentObject['build.config'],
+        KernelName=EnvironmentObject['kernelOutputName'],
+        VolumeLabelName=Volume,
     )
 
-    # User libraries
-    if libraries:
-        libdir = os.path.join(staging_dir, 'usr', 'lib')
-        os.makedirs(libdir, exist_ok=True)
-        for lib in libraries:
-            print(f"   STAGE {os.path.basename(lib)} -> /usr/lib")
-            shutil.copy2(lib, libdir)
+    if Libraries:
+        LibDir = os.path.join(Stage, 'usr', 'lib')
+        os.makedirs(LibDir, exist_ok=True)
+        for Lib in Libraries:
+            print(f"   STAGE {os.path.basename(Lib)} -> /usr/lib")
+            shutil.copy2(Lib, LibDir)
 
-    # User applications
-    if applications:
-        bindir = os.path.join(staging_dir, 'usr', 'bin')
-        os.makedirs(bindir, exist_ok=True)
-        for app in applications:
-            print(f"   STAGE {os.path.basename(app)} -> /usr/bin")
-            shutil.copy2(app, bindir)
+    if Applications:
+        BinDir = os.path.join(Stage, 'usr', 'bin')
+        os.makedirs(BinDir, exist_ok=True)
+        for App in Applications:
+            print(f"   STAGE {os.path.basename(App)} -> /usr/bin")
+            shutil.copy2(App, BinDir)
 
-    # Extra files from image/root, preserving relative directory structure
-    src_root = env['BASEDIR']
-    for file in extra_files:
-        file_src = file.srcnode().path
-        file_rel = os.path.relpath(file_src, src_root)
-        file_dst = os.path.join(staging_dir, file_rel)
-        if os.path.isdir(file_src):
-            os.makedirs(file_dst, exist_ok=True)
+    SourceRoot = EnvironmentObject['BASEDIR']
+    for Node in ExtraFiles:
+        Src = Node.srcnode().path
+        Rel = os.path.relpath(Src, SourceRoot)
+        Dst = os.path.join(Stage, Rel)
+        if os.path.isdir(Src):
+            os.makedirs(Dst, exist_ok=True)
         else:
-            print(f"   STAGE {file_rel}")
-            os.makedirs(os.path.dirname(file_dst), exist_ok=True)
-            shutil.copy2(file_src, file_dst)
+            print(f"   STAGE {Rel}")
+            os.makedirs(os.path.dirname(Dst), exist_ok=True)
+            shutil.copy2(Src, Dst)
 
-    # -------------------------------------------------------------------------
-    # Produce the final image from the staging directory
-    # -------------------------------------------------------------------------
-    if output_format == 'iso':
-        create_bootable_iso(staging_dir, image_path, volume_label=disk_label)
+    if OutputFormat == 'iso':
+        CreateBootableIso(Stage, ImagePath, Volume)
 
     else:
-        image_dir = os.path.dirname(image_path) or '.'
-        tmp_part = os.path.join(image_dir, 'part.tmp')
-        grub_core = os.path.join(image_dir, grub_core_name)
-        boot_head = os.path.join(image_dir, boot_head_name)
+        ImgDir = os.path.dirname(ImagePath) or '.'
+        TmpPart = os.path.join(ImgDir, 'part.tmp')
+        GrubCore = os.path.join(ImgDir, GrubCoreName)
+        BootHead = os.path.join(ImgDir, BootHeadName)
 
         print("   GRUB-MKIMAGE")
         sh.Command('grub-mkimage')(
             '-O', 'i386-pc',
-            '-o', grub_core,
+            '-o', GrubCore,
             '-p', '(hd0,msdos1)/boot/grub',
-            *get_grub_modules(filesystem),
+            *GetGrubModules(Filesystem),
         )
 
-        with open(os.path.join(grub_path, 'boot.img'), 'rb') as boot_img, \
-             open(grub_core, 'rb') as core_img, \
-             open(boot_head, 'wb') as out_img:
-            out_img.write(boot_img.read())
-            out_img.write(core_img.read())
+        with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
+             open(GrubCore, 'rb') as CoreImg, \
+             open(BootHead, 'wb') as OutImg:
+            OutImg.write(BootImg.read())
+            OutImg.write(CoreImg.read())
 
         try:
-            print(f"   CREATE PARTITION FILE {filesystem}")
-            sh.truncate('-s', f'{part_size_mb}M', tmp_part)
-            format_partition_image(tmp_part, filesystem, volume_label=disk_label)
+            print(f"   CREATE PARTITION FILE {Filesystem}")
+            sh.truncate('-s', f'{PartMb}M', TmpPart)
+            FormatPartitionImage(TmpPart, Filesystem, Volume)
 
             print("   CREATE MBR")
-            sh.truncate('-s', f'{total_size_mb}M', image_path)
-            guestfish_mbr = '\n'.join([
+            sh.truncate('-s', f'{TotalMb}M', ImagePath)
+            GuestfishMbr = '\n'.join([
                 'run',
                 'part-init /dev/sda mbr',
-                f'part-add /dev/sda p {part_start_sector} -1',
-                f'part-set-mbr-id /dev/sda 1 {part_type_id}',
+                f'part-add /dev/sda p {PartStartSector} -1',
+                f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}',
                 'quit',
                 '',
             ])
-            sh.Command('guestfish')('-a', image_path, _in=guestfish_mbr)
+            sh.Command('guestfish')('-a', ImagePath, _in=GuestfishMbr)
 
             print("   SPLICE PARTITION")
             sh.dd(
-                f'if={tmp_part}',
-                f'of={image_path}',
+                f'if={TmpPart}',
+                f'of={ImagePath}',
                 'bs=512',
-                f'seek={part_start_sector}',
+                f'seek={PartStartSector}',
                 'conv=notrunc',
                 'status=none',
             )
 
             print("   WRITE BOOTLOADER")
             sh.dd(
-                f'if={boot_head}',
-                f'of={image_path}',
+                f'if={BootHead}',
+                f'of={ImagePath}',
                 'bs=446',
                 'count=1',
                 'conv=notrunc',
                 'status=none',
             )
             sh.dd(
-                f'if={boot_head}',
-                f'of={image_path}',
+                f'if={BootHead}',
+                f'of={ImagePath}',
                 'bs=512',
                 'skip=1',
                 'seek=1',
@@ -213,90 +187,81 @@ def build_disk(image_path, core_exe, libraries, applications, extra_files, env):
                 'status=none',
             )
 
-            with open(image_path, 'r+b') as disk_file:
-                disk_file.seek(92)
-                disk_file.write(b'\x01\x00\x00\x00')
+            with open(ImagePath, 'r+b') as DiskFile:
+                DiskFile.seek(92)
+                DiskFile.write(b'\x01\x00\x00\x00')
 
-            print(f"   INJECT FILES {staging_dir}")
-            guestfish_copy = '\n'.join([
+            print(f"   INJECT FILES {Stage}")
+            GuestfishCopy = '\n'.join([
                 'run',
                 'mount /dev/sda1 /',
-                f'copy-in {staging_dir}/. /',
+                f'copy-in {Stage}/. /',
                 'quit',
                 '',
             ])
-            sh.Command('guestfish')('-a', image_path, _in=guestfish_copy)
+            sh.Command('guestfish')('-a', ImagePath, _in=GuestfishCopy)
 
         finally:
-            for tmp_file in (tmp_part, boot_head, grub_core):
-                if os.path.exists(tmp_file):
-                    os.remove(tmp_file)
+            for Tmp in (TmpPart, BootHead, GrubCore):
+                if os.path.exists(Tmp):
+                    os.remove(Tmp)
 
 
-def build_image_action(target, source, env):
-    """SCons action to build the disk image."""
-    # Find kernel executable in sources
-    kernel_name = env["kernelOutputName"]
-    core_exe = None
-    
-    for src in source:
-        path = str(src)
-        basename = os.path.basename(path)
-        if basename == kernel_name or basename.startswith(kernel_name + '.'):
-            core_exe = path
+def BuildImageAction(*_Args, **KeywordArguments):
+    Target = KeywordArguments['target']
+    Source = KeywordArguments['source']
+    EnvObj = KeywordArguments['env']
+    KernelName = EnvObj['kernelOutputName']
+    KernelExecutablePath = None
+
+    for Src in Source:
+        PathStr = str(Src)
+        Base = os.path.basename(PathStr)
+        if Base == KernelName or Base.startswith(KernelName + '.'):
+            KernelExecutablePath = PathStr
             break
-        # Fallback: match by pattern
-        if re.search(r'(kernel|core)', basename):
-            if path.endswith(('.elf', '.bin', '.iso')):
-                core_exe = path
-                break
-    
-    if core_exe is None:
+
+    if KernelExecutablePath is None:
         raise RuntimeError("Kernel executable not found in build inputs")
-    
-    # Process library list
-    lib_nodes = Flatten(user_libraries)
-    libs, lib_paths = [], set()
-    for lib in lib_nodes:
-        path = lib.get_abspath() if hasattr(lib, 'get_abspath') else str(lib)
-        libs.append(path)
-        lib_paths.add(str(lib))
-    
-    # Process application list
-    app_nodes = Flatten(user_applications)
-    apps, app_paths = [], set()
-    for app in app_nodes:
-        path = app.get_abspath() if hasattr(app, 'get_abspath') else str(app)
-        apps.append(path)
-        app_paths.add(str(app))
-    
-    # Filter extra files (not kernel, libs, or apps)
-    extra = [
-        src for src in source
-        if str(src) != core_exe and str(src) not in lib_paths and str(src) not in app_paths
+
+    LibraryNodes = Flatten(UserLibraries)
+    LibraryPaths = []
+    LibrarySet = set()
+    for Library in LibraryNodes:
+        AbsolutePath = Library.get_abspath() if hasattr(Library, 'get_abspath') else str(Library)
+        LibraryPaths.append(AbsolutePath)
+        LibrarySet.add(str(Library))
+
+    ApplicationNodes = Flatten(UserApplications)
+    ApplicationPaths = []
+    ApplicationSet = set()
+    for Application in ApplicationNodes:
+        AbsolutePath = Application.get_abspath() if hasattr(Application, 'get_abspath') else str(Application)
+        ApplicationPaths.append(AbsolutePath)
+        ApplicationSet.add(str(Application))
+
+    ExtraFiles = [
+        Src for Src in Source
+        if str(Src) != KernelExecutablePath and str(Src) not in LibrarySet and str(Src) not in ApplicationSet
     ]
-    
-    build_disk(str(target[0]), core_exe, libs, apps, extra, env)
+
+    BuildDisk(str(Target[0]), KernelExecutablePath, LibraryPaths, ApplicationPaths, ExtraFiles, EnvObj)
 
 
-# =============================================================================
-# Build Target
-# =============================================================================
+Root = Env.Dir('root')
+RootFiles = GlobRecursive(Env, '*', Root)
 
-root = env.Dir('root')
-root_content = GlobRecursive(env, '*', root)
+Inputs = [Kernel] + UserLibraries + UserApplications + RootFiles
 
-inputs = [kernel] + user_libraries + user_applications + root_content
+OutputFormat = Env['image.format']
+Out = f'{Env["image.name"]}-{Env["proj.version"]}_{Env["build.config"]}_{Env["build.arch"]}.{OutputFormat}'
 
-output_fmt = env["outputFormat"]
-output = f'{env["outputFile"]}-{env["kernelVersion"]}_{env["config"]}_{env["arch"]}.{output_fmt}'
-
-image = env.Command(
-    output,
-    inputs,
-    action=Action(build_image_action, '   CREATING DISK'),
-    BASEDIR=root.srcnode().path,
+Image = Env.Command(
+    Out,
+    Inputs,
+    action=Action(BuildImageAction, '   CREATING DISK'),
+    BASEDIR=Root.srcnode().path,
 )
-env.Depends(image, runtime_dependencies)
+Env.Depends(Image, RuntimeDependencies)
 
-Export('image')
+Export('Image')

@@ -1,56 +1,54 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-ARCH_CONFIG = {
+ArchConfigurations = {
     'i686': {
-        'target_triple': 'i686-linux-musl',
-        'toolchain_prefix': 'i686-linux-musl-',
-        'asm_format': 'elf32',
-        'bits': 32,
-        'ld_musl_name': 'ld-musl-i386.so.1',
-        'define': 'I686',
-        'asflags': ['-m32', '-g'],
-        'ccflags': [],
-        'linkflags': [],
-        'qemu_system': 'qemu-system-i386',
-        'qemu_machine': 'pc',
+        'TargetTriple': 'i686-linux-musl',
+        'ToolchainPrefix': 'i686-linux-musl-',
+        'AsmFormat': 'elf32',
+        'Bits': 32,
+        'LoaderMuslName': 'ld-musl-i386.so.1',
+        'Define': 'I686',
+        'AssemblyFlags': ['-m32', '-g'],
+        'CompilerFlags': [],
+        'LinkerFlags': [],
+        'QemuSystem': 'qemu-system-i386',
+        'QemuMachine': 'pc',
     },
     'x64': {
-        'target_triple': 'x86_64-linux-musl',
-        'toolchain_prefix': 'x86_64-linux-musl-',
-        'asm_format': 'elf64',
-        'bits': 64,
-        'ld_musl_name': 'ld-musl-x86_64.so.1',
-        'define': 'X64',
-        'asflags': ['-m64', '-g'],
-        'ccflags': [],
-        'linkflags': [],
-        'qemu_system': 'qemu-system-x86_64',
-        'qemu_machine': 'pc',
+        'TargetTriple': 'x86_64-linux-musl',
+        'ToolchainPrefix': 'x86_64-linux-musl-',
+        'AsmFormat': 'elf64',
+        'Bits': 64,
+        'LoaderMuslName': 'ld-musl-x86_64.so.1',
+        'Define': 'X64',
+        'AssemblyFlags': ['-m64', '-g'],
+        'CompilerFlags': [],
+        'LinkerFlags': [],
+        'QemuSystem': 'qemu-system-x86_64',
+        'QemuMachine': 'pc',
     },
     'aarch64': {
-        'target_triple': 'aarch64-linux-musl',
-        'toolchain_prefix': 'aarch64-linux-musl-',
-        'asm_format': 'elf64',
-        'bits': 64,
-        'ld_musl_name': 'ld-musl-aarch64.so.1',
-        'define': 'AARCH64',
-        'asflags': ['-g'],
-        'ccflags': [],
-        'linkflags': [],
-        'qemu_system': 'qemu-system-aarch64',
-        'qemu_machine': 'virt',
+        'TargetTriple': 'aarch64-linux-musl',
+        'ToolchainPrefix': 'aarch64-linux-musl-',
+        'AsmFormat': 'elf64',
+        'Bits': 64,
+        'LoaderMuslName': 'ld-musl-aarch64.so.1',
+        'Define': 'AARCH64',
+        'AssemblyFlags': ['-g'],
+        'CompilerFlags': [],
+        'LinkerFlags': [],
+        'QemuSystem': 'qemu-system-aarch64',
+        'QemuMachine': 'virt',
     },
 }
 
 
-def get_arch_config(arch: str) -> dict:
-    """Get architecture configuration by name."""
-    if arch not in ARCH_CONFIG:
-        raise ValueError(f"Unsupported architecture: {arch}. "
-                        f"Supported: {list(ARCH_CONFIG.keys())}")
-    return ARCH_CONFIG[arch]
+def GetArchConfig(Architecture: str) -> dict:
+    if Architecture not in ArchConfigurations:
+        raise ValueError(f"Unsupported architecture: {Architecture}. "
+                        f"Supported: {list(ArchConfigurations.keys())}")
+    return ArchConfigurations[Architecture]
 
 
-def get_supported_archs() -> list:
-    """Get list of supported architectures."""
-    return list(ARCH_CONFIG.keys())
+def GetSupportedArchitectures() -> list:
+    return list(ArchConfigurations.keys())

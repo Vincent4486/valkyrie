@@ -40,8 +40,8 @@ jobs:
           # 3. Use the same variables here to ensure consistency
           docker run --rm -v "$(pwd)":/build ${{ env.BUILDER_IMAGE }}:${{ env.BUILDER_TAG }} bash -lc '
             set -euo pipefail
-            scons -Q config=debug outputFormat=img toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
-            scons -Q config=debug outputFormat=iso toolchain=../os_toolchain kernelVersionSource=fixed kernelVersion="'"$short_hash"'"
+            scons -Q config=debug image.format=img toolchain=../os_toolchain proj.versionSource=fixed proj.version="'"$short_hash"'"
+            scons -Q config=debug image.format=iso toolchain=../os_toolchain proj.versionSource=fixed proj.version="'"$short_hash"'"
           '
 
       - name: Gather artifacts and create tarball

@@ -89,8 +89,8 @@ Common SCons variables:
 - `buildType`: `full` (default), `kernel`, `usr`, `image`
 - `imageFS`: `fat12`, `fat16`, `fat32` (default), `ext2`
 - `imageSize`: image size (for example `250m`)
-- `outputFormat`: `img` (default) or `iso`
-- `outputFile`: base name of output image
+- `image.format`: `img` (default) or `iso`
+- `image.name`: base name of output image
 
 Examples:
 
@@ -98,7 +98,7 @@ Examples:
 scons config=release
 scons arch=x64 config=release
 scons buildType=kernel
-scons outputFormat=iso
+scons image.format=iso
 ```
 
 For full build and platform notes, read [`Documents/building.ad`](Documents/building.ad).

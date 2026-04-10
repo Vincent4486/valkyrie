@@ -15,7 +15,7 @@ import tempfile
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.scons.arch import get_arch_config, get_supported_archs
+from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 
 
 # Default settings
@@ -25,10 +25,10 @@ DEFAULT_MEMORY = '32M'
 def get_qemu_debug_args(arch: str, image_type: str, image_path: str,
                         memory: str = DEFAULT_MEMORY) -> str:
     """Get QEMU arguments for GDB pipe mode."""
-    arch_config = get_arch_config(arch)
+    ArchConfig = GetArchConfig(arch)
     
     args = [
-        arch_config['qemu_system'],
+        ArchConfig['QemuSystem'],
         '-S',                    # Freeze CPU at startup
         '-gdb', 'stdio',         # GDB on stdio for pipe connection
         '-m', memory,
@@ -107,7 +107,7 @@ def main():
     parser.add_argument('image', help='Path to disk image file')
     parser.add_argument('kernel', help='Path to kernel ELF with debug symbols (core)')
     parser.add_argument('-a', '--arch', default='i686',
-                        choices=get_supported_archs(),
+                        choices=GetSupportedArchitectures(),
                         help='Target architecture (default: i686)')
     parser.add_argument('-m', '--memory', default=DEFAULT_MEMORY,
                         help=f'Memory size (default: {DEFAULT_MEMORY})')

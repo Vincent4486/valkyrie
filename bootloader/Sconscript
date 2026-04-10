@@ -10,17 +10,17 @@ from SCons.Action import Action
 from SCons.Environment import Environment
 from SCons.Script import Flatten
 
-Import('TARGET_ENVIRONMENT')
-TARGET_ENVIRONMENT: Environment
+Import('TargetEnvironment')
+TargetEnvironment: Environment
 
 # =============================================================================
 # Environment Setup
 # =============================================================================
 
-env = TARGET_ENVIRONMENT.Clone()
+env = TargetEnvironment.Clone()
 srcpath = Dir('#bootloader').abspath
-arch = TARGET_ENVIRONMENT['arch']
-boot = TARGET_ENVIRONMENT['boot']
+arch = TargetEnvironment['build.arch']
+boot = TargetEnvironment['boot.type']
 
 archpath = os.path.join(srcpath, f'{arch}-{boot}')
 linkerscript = os.path.join(archpath, 'linker.ld')

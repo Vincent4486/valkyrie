@@ -9,19 +9,19 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.scons.arch import get_arch_config, get_supported_archs
+from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 
 DEFAULT_MEMORY = '4G'
 DEFAULT_SMP = 1
 
 def get_qemu_base_args(arch: str, memory: str = DEFAULT_MEMORY, 
                        smp: int = DEFAULT_SMP, debug_console: bool = True) -> list:
-    arch_config = get_arch_config(arch)
+    ArchConfig = GetArchConfig(arch)
     
     args = [
-        arch_config['qemu_system'],
+        ArchConfig['QemuSystem'],
         '-m', memory,
-        '-machine', arch_config['qemu_machine'],
+        '-machine', ArchConfig['QemuMachine'],
         '-smp', str(smp),
         '-device', 'VGA,vgamem_mb=64'
     ]
@@ -89,7 +89,7 @@ def main():
                         help='Type of disk image')
     parser.add_argument('image', help='Path to disk image file')
     parser.add_argument('-a', '--arch', default='i686',
-                        choices=get_supported_archs(),
+                        choices=GetSupportedArchitectures(),
                         help='Target architecture (default: i686)')
     parser.add_argument('-m', '--memory', default=DEFAULT_MEMORY,
                         help=f'Memory size (default: {DEFAULT_MEMORY})')

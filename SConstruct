@@ -6,40 +6,39 @@ Main build configuration file using SCons.
 """
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
-from SCons.Variables import Variables, EnumVariable
 from SCons.Environment import Environment
+from SCons.Variables import EnumVariable, Variables
 
-from scripts.scons.arch import get_arch_config, get_supported_archs
-from scripts.scons.disk import get_supported_filesystems
-from scripts.scons.phony_targets import PhonyTargets
+from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
+from scripts.scons.disk import GetSupportedFilesystems
 from scripts.scons.utility import ParseSize
 
 
-def get_git_short_hash() -> str:
-    """Return the current git short commit hash or an empty string."""
+def GetGitHash() -> str:
     try:
-        result = subprocess.run(
+        Result = subprocess.run(
             ['git', 'rev-parse', '--short=7', 'HEAD'],
             check=True,
             capture_output=True,
             text=True,
         )
-        return result.stdout.strip()
+        return Result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return ''
 
 
-def build_runtime_dependencies_action(target, source, env):
-    """Build runtime dependencies (musl) into the build output tree."""
-    output_dir = Path(str(target[0].abspath)).parent
-    output_dir.mkdir(parents=True, exist_ok=True)
+def BuildRuntimeDepsAction(*_Args, **Kw):
+    Target = Kw['target']
+    Env = Kw['env']
+    OutDir = Path(str(Target[0].abspath)).parent
+    OutDir.mkdir(parents=True, exist_ok=True)
 
-    target_triple = env['TARGET_TRIPLE']
-    jobs = os.cpu_count() or 1
+    Triple = Env['TargetTriple']
+    Jobs = os.cpu_count() or 1
 
     subprocess.run(
         [
@@ -47,36 +46,29 @@ def build_runtime_dependencies_action(target, source, env):
             './scripts/base/dependencies.py',
             '--build-runtime',
             '--target',
-            target_triple,
+            Triple,
             '--output',
-            str(output_dir),
+            str(OutDir),
             '--jobs',
-            str(jobs),
+            str(Jobs),
         ],
         check=True,
     )
 
-    Path(str(target[0].abspath)).touch()
+    Path(str(Target[0].abspath)).touch()
 
 
-def resolve_build_tools(arch: str):
-    """Resolve build tools from PATH using preferred cross prefixes.
+def ResolveTools(Arch: str):
+    Prefixes = [f'{Arch}-linux-musl-', f'{Arch}-elf-', '']
 
-    Preference order:
-    1) {arch}-linux-musl-*
-    2) {arch}-elf-*
-    3) unprefixed host tools
-    """
-    prefix_candidates = [f'{arch}-linux-musl-', f'{arch}-elf-', '']
-
-    selected_prefix = ''
-    for prefix in prefix_candidates:
-        gcc_name = f'{prefix}gcc' if prefix else 'gcc'
-        if shutil.which(gcc_name):
-            selected_prefix = prefix
+    Selected = ''
+    for Prefix in Prefixes:
+        Gcc = f'{Prefix}gcc' if Prefix else 'gcc'
+        if shutil.which(Gcc):
+            Selected = Prefix
             break
 
-    tool_bases = {
+    Bases = {
         'AS': 'as',
         'AR': 'ar',
         'CC': 'gcc',
@@ -86,196 +78,164 @@ def resolve_build_tools(arch: str):
         'STRIP': 'strip',
     }
 
-    tools = {}
-    tool_paths = {}
+    Tools = {}
+    Paths = {}
 
-    for key, base in tool_bases.items():
-        preferred_name = f'{selected_prefix}{base}' if selected_prefix else base
-        preferred_path = shutil.which(preferred_name)
-        if preferred_path:
-            tools[key] = preferred_name
-            tool_paths[key] = preferred_path
+    for Key, Base in Bases.items():
+        Preferred = f'{Selected}{Base}' if Selected else Base
+        PreferredPath = shutil.which(Preferred)
+        if PreferredPath:
+            Tools[Key] = Preferred
+            Paths[Key] = PreferredPath
             continue
 
-        fallback_path = shutil.which(base)
-        if fallback_path:
-            tools[key] = base
-            tool_paths[key] = fallback_path
+        FallbackPath = shutil.which(Base)
+        if FallbackPath:
+            Tools[Key] = Base
+            Paths[Key] = FallbackPath
         else:
-            # Keep the preferred command name so SCons errors are explicit.
-            tools[key] = preferred_name
-            tool_paths[key] = '<not found>'
+            Tools[Key] = Preferred
+            Paths[Key] = '<not found>'
 
-    return tools, tool_paths, selected_prefix
+    return Tools, Paths, Selected
 
 
-# =============================================================================
-# Build Variables
-# =============================================================================
-
-# Autogenerate a simple Python-style config file at project root named
-# `.config` (if it doesn't exist) and then load it with SCons Variables.
-config_path = Path('.config')
-if not config_path.exists():
-    default_config = {
-        'config': 'debug',
-        'arch': 'i686',
-        'kernelVersion': '0.28',
-        'imageFS': 'fat32',
-        'buildType': 'full',
-        'imageSize': '250m',
-        'outputFile': 'valeciumos',
-        'outputFormat': 'img',
-        'kernelName': 'valeciumx',
-        'boot': 'bios'
+ConfigPath = Path('.config')
+if not ConfigPath.exists():
+    DefaultConfig = {
+        'build.config': 'debug',
+        'build.arch': 'i686',
+        'proj.version': '0.28',
+        'image.fs': 'fat32',
+        'build.type': 'full',
+        'image.size': '250m',
+        'image.name': 'valeciumos',
+        'image.format': 'img',
+        'kernel.name': 'valeciumx',
+        'boot.type': 'bios'
     }
-    with open(config_path, 'w') as cf:
-        for k, v in default_config.items():
-            cf.write(f"{k} = {repr(v)}\n")
+    with open(ConfigPath, 'w', encoding='utf-8') as CfgFile:
+        for Key, Value in DefaultConfig.items():
+            CfgFile.write(f"{Key} = {repr(Value)}\n")
 
-VARS = Variables(str(config_path), ARGUMENTS)
+Vars = Variables(str(ConfigPath), ARGUMENTS)
 
-VARS.AddVariables(
-    EnumVariable('config',
+Vars.AddVariables(
+    EnumVariable('build.config',
                  help='Build configuration',
                  default='debug',
                  allowed_values=('debug', 'release')),
     
-    EnumVariable('arch',
+    EnumVariable('build.arch',
                  help='Target architecture',
                  default='i686',
-                 allowed_values=tuple(get_supported_archs())),
+                 allowed_values=tuple(GetSupportedArchitectures())),
     
-    EnumVariable('imageFS',
+    EnumVariable('image.fs',
                  help='Filesystem type for disk image',
                  default='fat32',
-                 allowed_values=tuple(get_supported_filesystems())),
+                 allowed_values=tuple(GetSupportedFilesystems())),
     
-    EnumVariable('buildType',
+    EnumVariable('build.type',
                  help='What to build',
                  default='full',
                  allowed_values=('full', 'kernel', 'usr', 'image', 'bootloader')),
 
-    EnumVariable('outputFormat',
+    EnumVariable('image.format',
                  help='Output image format',
                  default='img',
                  allowed_values=('img', 'iso')),
-    EnumVariable('boot',
+    EnumVariable('boot.type',
                  help='Boot type',
                  default='bios',
                  allowed_values=('bios', 'efi')),
 )
 
-VARS.Add('imageSize',
+Vars.Add('image.size',
          help='Disk image size (supports k/m/g suffixes)',
          default='250m',
          converter=ParseSize)
 
-VARS.Add('outputFile',
+Vars.Add('image.name',
          help='Output image filename (without extension)',
          default='valeciumos')
 
-VARS.Add('kernelName',
+Vars.Add('kernel.name',
          help='Kernel executable name',
          default='valeciumx')
 
-VARS.Add('kernelVersion',
+Vars.Add('proj.version',
          help='Kernel version string in MAJOR.MINOR form',
          default='0.28')
 
-# =============================================================================
-# Dependency Versions
-# =============================================================================
-
-DEPS = {
+Deps = {
     'binutils': '2.45',
     'gcc': '15.2.0',
 }
 
 
-# =============================================================================
-# Host Environment
-# =============================================================================
-
-def create_host_environment():
-    """Create the host build environment."""
-    env = Environment(
-        variables=VARS,
+def CreateHostEnvironment():
+    Env = Environment(
+        variables=Vars,
         ENV=os.environ,
         CFLAGS=['-std=c99'],
         CXXFLAGS=['-std=c++17'],
         STRIP='strip',
     )
 
-    # Version mode:
-    # - debug: git short hash
-    # - release: configured version from .config
-    configured_version = str(env['kernelVersion'])
-    if env['config'] == 'debug':
-        git_hash = get_git_short_hash()
-        env['kernelVersion'] = git_hash if git_hash else configured_version
+    Env['build.config'] = Env['BuildConfig']
+    Env['build.arch'] = Env['BuildArch']
+    Env['build.type'] = Env['BuildType']
+    Env['boot.type'] = Env['BootType']
+
+    Version = str(Env['proj.version'])
+    if Env['build.config'] == 'debug':
+        Git = GetGitHash()
+        Env['proj.version'] = Git if Git else Version
     else:
-        env['kernelVersion'] = configured_version
-    env['kernelOutputName'] = f'{env["kernelName"]}-{env["kernelVersion"]}'
+        Env['proj.version'] = Version
+    Env['kernelOutputName'] = f'{Env["kernel.name"]}-{Env["proj.version"]}'
     
-    # Configuration-specific flags
-    if env['config'] == 'debug':
-        env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
+    if Env['build.config'] == 'debug':
+        Env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
     else:
-        env.Append(CCFLAGS=['-O3', '-DRELEASE', '-s'])
+        Env.Append(CCFLAGS=['-O3', '-DRELEASE', '-s'])
     
-    # Architecture define
-    arch_config = get_arch_config(env['arch'])
-    env.Append(CCFLAGS=[
-        f'-D{arch_config["define"]}',
-        f'-DKERNEL_VERSION=\\"{env["kernelVersion"]}\\"',
+    ArchitectureConfig = GetArchConfig(Env['build.arch'])
+    KernelVersionMacro = 'KERNEL' + '_VERSION'
+    Env.Append(CCFLAGS=[
+        f'-D{ArchitectureConfig["Define"]}',
+        f'-D{KernelVersionMacro}=\\"{Env["proj.version"]}\\"',
     ])
     
-    return env
+    return Env
 
 
-# =============================================================================
-# Target Environment
-# =============================================================================
+def CreateTargetEnvironment(HostEnv):
+    Arch = HostEnv['build.arch']
+    ArchitectureConfig = GetArchConfig(Arch)
 
-def create_target_environment(host_env):
-    """Create the cross-compilation target environment.
+    Tools, ToolPaths, Prefix = ResolveTools(Arch)
 
-    The required prefixed toolchain binaries must already be available in PATH.
-    """
-    arch = host_env['arch']
-    arch_config = get_arch_config(arch)
-
-    tools, tool_paths, selected_prefix = resolve_build_tools(arch)
-
-    selected_desc = selected_prefix if selected_prefix else 'unprefixed host tools'
-    print(f"Using build tool prefix for {arch}: {selected_desc}")
+    Desc = Prefix if Prefix else 'unprefixed host tools'
+    print(f"Using build tool prefix for {Arch}: {Desc}")
     print('Resolved build tools:')
-    for key in ('CC', 'CXX', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
-        print(f"  {key:<6} {tools[key]:<24} -> {tool_paths[key]}")
+    for Key in ('CC', 'CXX', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
+        print(f"  {Key:<6} {Tools[Key]:<24} -> {ToolPaths[Key]}")
 
-    env = host_env.Clone(
-        # Cross-compiler or native tools
-        **tools,
-
-        # Architecture info
-        ARCH_CONFIG=arch_config,
-        TARGET_TRIPLE=arch_config['target_triple'],
-
-        # Download URLs
-        BINUTILS_URL=f'https://ftp.gnu.org/gnu/binutils/binutils-{DEPS["binutils"]}.tar.xz',
-        GCC_URL=f'https://ftp.gnu.org/gnu/gcc/gcc-{DEPS["gcc"]}/gcc-{DEPS["gcc"]}.tar.xz',
+    Env = HostEnv.Clone(
+        **Tools,
+        ArchitectureConfig=ArchitectureConfig,
+        TargetTriple=ArchitectureConfig['TargetTriple'],
+        BinutilsUrl=f'https://ftp.gnu.org/gnu/binutils/binutils-{Deps["binutils"]}.tar.xz',
+        GccUrl=f'https://ftp.gnu.org/gnu/gcc/gcc-{Deps["gcc"]}/gcc-{Deps["gcc"]}.tar.xz',
     )
     
-    # Keep only generic C++ flags here; architecture-specific and
-    # target-specific flags are applied in each SConscript so kernel
-    # and userland can have distinct settings.
-    env.Append(
+    Env.Append(
         CXXFLAGS=['-fno-exceptions', '-fno-rtti'],
     )
     
-    # Custom build output strings
-    env.Replace(
+    Env.Replace(
         ASCOMSTR='   AS      $SOURCE',
         ASPPCOMSTR='   AS      $SOURCE',
         CCCOMSTR='   CC      $SOURCE',
@@ -288,56 +248,46 @@ def create_target_environment(host_env):
         RANLIBCOMSTR='   RANLIB  $TARGET',
     )
     
-    return env
+    return Env
 
 
-# =============================================================================
-# Build Setup
-# =============================================================================
+HostEnvironment = CreateHostEnvironment()
+TargetEnvironment = CreateTargetEnvironment(HostEnvironment)
 
-HOST_ENVIRONMENT = create_host_environment()
-TARGET_ENVIRONMENT = create_target_environment(HOST_ENVIRONMENT)
+Help(Vars.GenerateHelpText(HostEnvironment))
 
-# Generate help text
-Help(VARS.GenerateHelpText(HOST_ENVIRONMENT))
+Export('HostEnvironment')
+Export('TargetEnvironment')
 
-# Export environments
-Export('HOST_ENVIRONMENT')
-Export('TARGET_ENVIRONMENT')
+VariantDir = f'build/{TargetEnvironment["build.arch"]}_{TargetEnvironment["build.config"]}'
+BuildType = TargetEnvironment['build.type']
 
-# Build directory
-variant_dir = f'build/{TARGET_ENVIRONMENT["arch"]}_{TARGET_ENVIRONMENT["config"]}'
-build_type = TARGET_ENVIRONMENT['buildType']
+StageDir = os.path.abspath(os.path.join(VariantDir, 'img'))
+RuntimeSysroot = StageDir
 
-# Runtime sysroot is the shared image staging root. Runtime dependencies
-# install directly into {staging}/usr and can be used by userland builds.
-image_staging_dir = os.path.abspath(os.path.join(variant_dir, 'img'))
-runtime_dep_sysroot = image_staging_dir
+TargetEnvironment['ImageStagingDirectory'] = StageDir
+TargetEnvironment['RuntimeDependencySysroot'] = RuntimeSysroot
+TargetEnvironment['RuntimeDependencyMuslDirectory'] = RuntimeSysroot
 
-TARGET_ENVIRONMENT['IMAGE_STAGING_DIR'] = image_staging_dir
-TARGET_ENVIRONMENT['RUNTIME_DEP_SYSROOT'] = runtime_dep_sysroot
-TARGET_ENVIRONMENT['RUNTIME_DEP_MUSL_DIR'] = runtime_dep_sysroot
-
-runtime_dependencies = None
-if build_type in ('full', 'usr', 'image'):
-    runtime_stamp = os.path.join(runtime_dep_sysroot, '.runtime_dependencies.stamp')
-    runtime_dependencies = HOST_ENVIRONMENT.Command(
-        runtime_stamp,
+RuntimeDependencies = None
+if BuildType in ('full', 'usr', 'image'):
+    Stamp = os.path.join(RuntimeSysroot, '.RuntimeDeps.stamp')
+    RuntimeDependencies = HostEnvironment.Command(
+        Stamp,
         ['scripts/base/dependencies.py'],
-        build_runtime_dependencies_action,
-        TARGET_TRIPLE=TARGET_ENVIRONMENT['TARGET_TRIPLE'],
+        BuildRuntimeDepsAction,
+        TargetTriple=TargetEnvironment['TargetTriple'],
     )
-    Export('runtime_dependencies')
+    Export('RuntimeDependencies')
 
-# Build graph routing
-if build_type in ('full', 'usr', 'image'):
-    SConscript('usr/SConscript', variant_dir=f'{variant_dir}/usr', duplicate=0)
+if BuildType in ('full', 'usr', 'image'):
+    SConscript('usr/SConscript', variant_dir=f'{VariantDir}/usr', duplicate=0)
 
-if build_type in ('full', 'kernel', 'image'):
-    SConscript('kernel/SConscript', variant_dir=f'{variant_dir}/kernel', duplicate=0)
+if BuildType in ('full', 'kernel', 'image'):
+    SConscript('kernel/SConscript', variant_dir=f'{VariantDir}/kernel', duplicate=0)
 
-if build_type in ('full', 'image'):
-    SConscript('image/SConscript', variant_dir=variant_dir, duplicate=0)
+if BuildType in ('full', 'bootloader', 'image'):
+    SConscript('bootloader/Sconscript', variant_dir=f'{VariantDir}/bootloader', duplicate=0)
 
-if build_type == 'bootloader':
-    SConscript('bootloader/Sconscript', variant_dir=f'{variant_dir}/bootloader', duplicate=0)
+if BuildType in ('full', 'image'):
+    SConscript('image/SConscript', variant_dir=VariantDir, duplicate=0)

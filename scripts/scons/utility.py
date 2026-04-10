@@ -8,54 +8,54 @@ from SCons.Node.FS import Dir, File, Entry
 from SCons.Environment import Environment
 
 def ParseSize(size: str) -> int:
-    size_match = re.match(r'([0-9\.]+)([kmg]?)', size, re.IGNORECASE)
-    if size_match is None:
+    SizeMatch = re.match(r'([0-9\.]+)([kmg]?)', size, re.IGNORECASE)
+    if SizeMatch is None:
         raise ValueError(f'Error: Invalid size {size}')
 
-    result = Decimal(size_match.group(1))
-    multiplier = size_match.group(2).lower()
+    Result = Decimal(SizeMatch.group(1))
+    Multiplier = SizeMatch.group(2).lower()
 
-    multipliers = {'k': 1024, 'm': 1024**2, 'g': 1024**3}
-    if multiplier in multipliers:
-        result *= multipliers[multiplier]
+    Multipliers = {'k': 1024, 'm': 1024**2, 'g': 1024**3}
+    if Multiplier in Multipliers:
+        Result *= Multipliers[Multiplier]
 
-    return int(result)
+    return int(Result)
 
 def GlobRecursive(env: Environment, pattern: str, node: str = '.') -> list:
-    src = str(env.Dir(node).srcnode())
-    cwd = str(env.Dir('.').srcnode())
+    Source = str(env.Dir(node).srcnode())
+    WorkingDirectory = str(env.Dir('.').srcnode())
 
-    dir_list = [src]
-    for root, directories, _ in os.walk(src):
-        for d in directories:
-            dir_list.append(os.path.join(root, d))
+    DirectoryList = [Source]
+    for Root, Directories, _ in os.walk(Source):
+        for Directory in Directories:
+            DirectoryList.append(os.path.join(Root, Directory))
 
-    globs = []
-    for d in dir_list:
-        matched = env.Glob(os.path.join(os.path.relpath(d, cwd), pattern))
+    GlobResults = []
+    for Directory in DirectoryList:
+        Matched = env.Glob(os.path.join(os.path.relpath(Directory, WorkingDirectory), pattern))
         try:
-            globs.extend(list(matched))
+            GlobResults.extend(list(Matched))
         except TypeError:
-            globs.append(matched)
+            GlobResults.append(Matched)
 
-    return globs
+    return GlobResults
 
 
 def GlobSources(srcpath: str, extensions: tuple = ('.c', '.cpp', '.S')) -> list:
-    sources = []
-    for root, dirs, files in os.walk(srcpath):
-        for file in files:
-            if file.endswith(extensions):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, srcpath)
-                sources.append(rel_path)
-    return sources
+    Sources = []
+    for Root, _Directories, Files in os.walk(srcpath):
+        for FileName in Files:
+            if FileName.endswith(extensions):
+                FullPath = os.path.join(Root, FileName)
+                RelativePath = os.path.relpath(FullPath, srcpath)
+                Sources.append(RelativePath)
+    return Sources
 
 
-def FindIndex(the_list: list, predicate) -> int:
-    for i, item in enumerate(the_list):
-        if predicate(item):
-            return i
+def FindIndex(TheList: list, Predicate) -> int:
+    for Index, Item in enumerate(TheList):
+        if Predicate(Item):
+            return Index
     return None
 
 
@@ -73,17 +73,15 @@ def RemoveSuffix(s: str, suffix: str) -> str:
     return s
 
 
-def CreateBuildEnv(base_env: Environment, srcpath: str, **kwargs) -> Environment:
-    env = base_env.Clone()
+def CreateBuildEnv(BaseEnvironment: Environment, srcpath: str, **KeywordArgs) -> Environment:
+    EnvironmentObject = BaseEnvironment.Clone()
     
-    # Set up include paths
-    env.Append(
+    EnvironmentObject.Append(
         CPATH=[srcpath],
         CPPPATH=[srcpath],
     )
     
-    # Apply any additional settings
-    if kwargs:
-        env.Append(**kwargs)
+    if KeywordArgs:
+        EnvironmentObject.Append(**KeywordArgs)
     
-    return env
+    return EnvironmentObject

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import SConscript
-Import('sources')
+Import('Sources')
 
-SConscript('devfs/SConscript', exports='sources')
-SConscript('disk/SConscript', exports='sources')
-SConscript('fat/SConscript', exports='sources')
-SConscript('fd/SConscript', exports='sources')
-SConscript('misc/SConscript', exports='sources')
-SConscript('vfs/SConscript', exports='sources')
+SConscript('devfs/SConscript', exports='Sources')
+SConscript('disk/SConscript', exports='Sources')
+SConscript('fat/SConscript', exports='Sources')
+SConscript('fd/SConscript', exports='Sources')
+SConscript('misc/SConscript', exports='Sources')
+SConscript('vfs/SConscript', exports='Sources')
