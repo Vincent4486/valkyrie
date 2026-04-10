@@ -67,15 +67,15 @@ Example contents:
 
 [source,python]
 ----
-config = 'debug'
-arch = 'i686'
-imageFS = 'fat32'
-buildType = 'full'
-imageSize = '250m'
+BuildConfig = 'debug'
+BuildArch = 'i686'
+ImageFs = 'fat32'
+BuildType = 'full'
+ImageSize = '250m'
 toolchain = '../os_toolchain'
-outputFile = 'valeciumos'
-outputFormat = 'img'
-kernel.name = 'valeciumx'
+ImageName = 'valeciumos'
+ImageFormat = 'img'
+KernelName = 'valeciumx'
 ----
 
 === Step 1: Install Dependencies
@@ -103,7 +103,7 @@ Once dependencies are installed via `scons deps`, you can build the cross-compil
 scons toolchain
 ----
 
-This builds the cross-compiler for your target architecture based on the `arch` variable in `.config` or if you explicitly set it via arguments. The toolchain build requires dependencies to be installed first. The path that the toolchain will install to is the directory the `toolchain` variable points to (You may need root privillages if you would like to install it system wide to locations like `/opt/cross`).
+This builds the cross-compiler for your target architecture based on the `BuildArch` variable in `.config` or if you explicitly set it via arguments. The toolchain build requires dependencies to be installed first. The path that the toolchain will install to is the directory the `toolchain` variable points to (You may need root privillages if you would like to install it system wide to locations like `/opt/cross`).
 
 === Step 3: Build
 
@@ -138,33 +138,33 @@ To build for multiple target architectures, build the toolchain for each archite
 [source,bash]
 ----
 # Build toolchain for i686
-scons arch=i686 toolchain
+scons BuildArch=i686 toolchain
 
 # Build toolchain for x64
-scons arch=x64 toolchain
+scons BuildArch=x64 toolchain
 
 # Build toolchain for ARM64
-scons arch=aarch64 toolchain
+scons BuildArch=aarch64 toolchain
 
 # Now you can switch between architectures:
-scons arch=i686 buildType=kernel      # i686 kernel
-scons arch=x64 buildType=kernel       # x64 kernel
-scons arch=aarch64 buildType=kernel   # ARM64 kernel
+scons BuildArch=i686 BuildType=kernel      # i686 kernel
+scons BuildArch=x64 BuildType=kernel       # x64 kernel
+scons BuildArch=aarch64 BuildType=kernel   # ARM64 kernel
 ----
 
-Each architecture's cross-compiler is stored separately, so switching architectures is as simple as changing the `arch` variable.
+Each architecture's cross-compiler is stored separately, so switching architectures is as simple as changing the `BuildArch` variable.
 [source, python]
 ----
-outputFormat = 'img'
-kernel.name = 'valeciumx'
+ImageFormat = 'img'
+KernelName = 'valeciumx'
 ----
 
 You can edit `.config` directly to persist settings, or use command-line arguments (command-line takes precedence):
 
 [source,bash]
 ----
-scons config=release      # Use release for this build only (still uses .config defaults for other vars)
-scons arch=x64            # Use x64 for this build only
+scons BuildConfig=release      # Use release for this build only (still uses .config defaults for other vars)
+scons BuildArch=x64            # Use x64 for this build only
 ----
 
 == Build Configuration
@@ -176,13 +176,13 @@ Pass variables to `scons` to customize the build. Common options:
 [width="100%",cols="30%,30%,40%",options="header"]
 |===
 | Variable | Values | Default
-| `config` | `debug`, `release` | `debug`
-| `arch` | `i686`, `x64`, `aarch64` | `i686`
-| `imageFS` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
-| `imageSize` | Size with k/m/g suffix | `250m`
-| `buildType` | `full`, `kernel`, `usr`, `image` | `full`
-| `outputFormat` | `img`, `iso` | `img`
-| `outputFile` | Base name (no extension) | `valeciumos`
+| `BuildConfig` | `debug`, `release` | `debug`
+| `BuildArch` | `i686`, `x64`, `aarch64` | `i686`
+| `ImageFs` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
+| `ImageSize` | Size with k/m/g suffix | `250m`
+| `BuildType` | `full`, `kernel`, `usr`, `image` | `full`
+| `ImageFormat` | `img`, `iso` | `img`
+| `ImageName` | Base name (no extension) | `valeciumos`
 |===
 
 === Examples
@@ -190,25 +190,25 @@ Pass variables to `scons` to customize the build. Common options:
 [source,bash]
 ----
 # Build for release with optimizations
-scons config=release
+scons BuildConfig=release
 
 # Build for x64 architecture
-scons arch=x64 config=release
+scons BuildArch=x64 BuildConfig=release
 
 # Build only the kernel (skip userspace)
-scons buildType=kernel
+scons BuildType=kernel
 
 # Build only the disk image
-scons buildType=image
+scons BuildType=image
 
 # Specify output image name and filesystem
-scons outputFile=vk-debug imageFS=ext2
+scons ImageName=vk-debug ImageFs=ext2
 
 # Large image (512 MB)
-scons imageSize=512m
+scons ImageSize=512m
 
 # ISO format instead of hard disk
-scons outputFormat=iso
+scons ImageFormat=iso
 ----
 
 === Build Modes
@@ -222,7 +222,7 @@ scons outputFormat=iso
 
 [source,bash]
 ----
-scons config=debug
+scons BuildConfig=debug
 ----
 
 **Release mode**:
@@ -234,7 +234,7 @@ scons config=debug
 
 [source,bash]
 ----
-scons config=release
+scons BuildConfig=release
 ----
 
 == Build Targets
@@ -245,7 +245,7 @@ Build kernel, userspace, and disk image (default):
 
 [source,bash]
 ----
-scons buildType=full
+scons BuildType=full
 # or simply: scons
 ----
 
@@ -253,7 +253,7 @@ scons buildType=full
 
 [source,bash]
 ----
-scons buildType=kernel
+scons BuildType=kernel
 ----
 
 Output: `build/kernel/valeciumx` (ELF executable with debug symbols)
@@ -262,7 +262,7 @@ Output: `build/kernel/valeciumx` (ELF executable with debug symbols)
 
 [source,bash]
 ----
-scons buildType=usr
+scons BuildType=usr
 ----
 
 Builds system libraries and utilities without the kernel.
@@ -271,7 +271,7 @@ Builds system libraries and utilities without the kernel.
 
 [source,bash]
 ----
-scons buildType=image
+scons BuildType=image
 ----
 
 Generates bootable disk image from pre-built kernel and userspace.
@@ -428,7 +428,7 @@ Build and test across architectures:
 [source,bash]
 ----
 for arch in i686 x64 aarch64; do
-  scons arch=$arch config=release buildType=kernel
+  scons BuildArch=$arch BuildConfig=release BuildType=kernel
 done
 ----
 

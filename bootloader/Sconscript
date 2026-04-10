@@ -17,10 +17,10 @@ TargetEnvironment: Environment
 # Environment Setup
 # =============================================================================
 
-env = TargetEnvironment.Clone()
-srcpath = Dir('#bootloader').abspath
-arch = TargetEnvironment['build.arch']
-boot = TargetEnvironment['boot.type']
+Env = TargetEnvironment.Clone()
+SourcePath = Dir('#bootloader').abspath
+Arch = TargetEnvironment['BuildArch']
+Boot = TargetEnvironment['BootType']
 
-archpath = os.path.join(srcpath, f'{arch}-{boot}')
-linkerscript = os.path.join(archpath, 'linker.ld')
+ArchitecturePath = os.path.join(SourcePath, f'{Arch}-{Boot}')
+LinkerScript = os.path.join(ArchitecturePath, 'linker.ld')

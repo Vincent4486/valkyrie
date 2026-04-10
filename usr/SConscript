@@ -22,7 +22,7 @@ TargetEnvironment: Environment
 # Usermode Environment Setup
 # =============================================================================
 
-Architecture = TargetEnvironment['build.arch']
+Architecture = TargetEnvironment['BuildArch']
 ArchitectureConfig = GetArchConfig(Architecture)
 RuntimeSysroot = os.path.abspath(str(
     TargetEnvironment.get(

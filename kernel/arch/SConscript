@@ -3,5 +3,5 @@ from SCons.Script import SConscript
 Import('TargetEnvironment')
 Import('Sources')
 
-Architecture = TargetEnvironment['build.arch']
+Architecture = TargetEnvironment['BuildArch']
 SConscript(f'{Architecture}/SConscript', exports='Sources')

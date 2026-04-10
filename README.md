@@ -84,21 +84,21 @@ Important build files:
 
 Common SCons variables:
 
-- `config`: `debug` (default) or `release`
-- `arch`: `i686` (default), `x64`, `aarch64`
-- `buildType`: `full` (default), `kernel`, `usr`, `image`
-- `imageFS`: `fat12`, `fat16`, `fat32` (default), `ext2`
-- `imageSize`: image size (for example `250m`)
-- `image.format`: `img` (default) or `iso`
-- `image.name`: base name of output image
+- `BuildConfig`: `debug` (default) or `release`
+- `BuildArch`: `i686` (default), `x64`, `aarch64`
+- `BuildType`: `full` (default), `kernel`, `usr`, `image`
+- `ImageFs`: `fat12`, `fat16`, `fat32` (default), `ext2`
+- `ImageSize`: image size (for example `250m`)
+- `ImageFormat`: `img` (default) or `iso`
+- `ImageName`: base name of output image
 
 Examples:
 
 ```bash
-scons config=release
-scons arch=x64 config=release
-scons buildType=kernel
-scons image.format=iso
+scons BuildConfig=release
+scons BuildArch=x64 BuildConfig=release
+scons BuildType=kernel
+scons ImageFormat=iso
 ```
 
 For full build and platform notes, read [`Documents/building.ad`](Documents/building.ad).

@@ -103,16 +103,16 @@ def ResolveTools(Arch: str):
 ConfigPath = Path('.config')
 if not ConfigPath.exists():
     DefaultConfig = {
-        'build.config': 'debug',
-        'build.arch': 'i686',
-        'proj.version': '0.28',
-        'image.fs': 'fat32',
-        'build.type': 'full',
-        'image.size': '250m',
-        'image.name': 'valeciumos',
-        'image.format': 'img',
-        'kernel.name': 'valeciumx',
-        'boot.type': 'bios'
+        'BuildConfig': 'debug',
+        'BuildArch': 'i686',
+        'ProjVersion': '0.28',
+        'ImageFs': 'fat32',
+        'BuildType': 'full',
+        'ImageSize': '250m',
+        'ImageName': 'valeciumos',
+        'ImageFormat': 'img',
+        'KernelName': 'valeciumx',
+        'BootType': 'bios'
     }
     with open(ConfigPath, 'w', encoding='utf-8') as CfgFile:
         for Key, Value in DefaultConfig.items():
@@ -121,50 +121,50 @@ if not ConfigPath.exists():
 Vars = Variables(str(ConfigPath), ARGUMENTS)
 
 Vars.AddVariables(
-    EnumVariable('build.config',
+    EnumVariable('BuildConfig',
                  help='Build configuration',
                  default='debug',
                  allowed_values=('debug', 'release')),
     
-    EnumVariable('build.arch',
+    EnumVariable('BuildArch',
                  help='Target architecture',
                  default='i686',
                  allowed_values=tuple(GetSupportedArchitectures())),
     
-    EnumVariable('image.fs',
+    EnumVariable('ImageFs',
                  help='Filesystem type for disk image',
                  default='fat32',
                  allowed_values=tuple(GetSupportedFilesystems())),
     
-    EnumVariable('build.type',
+    EnumVariable('BuildType',
                  help='What to build',
                  default='full',
                  allowed_values=('full', 'kernel', 'usr', 'image', 'bootloader')),
 
-    EnumVariable('image.format',
+    EnumVariable('ImageFormat',
                  help='Output image format',
                  default='img',
                  allowed_values=('img', 'iso')),
-    EnumVariable('boot.type',
+    EnumVariable('BootType',
                  help='Boot type',
                  default='bios',
                  allowed_values=('bios', 'efi')),
 )
 
-Vars.Add('image.size',
+Vars.Add('ImageSize',
          help='Disk image size (supports k/m/g suffixes)',
          default='250m',
          converter=ParseSize)
 
-Vars.Add('image.name',
+Vars.Add('ImageName',
          help='Output image filename (without extension)',
          default='valeciumos')
 
-Vars.Add('kernel.name',
+Vars.Add('KernelName',
          help='Kernel executable name',
          default='valeciumx')
 
-Vars.Add('proj.version',
+Vars.Add('ProjVersion',
          help='Kernel version string in MAJOR.MINOR form',
          default='0.28')
 
@@ -183,36 +183,31 @@ def CreateHostEnvironment():
         STRIP='strip',
     )
 
-    Env['build.config'] = Env['BuildConfig']
-    Env['build.arch'] = Env['BuildArch']
-    Env['build.type'] = Env['BuildType']
-    Env['boot.type'] = Env['BootType']
-
-    Version = str(Env['proj.version'])
-    if Env['build.config'] == 'debug':
+    Version = str(Env['ProjVersion'])
+    if Env['BuildConfig'] == 'debug':
         Git = GetGitHash()
-        Env['proj.version'] = Git if Git else Version
+        Env['ProjVersion'] = Git if Git else Version
     else:
-        Env['proj.version'] = Version
-    Env['kernelOutputName'] = f'{Env["kernel.name"]}-{Env["proj.version"]}'
+        Env['ProjVersion'] = Version
+    Env['KernelOutputName'] = f'{Env["KernelName"]}-{Env["ProjVersion"]}'
     
-    if Env['build.config'] == 'debug':
+    if Env['BuildConfig'] == 'debug':
         Env.Append(CCFLAGS=['-O0', '-DDEBUG', '-g'])
     else:
         Env.Append(CCFLAGS=['-O3', '-DRELEASE', '-s'])
     
-    ArchitectureConfig = GetArchConfig(Env['build.arch'])
+    ArchitectureConfig = GetArchConfig(Env['BuildArch'])
     KernelVersionMacro = 'KERNEL' + '_VERSION'
     Env.Append(CCFLAGS=[
         f'-D{ArchitectureConfig["Define"]}',
-        f'-D{KernelVersionMacro}=\\"{Env["proj.version"]}\\"',
+        f'-D{KernelVersionMacro}=\\"{Env["ProjVersion"]}\\"',
     ])
     
     return Env
 
 
 def CreateTargetEnvironment(HostEnv):
-    Arch = HostEnv['build.arch']
+    Arch = HostEnv['BuildArch']
     ArchitectureConfig = GetArchConfig(Arch)
 
     Tools, ToolPaths, Prefix = ResolveTools(Arch)
@@ -259,8 +254,8 @@ Help(Vars.GenerateHelpText(HostEnvironment))
 Export('HostEnvironment')
 Export('TargetEnvironment')
 
-VariantDir = f'build/{TargetEnvironment["build.arch"]}_{TargetEnvironment["build.config"]}'
-BuildType = TargetEnvironment['build.type']
+VariantDir = f'build/{TargetEnvironment["BuildArch"]}_{TargetEnvironment["BuildConfig"]}'
+BuildType = TargetEnvironment['BuildType']
 
 StageDir = os.path.abspath(os.path.join(VariantDir, 'img'))
 RuntimeSysroot = StageDir

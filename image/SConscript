@@ -33,11 +33,11 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     import sh
     import shutil
 
-    ImageSize = EnvironmentObject['imageSize']
-    Filesystem = EnvironmentObject['image.fs']
-    OutputFormat = EnvironmentObject.get('image.format', 'img')
-    Architecture = EnvironmentObject.get('build.arch', 'i686')
-    BuildConfig = EnvironmentObject.get('build.config', 'release')
+    ImageSize = EnvironmentObject['ImageSize']
+    Filesystem = EnvironmentObject['ImageFs']
+    OutputFormat = EnvironmentObject.get('ImageFormat', 'img')
+    Architecture = EnvironmentObject.get('BuildArch', 'i686')
+    BuildConfig = EnvironmentObject.get('BuildConfig', 'release')
 
     Volume = VolumeLabel
     PartStartMb = 1
@@ -87,8 +87,8 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     GenerateGrubConfig(
         os.path.join(BootDir, 'grub'),
         OutputFormat,
-        Config=EnvironmentObject['build.config'],
-        KernelName=EnvironmentObject['kernelOutputName'],
+        Config=EnvironmentObject['BuildConfig'],
+        KernelName=EnvironmentObject['KernelOutputName'],
         VolumeLabelName=Volume,
     )
 
@@ -211,7 +211,7 @@ def BuildImageAction(*_Args, **KeywordArguments):
     Target = KeywordArguments['target']
     Source = KeywordArguments['source']
     EnvObj = KeywordArguments['env']
-    KernelName = EnvObj['kernelOutputName']
+    KernelName = EnvObj['KernelOutputName']
     KernelExecutablePath = None
 
     for Src in Source:
@@ -253,8 +253,8 @@ RootFiles = GlobRecursive(Env, '*', Root)
 
 Inputs = [Kernel] + UserLibraries + UserApplications + RootFiles
 
-OutputFormat = Env['image.format']
-Out = f'{Env["image.name"]}-{Env["proj.version"]}_{Env["build.config"]}_{Env["build.arch"]}.{OutputFormat}'
+OutputFormat = Env['ImageFormat']
+Out = f'{Env["ImageName"]}-{Env["ProjVersion"]}_{Env["BuildConfig"]}_{Env["BuildArch"]}.{OutputFormat}'
 
 Image = Env.Command(
     Out,

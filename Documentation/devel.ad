@@ -27,9 +27,9 @@ Common build commands:
 [source,bash]
 ----
 scons                        # Build everything (debug mode)
-scons config=release         # Build release version
-scons arch=i686 config=debug # Specific architecture
-scons buildType=kernel       # Build only kernel
+scons BuildConfig=release              # Build release version
+scons BuildArch=i686 BuildConfig=debug # Specific architecture
+scons BuildType=kernel                 # Build only kernel
 ----
 
 == Testing and Debugging

@@ -21,7 +21,7 @@ TargetEnvironment: Environment
 Env = TargetEnvironment.Clone()
 
 SourcePath = Dir('#kernel').abspath
-Architecture = TargetEnvironment['build.arch']
+Architecture = TargetEnvironment['BuildArch']
 ArchitecturePath = os.path.join(SourcePath, 'arch', Architecture)
 LinkerScript = os.path.join(ArchitecturePath, 'linker.ld')
 
@@ -101,6 +101,6 @@ Objects = Env.Object(Sources)
 # Build Target
 # =============================================================================
 
-Kernel = Env.Program(Env['kernelOutputName'], Objects)
+Kernel = Env.Program(Env['KernelOutputName'], Objects)
 
 Export('Kernel')
