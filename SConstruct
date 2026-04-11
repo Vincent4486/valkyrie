@@ -31,33 +31,6 @@ def GetGitHash() -> str:
         return ''
 
 
-def BuildRuntimeDepsAction(*_Args, **Kw):
-    Target = Kw['target']
-    Env = Kw['env']
-    OutDir = Path(str(Target[0].abspath)).parent
-    OutDir.mkdir(parents=True, exist_ok=True)
-
-    Triple = Env['TargetTriple']
-    Jobs = os.cpu_count() or 1
-
-    subprocess.run(
-        [
-            'python3',
-            './scripts/base/dependencies.py',
-            '--build-runtime',
-            '--target',
-            Triple,
-            '--output',
-            str(OutDir),
-            '--jobs',
-            str(Jobs),
-        ],
-        check=True,
-    )
-
-    Path(str(Target[0].abspath)).touch()
-
-
 def ResolveTools(Arch: str):
     Prefixes = [f'{Arch}-linux-musl-', f'{Arch}-elf-', '']
 
@@ -230,19 +203,7 @@ def CreateTargetEnvironment(HostEnv):
         CXXFLAGS=['-fno-exceptions', '-fno-rtti'],
     )
     
-    Env.Replace(
-        ASCOMSTR='   AS      $SOURCE',
-        ASPPCOMSTR='   AS      $SOURCE',
-        CCCOMSTR='   CC      $SOURCE',
-        CXXCOMSTR='   CXX     $SOURCE',
-        SHCCCOMSTR='   CC      $SOURCE',
-        SHCXXCOMSTR='   CXX     $SOURCE',
-        LINKCOMSTR='   LD      $TARGET',
-        SHLINKCOMSTR='   LD      $TARGET',
-        ARCOMSTR='   AR      $TARGET',
-        RANLIBCOMSTR='   RANLIB  $TARGET',
-    )
-    
+
     return Env
 
 
@@ -258,22 +219,8 @@ VariantDir = f'build/{TargetEnvironment["BuildArch"]}_{TargetEnvironment["BuildC
 BuildType = TargetEnvironment['BuildType']
 
 StageDir = os.path.abspath(os.path.join(VariantDir, 'img'))
-RuntimeSysroot = StageDir
 
 TargetEnvironment['ImageStagingDirectory'] = StageDir
-TargetEnvironment['RuntimeDependencySysroot'] = RuntimeSysroot
-TargetEnvironment['RuntimeDependencyMuslDirectory'] = RuntimeSysroot
-
-RuntimeDependencies = None
-if BuildType in ('full', 'usr', 'image'):
-    Stamp = os.path.join(RuntimeSysroot, '.RuntimeDeps.stamp')
-    RuntimeDependencies = HostEnvironment.Command(
-        Stamp,
-        ['scripts/base/dependencies.py'],
-        BuildRuntimeDepsAction,
-        TargetTriple=TargetEnvironment['TargetTriple'],
-    )
-    Export('RuntimeDependencies')
 
 if BuildType in ('full', 'usr', 'image'):
     SConscript('usr/SConscript', variant_dir=f'{VariantDir}/usr', duplicate=0)

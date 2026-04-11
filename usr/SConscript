@@ -14,7 +14,6 @@ from SCons.Script import Export
 from scripts.scons.arch import GetArchConfig
 
 Import('TargetEnvironment')
-Import('RuntimeDependencies')
 TargetEnvironment: Environment
 
 
@@ -24,18 +23,10 @@ TargetEnvironment: Environment
 
 Architecture = TargetEnvironment['BuildArch']
 ArchitectureConfig = GetArchConfig(Architecture)
-RuntimeSysroot = os.path.abspath(str(
-    TargetEnvironment.get(
-        'RuntimeDependencySysroot',
-        TargetEnvironment.get('RuntimeDependencyMuslDirectory', ''),
-    )
-))
 
 UsermodeEnv = TargetEnvironment.Clone()
 UsermodeEnv.Append(
     CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
-    CCFLAGS=[f'--sysroot={RuntimeSysroot}'],
-    LINKFLAGS=[f'--sysroot={RuntimeSysroot}'],
 )
 
 UsermodeEnv.Append(
@@ -48,7 +39,6 @@ UsermodeEnv['SHLIBPREFIX'] = 'lib'
 UsermodeEnv['SHLIBSUFFIX'] = '.so'
 
 Export('UsermodeEnv')
-Export('RuntimeDependencies')
 
 
 # =============================================================================

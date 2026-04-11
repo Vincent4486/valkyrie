@@ -23,7 +23,6 @@ Import('Kernel')
 Import('UserLibraries')
 Import('UserApplications')
 Import('TargetEnvironment')
-Import('RuntimeDependencies')
 
 TargetEnvironment: Environment
 Env: Environment = TargetEnvironment
@@ -78,6 +77,32 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
             os.remove(EntryPath)
 
     print(f"   STAGE -> {Stage}")
+
+    import subprocess
+    Compiler = EnvironmentObject.subst('$CC')
+    try:
+        RuntimeSysroot = subprocess.check_output([Compiler, '-print-sysroot'], text=True).strip()
+    except Exception:
+        RuntimeSysroot = ''
+
+    if not RuntimeSysroot or not os.path.isdir(RuntimeSysroot):
+        print(f"   STAGE WARNING: Missing toolchain sysroot from '{Compiler} -print-sysroot' (got: {RuntimeSysroot})")
+    else:
+        print(f"   STAGE SYSROOT -> {RuntimeSysroot}")
+        for Entry in os.listdir(RuntimeSysroot):
+            SrcPath = os.path.join(RuntimeSysroot, Entry)
+            DstPath = os.path.join(Stage, Entry)
+
+            if os.path.lexists(DstPath):
+                if os.path.isdir(DstPath) and not os.path.islink(DstPath):
+                    shutil.rmtree(DstPath)
+                else:
+                    os.remove(DstPath)
+
+            if os.path.isdir(SrcPath) and not os.path.islink(SrcPath):
+                shutil.copytree(SrcPath, DstPath, symlinks=True)
+            else:
+                shutil.copy2(SrcPath, DstPath, follow_symlinks=False)
 
     BootDir = os.path.join(Stage, 'boot')
     os.makedirs(BootDir, exist_ok=True)
@@ -262,6 +287,5 @@ Image = Env.Command(
     action=Action(BuildImageAction, '   CREATING DISK'),
     BASEDIR=Root.srcnode().path,
 )
-Env.Depends(Image, RuntimeDependencies)
 
 Export('Image')

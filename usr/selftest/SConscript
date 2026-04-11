@@ -8,7 +8,6 @@ from SCons.Script import Dir, Export
 from scripts.scons.utility import GlobSources
 
 Import('UsermodeEnv')
-Import('RuntimeDependencies')
 
 Env = UsermodeEnv.Clone()
 
@@ -23,7 +22,6 @@ Env.Append(
 
 Sources = GlobSources(Srcpath)
 Objects = Env.Object(Sources)
-Env.Depends(Objects, RuntimeDependencies)
 
 SelftestExecutable = Env.Program('selftest', Objects)
 

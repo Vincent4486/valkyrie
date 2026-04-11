@@ -3,8 +3,8 @@
 """
 Cross-compiler toolchain builder for Valecium OS.
 
-Builds binutils and GCC for the specified target architecture.
-Runtime libraries (musl) are built by the main OS build flow.
+Builds binutils, musl, and GCC for the specified target architecture.
+Runtime libraries are installed into a target sysroot.
 """
 
 import argparse
@@ -30,11 +30,13 @@ from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 VERSIONS = {
     'binutils': '2.45',
     'gcc': '15.2.0',
+    'musl': '1.2.6',
 }
 
 URLS = {
     'binutils': 'https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz',
     'gcc': 'https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz',
+    'musl': 'https://musl.libc.org/releases/musl-{version}.tar.gz',
 }
 
 
@@ -109,6 +111,7 @@ class ToolchainBuilder:
         
         # Derived paths
         self.bin_dir = self.prefix / 'bin'
+        self.sysroot = self.prefix / self.target / 'sysroot'
         
         # Source/build directories
         self.srcpath = self.prefix / 'src'
@@ -124,6 +127,8 @@ class ToolchainBuilder:
         self.prefix.mkdir(parents=True, exist_ok=True)
         self.srcpath.mkdir(exist_ok=True)
         self.build_dir.mkdir(exist_ok=True)
+        self.sysroot.mkdir(parents=True, exist_ok=True)
+        (self.sysroot / 'usr').mkdir(exist_ok=True)
     
     def download_sources(self):
         """Download all source tarballs."""
@@ -236,6 +241,8 @@ class ToolchainBuilder:
             '--disable-isl',
             '--disable-shared',
             '--with-newlib',
+            f"--with-sysroot={self.sysroot}",
+            '--with-native-system-header-dir=/usr/include',
         ] + self._get_configure_opts('gcc')
         
         run_command(
@@ -252,6 +259,89 @@ class ToolchainBuilder:
             ['make', 'install-gcc', 'install-target-libgcc'],
             cwd=str(build_path),
         )
+
+    def build_musl(self):
+        """Build and install musl into the toolchain sysroot."""
+        print("\n" + "=" * 60)
+        print("Building musl")
+        print("=" * 60)
+
+        version = VERSIONS['musl']
+        src_path = self.srcpath / f"musl-{version}"
+        build_path = self.build_dir / f"musl-{self.target}"
+        libc_archive = self.sysroot / 'usr' / 'lib' / 'libc.so'
+
+        if libc_archive.exists():
+            print("musl already installed in sysroot, skipping...")
+            return
+
+        build_path.mkdir(exist_ok=True)
+
+        cross_env = {
+            **self.build_env,
+            'CC': f'{self.target}-gcc',
+            'AR': f'{self.target}-ar',
+            'RANLIB': f'{self.target}-ranlib',
+        }
+
+        configure_opts = [
+            '--prefix=/usr',
+            '--syslibdir=/lib',
+            f'--host={self.target}',
+            '--enable-static',
+            '--enable-shared',
+        ]
+
+        run_command(
+            [str(src_path / 'configure')] + configure_opts,
+            env=cross_env,
+            cwd=str(build_path),
+        )
+
+        run_command(['make', f'-j{self.jobs}'], env=cross_env, cwd=str(build_path))
+        run_command(
+            ['make', 'install', f'DESTDIR={self.sysroot}'],
+            env=cross_env,
+            cwd=str(build_path),
+        )
+
+    def build_gcc_stage2(self):
+        """Build GCC stage 2 against the populated sysroot."""
+        print("\n" + "=" * 60)
+        print("Building GCC Stage 2")
+        print("=" * 60)
+
+        version = VERSIONS['gcc']
+        src_path = self.srcpath / f"gcc-{version}"
+        build_path = self.build_dir / f"gcc-stage2-{self.target}"
+
+        build_path.mkdir(exist_ok=True)
+
+        configure_opts = [
+            f"--prefix={self.prefix}",
+            f"--target={self.target}",
+            '--disable-nls',
+            '--enable-languages=c',
+            '--disable-threads',
+            '--disable-isl',
+            '--disable-libsanitizer',
+            '--enable-shared',
+            f"--with-sysroot={self.sysroot}",
+            '--with-native-system-header-dir=/usr/include',
+        ] + self._get_configure_opts('gcc')
+
+        run_command(
+            [str(src_path / 'configure')] + configure_opts,
+            env=self.build_env,
+            cwd=str(build_path),
+        )
+
+        run_command(['make', f'-j{self.jobs}'], cwd=str(build_path))
+        run_command(['make', 'install'], cwd=str(build_path))
+
+    def get_runtime_sysroot(self) -> Path:
+        """Return the sysroot whose contents should be copied into image root."""
+        return self.sysroot
     
     def build_all(self):
         """Build the complete toolchain."""
@@ -259,6 +349,11 @@ class ToolchainBuilder:
         print(f"  Prefix: {self.prefix}")
         print(f"  Jobs: {self.jobs}")
         print()
+
+        if self.is_installed():
+            print("Toolchain sysroot already installed, skipping bootstrap...")
+            print(f"  Sysroot: {self.sysroot}")
+            return
         
         self.setup_directories()
         self.download_sources()
@@ -266,11 +361,15 @@ class ToolchainBuilder:
         
         self.build_binutils()
         self.build_gcc_stage1()
+        self.build_musl()
+        self.build_gcc_stage2()
         
         print("\n" + "=" * 60)
         print("Toolchain build complete!")
         print("=" * 60)
         print(f"\nAdd to PATH: export PATH=\"{self.bin_dir}:$PATH\"")
+        print(f"Runtime sysroot: {self.get_runtime_sysroot()}")
+        print("Copy this sysroot content into image root during OS image assembly.")
         
         # Clean up build and source directories
         print("\nCleaning up build and source directories...")
@@ -292,14 +391,15 @@ class ToolchainBuilder:
                 print(f"Removed: {path}")
     
     def is_installed(self) -> bool:
-        """Check if base cross toolchain is already installed.
+        """Check if cross toolchain and sysroot runtime are already installed.
         
         Returns:
-            True if all key toolchain components are found, False otherwise.
+            True if key toolchain components and musl sysroot archive are found.
         """
         required_tools = [
             self.bin_dir / f"{self.target}-as",
             self.bin_dir / f"{self.target}-gcc",
+            self.sysroot / 'usr' / 'lib' / 'libc.so',
         ]
         return all(path.exists() for path in required_tools)
 

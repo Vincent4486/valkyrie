@@ -8,7 +8,6 @@ from SCons.Script import Dir, Export
 from scripts.scons.utility import GlobSources
 
 Import('UsermodeEnv')
-Import('RuntimeDependencies')
 
 Env = UsermodeEnv.Clone()
 
@@ -21,7 +20,6 @@ Env.Append(
 
 Sources = GlobSources(Srcpath)
 Objects = Env.Object(Sources)
-Env.Depends(Objects, RuntimeDependencies)
 
 ShExecutable = Env.Program('sh', Objects)
 
