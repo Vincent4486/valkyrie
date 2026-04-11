@@ -24,3 +24,8 @@ Boot = TargetEnvironment['BootType']
 
 ArchitecturePath = os.path.join(SourcePath, f'{Arch}-{Boot}')
 LinkerScript = os.path.join(ArchitecturePath, 'linker.ld')
+
+Stage1Sources = []
+Stage2Sources = []
+Stage3Sources = []
+
