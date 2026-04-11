@@ -371,20 +371,20 @@ Examples:
             builder.clean()
         elif args.check_only:
             if builder.is_installed():
-                print(f"✓ Toolchain installed for {builder.target}")
+                print(f"Toolchain installed for {builder.target}")
                 print(f"  Location: {builder.prefix}")
                 sys.exit(0)
             else:
-                print(f"✗ Toolchain not installed for {builder.target}")
+                print(f"Toolchain not installed for {builder.target}")
                 print(f"  Expected location: {builder.prefix}")
                 sys.exit(1)
         elif args.check or args.ensure:
             if builder.is_installed():
-                print(f"✓ Toolchain already installed for {builder.target}")
+                print(f"Toolchain already installed for {builder.target}")
                 print(f"  Location: {builder.prefix}")
                 sys.exit(0)
 
-            print(f"✗ Toolchain not installed for {builder.target}")
+            print(f"Toolchain not installed for {builder.target}")
             print("  Building toolchain...")
             builder.build_all()
         elif args.binutils_only:

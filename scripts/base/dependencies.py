@@ -251,7 +251,7 @@ DEPENDENCIES = {
 
 RUNTIME_DEPENDENCIES = {
     'musl': {
-        'version': '1.2.5',
+        'version': '1.2.6',
         'url': 'https://musl.libc.org/releases/musl-{version}.tar.gz',
     },
 }

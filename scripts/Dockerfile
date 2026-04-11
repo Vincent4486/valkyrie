@@ -1,20 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
-
-# syntax=docker/dockerfile:1
 FROM debian:stable-slim
 
-# Install dependencies
 RUN apt-get update && apt-get install -y \
     scons python3 python3-sh build-essential \
     gcc g++ make libmpfr-dev libgmp-dev \
     libmpc-dev coreutils grep dosfstools \
-    e2fsprogs xorriso grub-pc-bin guestfish \
-    qemu-system-x86 gdb texinfo git
+    xorriso grub-pc-bin guestfish \
+    qemu-system-x86 gdb texinfo git \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/opt/cross/bin:${PATH}"
 
 WORKDIR /build
 
-# Mount the host CWD to /build during this specific RUN command
 RUN --mount=type=bind,source=.,target=/build \
-    scons toolchain
+    python3 ./scripts/base/toolchain.py /opt/cross -a i686
 
-RUN rm -rf /var/lib/apt/lists/*
+RUN i686-linux-musl-gcc --version
