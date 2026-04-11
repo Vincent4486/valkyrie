@@ -202,6 +202,19 @@ def CreateTargetEnvironment(HostEnv):
     Env.Append(
         CXXFLAGS=['-fno-exceptions', '-fno-rtti'],
     )
+
+    Env.Replace(
+        ASCOMSTR='   AS      $SOURCE',
+        ASPPCOMSTR='   AS      $SOURCE',
+        CCCOMSTR='   CC      $SOURCE',
+        CXXCOMSTR='   CXX     $SOURCE',
+        SHCCCOMSTR='   CC      $SOURCE',
+        SHCXXCOMSTR='   CXX     $SOURCE',
+        LINKCOMSTR='   LD      $TARGET',
+        SHLINKCOMSTR='   LD      $TARGET',
+        ARCOMSTR='   AR      $TARGET',
+        RANLIBCOMSTR='   RANLIB  $TARGET',
+    )
     
 
     return Env

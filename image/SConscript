@@ -4,6 +4,7 @@ Disk image build configuration.
 """
 
 import os
+from pathlib import Path
 
 from SCons.Action import Action
 from SCons.Environment import Environment
@@ -27,6 +28,29 @@ Import('TargetEnvironment')
 TargetEnvironment: Environment
 Env: Environment = TargetEnvironment
 
+def CopySymlinkTarget(SymlinkPath, DestinationPath, Sysroot=None):
+    """Manually copy the target of a symlink as a regular file."""
+    Target = os.readlink(SymlinkPath)
+    SymlinkDir = os.path.dirname(SymlinkPath)
+    
+    # Resolve relative symlink targets
+    if os.path.isabs(Target):
+        # For absolute paths, prepend sysroot if provided
+        if Sysroot:
+            ResolvedPath = os.path.normpath(os.path.join(Sysroot, Target.lstrip('/')))
+        else:
+            ResolvedPath = Target
+    else:
+        ResolvedPath = os.path.normpath(os.path.join(SymlinkDir, Target))
+    
+    # Check if resolved path exists
+    if not os.path.exists(ResolvedPath):
+        return False
+    
+    # Manually copy the target file as a regular file
+    import shutil
+    shutil.copy2(ResolvedPath, DestinationPath, follow_symlinks=True)
+    return True
 
 def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFiles, EnvironmentObject):
     import sh
@@ -85,24 +109,36 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     except Exception:
         RuntimeSysroot = ''
 
-    if not RuntimeSysroot or not os.path.isdir(RuntimeSysroot):
-        print(f"   STAGE WARNING: Missing toolchain sysroot from '{Compiler} -print-sysroot' (got: {RuntimeSysroot})")
-    else:
-        print(f"   STAGE SYSROOT -> {RuntimeSysroot}")
-        for Entry in os.listdir(RuntimeSysroot):
-            SrcPath = os.path.join(RuntimeSysroot, Entry)
-            DstPath = os.path.join(Stage, Entry)
-
-            if os.path.lexists(DstPath):
-                if os.path.isdir(DstPath) and not os.path.islink(DstPath):
-                    shutil.rmtree(DstPath)
-                else:
-                    os.remove(DstPath)
-
-            if os.path.isdir(SrcPath) and not os.path.islink(SrcPath):
-                shutil.copytree(SrcPath, DstPath, symlinks=True)
+    print(f"   STAGE SYSROOT -> {RuntimeSysroot}")
+    KeepSymlinks = False if 'fat' in Filesystem.lower() else True
+    
+    AllItems = list(Path(RuntimeSysroot).rglob('*'))
+    Directories = [Item for Item in AllItems if Item.is_dir()]
+    Files = [Item for Item in AllItems if Item.is_file() or Item.is_symlink()]
+    
+    for DirPath in Directories:
+        RelPath = DirPath.relative_to(RuntimeSysroot)
+        DstDirPath = os.path.join(Stage, RelPath)
+        os.makedirs(DstDirPath, exist_ok=True)
+    
+    for FilePath in Files:
+        RelPath = FilePath.relative_to(RuntimeSysroot)
+        DstFilePath = os.path.join(Stage, RelPath)
+        SrcFilePath = str(FilePath)
+        
+        # Ensure destination directory exists
+        os.makedirs(os.path.dirname(DstFilePath), exist_ok=True)
+        
+        # Handle symlinks for FAT filesystem
+        if os.path.islink(SrcFilePath) and not KeepSymlinks:
+            if CopySymlinkTarget(SrcFilePath, DstFilePath, RuntimeSysroot):
+                continue
             else:
-                shutil.copy2(SrcPath, DstPath, follow_symlinks=False)
+                continue
+        
+        # Copy file normally
+        shutil.copy2(SrcFilePath, DstFilePath, follow_symlinks=not KeepSymlinks)
+
 
     BootDir = os.path.join(Stage, 'boot')
     os.makedirs(BootDir, exist_ok=True)
