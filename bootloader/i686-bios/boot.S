@@ -166,7 +166,4 @@ dap_lba_high:
 	.long 0
 
 /* Keep stage1 in the boot-code area of MBR (446 bytes max). */
-.if (. - _start) > 446
-.error "i686-pc MBR stage1 exceeds 446 bytes"
-.endif
-.fill 446 - (. - _start), 1, 0
+.org _start + 446
