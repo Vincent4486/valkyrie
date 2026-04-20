@@ -16,7 +16,6 @@ Srcpath = Dir('#usr/libmath').abspath
 Env.Append(
     CCFLAGS=['-fPIC'],
     CFLAGS=['-fPIC'],
-    CXXFLAGS=['-fPIC'],
     LINKFLAGS=[
         '-shared',
         '-Wl,-soname,libmath.so',

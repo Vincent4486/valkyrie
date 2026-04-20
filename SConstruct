@@ -45,8 +45,7 @@ def ResolveTools(Arch: str):
         'AS': 'as',
         'AR': 'ar',
         'CC': 'gcc',
-        'CXX': 'g++',
-        'LD': 'g++',
+        'LD': 'gcc',
         'RANLIB': 'ranlib',
         'STRIP': 'strip',
     }
@@ -152,7 +151,6 @@ def CreateHostEnvironment():
         variables=Vars,
         ENV=os.environ,
         CFLAGS=['-std=c99'],
-        CXXFLAGS=['-std=c++17'],
         STRIP='strip',
     )
 
@@ -188,7 +186,7 @@ def CreateTargetEnvironment(HostEnv):
     Desc = Prefix if Prefix else 'unprefixed host tools'
     print(f"Using build tool prefix for {Arch}: {Desc}")
     print('Resolved build tools:')
-    for Key in ('CC', 'CXX', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
+    for Key in ('CC', 'AR', 'AS', 'LD', 'RANLIB', 'STRIP'):
         print(f"  {Key:<6} {Tools[Key]:<24} -> {ToolPaths[Key]}")
 
     Env = HostEnv.Clone(
@@ -198,21 +196,15 @@ def CreateTargetEnvironment(HostEnv):
         BinutilsUrl=f'https://ftp.gnu.org/gnu/binutils/binutils-{Deps["binutils"]}.tar.xz',
         GccUrl=f'https://ftp.gnu.org/gnu/gcc/gcc-{Deps["gcc"]}/gcc-{Deps["gcc"]}.tar.xz',
     )
-    
-    Env.Append(
-        CXXFLAGS=['-fno-exceptions', '-fno-rtti'],
-    )
 
     Env.Replace(
-        ASCOMSTR='   AS      $SOURCE',
-        ASPPCOMSTR='   AS      $SOURCE',
-        CCCOMSTR='   CC      $SOURCE',
-        CXXCOMSTR='   CXX     $SOURCE',
-        SHCCCOMSTR='   CC      $SOURCE',
-        SHCXXCOMSTR='   CXX     $SOURCE',
-        LINKCOMSTR='   LD      $TARGET',
+        ASCOMSTR    ='   AS      $SOURCE',
+        ASPPCOMSTR  ='   AS      $SOURCE',
+        CCCOMSTR    ='   CC      $SOURCE',
+        SHCCCOMSTR  ='   CC      $SOURCE',
+        LINKCOMSTR  ='   LD      $TARGET',
         SHLINKCOMSTR='   LD      $TARGET',
-        ARCOMSTR='   AR      $TARGET',
+        ARCOMSTR    ='   AR      $TARGET',
         RANLIBCOMSTR='   RANLIB  $TARGET',
     )
     

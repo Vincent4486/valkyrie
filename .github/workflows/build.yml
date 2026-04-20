@@ -13,78 +13,149 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # 1. Define your variables once here
     env:
-      BUILDER_IMAGE: vincent4486/valeciumos-builder
-      BUILDER_TAG: i686
+      DOCKER_IMAGE_REPOSITORY: vincent4486/valeciumos-builder
+      DOCKER_IMAGE_TAG: i686
+      CONTAINER_WORKDIR: /build
+      BUILD_ARCH: i686
+      BUILD_CONFIG: debug
+      BUILD_TYPE: image
+      BUILD_FORMAT_IMG: img
+      BUILD_FORMAT_ISO: iso
+      KERNEL_ARTIFACT_PATTERN: valeciumx-*
+      IMG_ARTIFACT_PATTERN: valeciumos-*.img
+      ISO_ARTIFACT_PATTERN: valeciumos-*.iso
+      ARTIFACT_STAGE_DIR: artifact
+      TARBALL_PREFIX: valecium-nightly
+      TIMESTAMP_FORMAT: +%Y%m%d%H%M%S
+      REMOTE_KEEP_COUNT: 10
+      SSH_KEY_FILENAME: id_rsa
       REMOTE_USER: ${{ secrets.REMOTE_USER }}
       REMOTE_IP: ${{ secrets.REMOTE_IP }}
       REMOTE_PRIVATE_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
       REMOTE_PATH: /var/webdownloads/valecium/nightly
 
     steps:
-      - uses: actions/checkout@v3
+      - name: 01 - Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Pull builder container image
-        run: |
-          # 2. Reference the variables using $ syntax
-          docker pull ${{ env.BUILDER_IMAGE }}:${{ env.BUILDER_TAG }}
-
-      - name: Build kernel + image formats inside container
+      - name: 02 - Resolve build metadata
         run: |
           set -euo pipefail
 
           short_hash=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+          date_tag=$(date -u "$TIMESTAMP_FORMAT")
+
           echo "SHORT_HASH=$short_hash" >> "$GITHUB_ENV"
+          echo "DATE_TAG=$date_tag" >> "$GITHUB_ENV"
 
-          # 3. Use the same variables here to ensure consistency
-          docker run --rm -v "$(pwd)":/build ${{ env.BUILDER_IMAGE }}:${{ env.BUILDER_TAG }} bash -lc '
-            set -euo pipefail
-            scons -Q config=debug image.format=img toolchain=../os_toolchain proj.versionSource=fixed proj.version="'"$short_hash"'"
-            scons -Q config=debug image.format=iso toolchain=../os_toolchain proj.versionSource=fixed proj.version="'"$short_hash"'"
-          '
+      - name: 03 - Pull builder container image
+        run: |
+          set -euo pipefail
+          docker pull "$DOCKER_IMAGE_REPOSITORY:$DOCKER_IMAGE_TAG"
 
-      - name: Gather artifacts and create tarball
+      - name: 04 - Build IMG format
+        env:
+          CURRENT_FORMAT: ${{ env.BUILD_FORMAT_IMG }}
         run: |
           set -euo pipefail
 
-          # Note: I updated the pattern to 'valecium-*' to match your new name
-          kernel_file=$(find build -type f -name "valeciumx-*" | head -n 1)
-          img_file=$(find build -type f -name "valeciumos-*.img" | head -n 1)
-          iso_file=$(find build -type f -name "valeciumos-*.iso" | head -n 1)
+          echo "Building format: $CURRENT_FORMAT"
+
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:$CONTAINER_WORKDIR" \
+            -w "$CONTAINER_WORKDIR" \
+            -e BUILD_ARCH \
+            -e BUILD_CONFIG \
+            -e BUILD_TYPE \
+            -e CURRENT_FORMAT \
+            -e SHORT_HASH \
+            "$DOCKER_IMAGE_REPOSITORY:$DOCKER_IMAGE_TAG" \
+            bash -lc '
+              set -euo pipefail
+              scons -Q \
+                BuildArch="$BUILD_ARCH" \
+                BuildConfig="$BUILD_CONFIG" \
+                BuildType="$BUILD_TYPE" \
+                ImageFormat="$CURRENT_FORMAT" \
+                ProjVersion="$SHORT_HASH"
+            '
+
+      - name: 05 - Build ISO format
+        env:
+          CURRENT_FORMAT: ${{ env.BUILD_FORMAT_ISO }}
+        run: |
+          set -euo pipefail
+
+          echo "Building format: $CURRENT_FORMAT"
+
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:$CONTAINER_WORKDIR" \
+            -w "$CONTAINER_WORKDIR" \
+            -e BUILD_ARCH \
+            -e BUILD_CONFIG \
+            -e BUILD_TYPE \
+            -e CURRENT_FORMAT \
+            -e SHORT_HASH \
+            "$DOCKER_IMAGE_REPOSITORY:$DOCKER_IMAGE_TAG" \
+            bash -lc '
+              set -euo pipefail
+              scons -Q \
+                BuildArch="$BUILD_ARCH" \
+                BuildConfig="$BUILD_CONFIG" \
+                BuildType="$BUILD_TYPE" \
+                ImageFormat="$CURRENT_FORMAT" \
+                ProjVersion="$SHORT_HASH"
+            '
+
+      - name: 06 - Gather build artifacts
+        run: |
+          set -euo pipefail
+
+          kernel_file=$(find build -type f -name "$KERNEL_ARTIFACT_PATTERN" | sort | head -n 1)
+          img_file=$(find build -type f -name "$IMG_ARTIFACT_PATTERN" | sort | head -n 1)
+          iso_file=$(find build -type f -name "$ISO_ARTIFACT_PATTERN" | sort | head -n 1)
 
           if [ -z "$kernel_file" ] || [ -z "$img_file" ] || [ -z "$iso_file" ]; then
             echo "ERROR: artifacts not found"
+            echo "KERNEL_ARTIFACT_PATTERN=$KERNEL_ARTIFACT_PATTERN"
+            echo "IMG_ARTIFACT_PATTERN=$IMG_ARTIFACT_PATTERN"
+            echo "ISO_ARTIFACT_PATTERN=$ISO_ARTIFACT_PATTERN"
             exit 1
           fi
 
-          short_hash="${SHORT_HASH:-unknown}"
-          date_tag=$(date -u +"%Y%m%d%H%M%S")
-          tarball="valecium-nightly-${date_tag}-${short_hash}.tar.xz"
+          mkdir -p "$ARTIFACT_STAGE_DIR"
+          cp -- "$kernel_file" "$img_file" "$iso_file" "$ARTIFACT_STAGE_DIR/"
 
-          mkdir -p artifact
-          cp -- "$kernel_file" "$img_file" "$iso_file" artifact/
-          tar -cJf "$tarball" -C artifact .
-          echo "TARBALL_NAME=$tarball" >> "$GITHUB_ENV"
-
-      - name: Deploy tarball to remote server
+      - name: 07 - Create nightly tarball
         run: |
           set -euo pipefail
-          
-          # Using the ENV variable set in the previous step
-          tarball="${{ env.TARBALL_NAME }}"
+
+          tarball="${TARBALL_PREFIX}-${DATE_TAG}-${SHORT_HASH}.tar.xz"
+          tar -cJf "$tarball" -C "$ARTIFACT_STAGE_DIR" .
+          echo "TARBALL_NAME=$tarball" >> "$GITHUB_ENV"
+
+      - name: 08 - Deploy tarball to remote server
+        run: |
+          set -euo pipefail
 
           mkdir -p ~/.ssh
-          echo "$REMOTE_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          printf '%s\n' "$REMOTE_PRIVATE_KEY" > "$HOME/.ssh/$SSH_KEY_FILENAME"
+          chmod 600 "$HOME/.ssh/$SSH_KEY_FILENAME"
           ssh-keyscan -H "$REMOTE_IP" >> ~/.ssh/known_hosts
 
-          scp -o StrictHostKeyChecking=no "$tarball" "$REMOTE_USER@$REMOTE_IP:$REMOTE_PATH/"
+          ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" "mkdir -p '$REMOTE_PATH'"
+
+          scp -o StrictHostKeyChecking=no "$TARBALL_NAME" "$REMOTE_USER@$REMOTE_IP:$REMOTE_PATH/"
+
+      - name: 09 - Prune old remote nightly tarballs
+        run: |
+          set -euo pipefail
 
           ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" \
-            "REMOTE_PATH='$REMOTE_PATH' bash -se" <<'EOF'
+            "REMOTE_PATH='$REMOTE_PATH' REMOTE_KEEP_COUNT='$REMOTE_KEEP_COUNT' bash -se" <<'EOF'
           set -euo pipefail
           mkdir -p "$REMOTE_PATH"
           cd "$REMOTE_PATH"
-          ls -1t *.tar.xz 2>/dev/null | tail -n +11 | xargs -r rm --
+          ls -1t *.tar.xz 2>/dev/null | tail -n "+$((REMOTE_KEEP_COUNT + 1))" | xargs -r rm --
           EOF

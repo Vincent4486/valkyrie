@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 # File extensions to format
-SOURCE_EXTENSIONS = {'.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.hxx'}
+SOURCE_EXTENSIONS = {'.c', '.h'}
 
 # Directories to skip
 SKIP_DIRS = {'build', 'toolchain', '.git', '__pycache__', 'node_modules'}
