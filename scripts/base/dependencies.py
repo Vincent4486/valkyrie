@@ -33,7 +33,6 @@ DEPENDENCIES = {
             # === Python & Scripting ===
             'python3',
             'python3-pip',
-            'python3-sh',
             'scons',
             'bash',
             'grep',
@@ -41,7 +40,6 @@ DEPENDENCIES = {
             
             # === Filesystem & Disk Tools ===
             'dosfstools',
-            'e2fsprogs',
             'xorriso',
             
             # === Boot & Image Creation ===
@@ -86,7 +84,6 @@ DEPENDENCIES = {
             
             # === Filesystem & Disk Tools ===
             'dosfstools',
-            'e2fsprogs',
             'xorriso',
             
             # === Boot & Image Creation ===
@@ -132,7 +129,6 @@ DEPENDENCIES = {
             
             # === Filesystem & Disk Tools ===
             'dosfstools',
-            'e2fsprogs',
             'xorriso',
             
             # === Boot & Image Creation ===
@@ -177,7 +173,6 @@ DEPENDENCIES = {
             
             # === Filesystem & Disk Tools ===
             'dosfstools',
-            'e2fsprogs',
             'xorriso',
             
             # === Boot & Image Creation ===
@@ -223,7 +218,6 @@ DEPENDENCIES = {
             
             # === Filesystem & Disk Tools ===
             'dosfstools',
-            'e2fsprogs',
             'xorriso',
             
             # === Boot & Image Creation ===
@@ -247,15 +241,6 @@ DEPENDENCIES = {
         'install_cmd': ['apk', 'add'],
     },
 }
-
-
-RUNTIME_DEPENDENCIES = {
-    'musl': {
-        'version': '1.2.6',
-        'url': 'https://musl.libc.org/releases/musl-{version}.tar.gz',
-    },
-}
-
 
 def get_cpu_count() -> int:
     """Get number of CPUs for parallel runtime builds."""
@@ -286,101 +271,6 @@ def extract_archive(archive: Path, dest_dir: Path):
     print(f"Extracting: {archive.name}")
     with tarfile.open(archive) as tar:
         tar.extractall(str(dest_dir))
-
-
-def build_RuntimeDependencies(output_dir: str, target: str, jobs: int = None) -> int:
-    """Build runtime dependencies (musl) into a build-local path.
-
-    Args:
-        output_dir: Build-local output root (for example build/i686_debug/dependencies/musl)
-        target: Target triple (for example i686-linux-musl)
-        jobs: Number of parallel make jobs
-
-    Returns:
-        0 on success, non-zero on failure.
-    """
-    jobs = jobs or get_cpu_count()
-    output_root = Path(output_dir).resolve()
-
-    install_usr = output_root / 'usr'
-    libc_path = install_usr / 'lib' / 'libc.so'
-    crt1_path = install_usr / 'lib' / 'crt1.o'
-
-    if libc_path.exists() and crt1_path.exists():
-        print(f"Runtime dependencies already installed in: {output_root}")
-        return 0
-
-    required_tools = [
-        f'{target}-gcc',
-        f'{target}-as',
-        f'{target}-ld',
-        f'{target}-ar',
-        f'{target}-ranlib',
-        f'{target}-strip',
-    ]
-    missing_tools = [tool for tool in required_tools if not shutil.which(tool)]
-    if missing_tools:
-        print('Error: required cross-tools not found in PATH:', file=sys.stderr)
-        for tool in missing_tools:
-            print(f'  - {tool}', file=sys.stderr)
-        return 1
-
-    musl_cfg = RUNTIME_DEPENDENCIES['musl']
-    version = musl_cfg['version']
-    url = musl_cfg['url'].format(version=version)
-    archive_name = url.split('/')[-1]
-
-    work_root = output_root / '.work'
-    src_root = work_root / 'src'
-    src_root.mkdir(parents=True, exist_ok=True)
-    output_root.mkdir(parents=True, exist_ok=True)
-
-    archive_path = src_root / archive_name
-    src_path = src_root / f'musl-{version}'
-    build_path = work_root / f'musl-{target}'
-
-    download_file(url, archive_path)
-    if not src_path.exists():
-        extract_archive(archive_path, src_root)
-
-    if build_path.exists():
-        shutil.rmtree(build_path)
-    build_path.mkdir(parents=True, exist_ok=True)
-
-    cross_env = {
-        'CC': f'{target}-gcc',
-        'AS': f'{target}-as',
-        'LD': f'{target}-ld',
-        'AR': f'{target}-ar',
-        'RANLIB': f'{target}-ranlib',
-        'STRIP': f'{target}-strip',
-    }
-
-    run_command(
-        [
-            str(src_path / 'configure'),
-            '--prefix=/usr',
-            f'--host={target}',
-            '--enable-static',
-            '--enable-shared',
-        ],
-        cwd=str(build_path),
-        env=cross_env,
-    )
-
-    run_command(['make', f'-j{jobs}'], cwd=str(build_path), env=cross_env)
-    run_command(
-        ['make', 'install', f'DESTDIR={output_root}'],
-        cwd=str(build_path),
-        env=cross_env,
-    )
-
-    if work_root.exists():
-        shutil.rmtree(work_root)
-
-    print(f"Runtime dependencies installed to: {output_root}")
-    return 0
-
 
 def detect_distro() -> str:
     """Detect the Linux distribution family."""
@@ -467,8 +357,6 @@ def main():
     parser.add_argument('-d', '--distro',
                         choices=list(DEPENDENCIES.keys()),
                         help='Force specific distribution (auto-detected by default)')
-    parser.add_argument('--build-runtime', action='store_true',
-                        help='Build runtime dependencies (musl) into a build-local output path')
     parser.add_argument('-t', '--target',
                         help='Target triple for runtime dependency build')
     parser.add_argument('--output',
@@ -485,24 +373,6 @@ def main():
                         help='Skip confirmation prompt (for non-interactive use)')
     
     args = parser.parse_args()
-
-    if args.build_runtime:
-        if not args.target:
-            print('Error: --target is required with --build-runtime', file=sys.stderr)
-            sys.exit(1)
-        if not args.output:
-            print('Error: --output is required with --build-runtime', file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            sys.exit(build_RuntimeDependencies(
-                output_dir=args.output,
-                target=args.target,
-                jobs=args.jobs,
-            ))
-        except subprocess.CalledProcessError as e:
-            print(f"Error: command failed with exit code {e.returncode}", file=sys.stderr)
-            sys.exit(1)
     
     # Detect or use specified distro
     distro = args.distro or detect_distro()

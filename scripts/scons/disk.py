@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import subprocess
 import textwrap
-
-import sh
 
 VolumeLabel = 'VALECIUM'
 
@@ -80,19 +79,29 @@ def GetGrubModules(Filesystem: str) -> list:
     return UniqueModules
 
 
+def RunCommand(Arguments: list, InputText: str = None):
+    subprocess.run(
+        Arguments,
+        check=True,
+        input=InputText,
+        text=(InputText is not None),
+    )
+
+
 def FormatPartitionImage(PartitionPath: str, Filesystem: str, VolumeLabelName: str = VolumeLabel):
     FilesystemConfig = GetFilesystemConfig(Filesystem)
     MakeFilesystemCommand = FilesystemConfig['MakeFilesystemCommand']
 
     if MakeFilesystemCommand == 'mkfs.fat':
-        sh.Command(MakeFilesystemCommand)(
+        RunCommand([
+            MakeFilesystemCommand,
             *FilesystemConfig['MakeFilesystemArguments'],
             '-n',
             VolumeLabelName,
             PartitionPath,
-        )
+        ])
     elif MakeFilesystemCommand == 'mkfs.ext2':
-        sh.Command(MakeFilesystemCommand)('-L', VolumeLabelName, PartitionPath)
+        RunCommand([MakeFilesystemCommand, '-L', VolumeLabelName, PartitionPath])
     else:
         raise ValueError(
             f'Unsupported mkfs command for filesystem {Filesystem}: {MakeFilesystemCommand}'
@@ -110,8 +119,7 @@ def CreateBootableIso(StagingDirectory: str, OutputIso: str, VolumeLabelName: st
         VolumeLabelName: ISO volume label
     """
     print("   GRUB-MKRESCUE")
-    GrubMkrescue = sh.Command('grub-mkrescue')
-    GrubMkrescue('-o', OutputIso, StagingDirectory, '--', '-volid', VolumeLabelName)
+    RunCommand(['grub-mkrescue', '-o', OutputIso, StagingDirectory, '--', '-volid', VolumeLabelName])
 
 
 def BuildGrubConfigContent(

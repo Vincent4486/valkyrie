@@ -4,6 +4,8 @@ Disk image build configuration.
 """
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 from SCons.Action import Action
@@ -28,6 +30,15 @@ Import('TargetEnvironment')
 TargetEnvironment: Environment
 Env: Environment = TargetEnvironment
 
+
+def RunCommand(Arguments, InputText=None):
+    subprocess.run(
+        Arguments,
+        check=True,
+        input=InputText,
+        text=(InputText is not None),
+    )
+
 def CopySymlinkTarget(SymlinkPath, DestinationPath, Sysroot=None):
     """Manually copy the target of a symlink as a regular file."""
     Target = os.readlink(SymlinkPath)
@@ -48,14 +59,10 @@ def CopySymlinkTarget(SymlinkPath, DestinationPath, Sysroot=None):
         return False
     
     # Manually copy the target file as a regular file
-    import shutil
     shutil.copy2(ResolvedPath, DestinationPath, follow_symlinks=True)
     return True
 
 def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFiles, EnvironmentObject):
-    import sh
-    import shutil
-
     ImageSize = EnvironmentObject['ImageSize']
     Filesystem = EnvironmentObject['ImageFs']
     OutputFormat = EnvironmentObject.get('ImageFormat', 'img')
@@ -78,31 +85,15 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     BuildTag = f'{Architecture}_{BuildConfig}'
     Stage = EnvironmentObject.get('ImageStagingDirectory', os.path.join('build', BuildTag, 'img'))
 
+    if os.path.isdir(Stage):
+        shutil.rmtree(Stage)
+    elif os.path.exists(Stage):
+        os.remove(Stage)
+
     os.makedirs(Stage, exist_ok=True)
-    for Entry in os.listdir(Stage):
-        if Entry == 'usr':
-            Usr = os.path.join(Stage, 'usr')
-            if os.path.isdir(Usr):
-                for Sub in os.listdir(Usr):
-                    if Sub in ('include', 'lib'):
-                        continue
-                    SubPath = os.path.join(Usr, Sub)
-                    if os.path.isdir(SubPath):
-                        shutil.rmtree(SubPath)
-                    else:
-                        os.remove(SubPath)
-            continue
-        if Entry == 'lib':
-            continue
-        EntryPath = os.path.join(Stage, Entry)
-        if os.path.isdir(EntryPath):
-            shutil.rmtree(EntryPath)
-        else:
-            os.remove(EntryPath)
 
     print(f"   STAGE -> {Stage}")
 
-    import subprocess
     Compiler = EnvironmentObject.subst('$CC')
     try:
         RuntimeSysroot = subprocess.check_output([Compiler, '-print-sysroot'], text=True).strip()
@@ -189,12 +180,13 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
         BootHead = os.path.join(ImgDir, BootHeadName)
 
         print("   GRUB-MKIMAGE")
-        sh.Command('grub-mkimage')(
+        RunCommand([
+            'grub-mkimage',
             '-O', 'i386-pc',
             '-o', GrubCore,
             '-p', '(hd0,msdos1)/boot/grub',
             *GetGrubModules(Filesystem),
-        )
+        ])
 
         with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
              open(GrubCore, 'rb') as CoreImg, \
@@ -204,11 +196,11 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
 
         try:
             print(f"   CREATE PARTITION FILE {Filesystem}")
-            sh.truncate('-s', f'{PartMb}M', TmpPart)
+            RunCommand(['truncate', '-s', f'{PartMb}M', TmpPart])
             FormatPartitionImage(TmpPart, Filesystem, Volume)
 
             print("   CREATE MBR")
-            sh.truncate('-s', f'{TotalMb}M', ImagePath)
+            RunCommand(['truncate', '-s', f'{TotalMb}M', ImagePath])
             GuestfishMbr = '\n'.join([
                 'run',
                 'part-init /dev/sda mbr',
@@ -217,28 +209,31 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
                 'quit',
                 '',
             ])
-            sh.Command('guestfish')('-a', ImagePath, _in=GuestfishMbr)
+            RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishMbr)
 
             print("   SPLICE PARTITION")
-            sh.dd(
+            RunCommand([
+                'dd',
                 f'if={TmpPart}',
                 f'of={ImagePath}',
                 'bs=512',
                 f'seek={PartStartSector}',
                 'conv=notrunc',
                 'status=none',
-            )
+            ])
 
             print("   WRITE BOOTLOADER")
-            sh.dd(
+            RunCommand([
+                'dd',
                 f'if={BootHead}',
                 f'of={ImagePath}',
                 'bs=446',
                 'count=1',
                 'conv=notrunc',
                 'status=none',
-            )
-            sh.dd(
+            ])
+            RunCommand([
+                'dd',
                 f'if={BootHead}',
                 f'of={ImagePath}',
                 'bs=512',
@@ -246,7 +241,7 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
                 'seek=1',
                 'conv=notrunc',
                 'status=none',
-            )
+            ])
 
             with open(ImagePath, 'r+b') as DiskFile:
                 DiskFile.seek(92)
@@ -260,7 +255,7 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
                 'quit',
                 '',
             ])
-            sh.Command('guestfish')('-a', ImagePath, _in=GuestfishCopy)
+            RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishCopy)
 
         finally:
             for Tmp in (TmpPart, BootHead, GrubCore):

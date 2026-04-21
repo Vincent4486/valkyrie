@@ -5,7 +5,7 @@ FROM debian:stable-slim
 # 2. Install qemu-user-static to run x86 binaries on ARM if needed
 RUN dpkg --add-architecture i386 && \
     apt-get update && apt-get install -y \
-    scons python3 python3-sh build-essential \
+    scons python3 build-essential \
     gcc g++ make libmpfr-dev libgmp-dev \
     libmpc-dev coreutils grep dosfstools \
     xorriso guestfish qemu-system-x86 \

@@ -10,6 +10,7 @@ Runtime libraries are installed into a target sysroot.
 import argparse
 import multiprocessing
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -51,7 +52,6 @@ def get_cpu_count() -> int:
 
 def detect_os() -> str:
     """Detect host operating system."""
-    import platform
     return platform.system()
 
 
