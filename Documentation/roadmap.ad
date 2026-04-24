@@ -17,6 +17,10 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 * [x] External runtime dependencies compiled during build not toolchain
 * [ ] Make kernel PIC & PIE
 * [ ] Smart heap allocation for kernel that actually "frees" the memory
+* [ ] Add option for GRUB or default boot
+* [ ] Not hard code GRUB install to be i386-pc
+* [ ] Fix GitHub workflow
+* [ ] Make build system dynamic base on config
 
 == Phase 1: Core OS Infrastructure (Current)
 
