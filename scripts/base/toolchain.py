@@ -322,8 +322,6 @@ class ToolchainBuilder:
             f"--target={self.target}",
             '--disable-nls',
             '--enable-languages=c',
-            '--disable-threads',
-            '--disable-isl',
             '--disable-libsanitizer',
             '--enable-shared',
             f"--with-sysroot={self.sysroot}",
