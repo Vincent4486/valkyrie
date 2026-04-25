@@ -61,11 +61,20 @@ def CopySymlinkTarget(SymlinkPath, DestinationPath, Sysroot=None):
     shutil.copy2(ResolvedPath, DestinationPath, follow_symlinks=True)
     return True
 
-def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFiles, EnvironmentObject):
+def BuildDisk(
+    ImagePath,
+    KernelExecutablePath,
+    Libraries,
+    Applications,
+    ExtraFiles,
+    BootloaderComponents,
+    EnvironmentObject,
+):
     ImageSize = EnvironmentObject['ImageSize']
     Filesystem = EnvironmentObject['ImageFs']
     OutputFormat = EnvironmentObject.get('ImageFormat', 'img')
     Architecture = EnvironmentObject.get('BuildArch', 'i686')
+    BootSystem = EnvironmentObject.get('BootSystem', 'grub')
     BootType = EnvironmentObject.get('BootType', 'bios')
     PartitionMap = EnvironmentObject.get('DiskPartitionMap', 'mbr')
     BuildConfig = EnvironmentObject.get('BuildConfig', 'release')
@@ -133,13 +142,14 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     print(f"   STAGE {os.path.basename(KernelExecutablePath)} -> /boot")
     shutil.copy2(KernelExecutablePath, BootDir)
 
-    GenerateGrubConfig(
-        os.path.join(BootDir, 'grub'),
-        OutputFormat,
-        Config=EnvironmentObject['BuildConfig'],
-        KernelName=EnvironmentObject['KernelOutputName'],
-        VolumeLabelName=Volume,
-    )
+    if BootSystem == 'grub':
+        GenerateGrubConfig(
+            os.path.join(BootDir, 'grub'),
+            OutputFormat,
+            Config=EnvironmentObject['BuildConfig'],
+            KernelName=EnvironmentObject['KernelOutputName'],
+            VolumeLabelName=Volume,
+        )
 
     if Libraries:
         LibDir = os.path.join(Stage, 'usr', 'lib')
@@ -168,6 +178,10 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
             shutil.copy2(Src, Dst)
 
     if OutputFormat == 'iso':
+        if BootSystem == 'system':
+            raise RuntimeError(
+                "BootSystem 'system' currently supports only ImageFormat='img'"
+            )
         CreateBootableIso(Stage, ImagePath, Volume)
     else:
         CreateBootableDisk(
@@ -179,9 +193,11 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
             TotalMb,
             PartStartSector,
             PartitionTypeIdentifier,
+            BootSystem,
             BootType,
             Architecture,
             PartitionMap,
+            BootloaderComponents,
         )
 
 def BuildImageAction(*_Args, **KeywordArguments):
@@ -217,18 +233,47 @@ def BuildImageAction(*_Args, **KeywordArguments):
         ApplicationPaths.append(AbsolutePath)
         ApplicationSet.add(str(Application))
 
+    BootloaderComponentNodes = EnvObj.get('BootloaderComponents', {})
+    BootloaderComponentPaths = {}
+    BootloaderComponentSet = set()
+    for ComponentName, Component in BootloaderComponentNodes.items():
+        if not hasattr(Component, 'get_abspath'):
+            continue
+
+        AbsolutePath = Component.get_abspath()
+        BootloaderComponentPaths[ComponentName] = AbsolutePath
+        BootloaderComponentSet.add(str(Component))
+        BootloaderComponentSet.add(AbsolutePath)
+
     ExtraFiles = [
         Src for Src in Source
-        if str(Src) != KernelExecutablePath and str(Src) not in LibrarySet and str(Src) not in ApplicationSet
+        if str(Src) != KernelExecutablePath
+        and str(Src) not in LibrarySet
+        and str(Src) not in ApplicationSet
+        and str(Src) not in BootloaderComponentSet
     ]
 
-    BuildDisk(str(Target[0]), KernelExecutablePath, LibraryPaths, ApplicationPaths, ExtraFiles, EnvObj)
+    BuildDisk(
+        str(Target[0]),
+        KernelExecutablePath,
+        LibraryPaths,
+        ApplicationPaths,
+        ExtraFiles,
+        BootloaderComponentPaths,
+        EnvObj,
+    )
 
 
 Root = Env.Dir('root')
 RootFiles = GlobRecursive(Env, '*', Root)
 
-Inputs = [Kernel] + UserLibraries + UserApplications + RootFiles
+BootloaderInputs = []
+if Env.get('BootSystem', 'grub') == 'system':
+    for Component in Env.get('BootloaderComponents', {}).values():
+        if hasattr(Component, 'get_abspath'):
+            BootloaderInputs.append(Component)
+
+Inputs = [Kernel] + UserLibraries + UserApplications + RootFiles + BootloaderInputs
 
 OutputFormat = Env['ImageFormat']
 Out = f'{Env["ImageName"]}-{Env["ProjVersion"]}_{Env["BuildConfig"]}_{Env["BuildArch"]}.{OutputFormat}'

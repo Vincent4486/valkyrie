@@ -14,6 +14,11 @@ from SCons.Environment import Environment
 from SCons.Variables import EnumVariable, Variables
 
 from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
+from scripts.scons.bootloader import (
+    GetSupportedBootSystems,
+    GetSupportedBootTypes,
+    ShouldBuildSystemBootloader,
+)
 from scripts.scons.disk import GetSupportedFilesystems, GetSupportedPartitionMaps
 from scripts.scons.utility import ParseSize
 
@@ -84,6 +89,7 @@ if not ConfigPath.exists():
         'ImageName': 'valeciumos',
         'ImageFormat': 'img',
         'KernelName': 'valeciumx',
+        'BootSystem': 'grub',
         'BootType': 'bios',
         'DiskPartitionMap': 'mbr',
     }
@@ -118,10 +124,14 @@ Vars.AddVariables(
                  help='Output image format',
                  default='img',
                  allowed_values=('img', 'iso')),
+    EnumVariable('BootSystem',
+                 help='Boot system',
+                 default='grub',
+                 allowed_values=tuple(GetSupportedBootSystems())),
     EnumVariable('BootType',
                  help='Boot type',
                  default='bios',
-                 allowed_values=('bios', 'efi')),
+                 allowed_values=tuple(GetSupportedBootTypes())),
     EnumVariable('DiskPartitionMap',
                  help='Disk partition map',
                  default='mbr',
@@ -227,10 +237,12 @@ Export('TargetEnvironment')
 
 VariantDir = f'build/{TargetEnvironment["BuildArch"]}_{TargetEnvironment["BuildConfig"]}'
 BuildType = TargetEnvironment['BuildType']
+BootSystem = TargetEnvironment['BootSystem']
 
 StageDir = os.path.abspath(os.path.join(VariantDir, 'img'))
 
 TargetEnvironment['ImageStagingDirectory'] = StageDir
+TargetEnvironment['BootloaderComponents'] = {}
 
 if BuildType in ('full', 'usr', 'image'):
     SConscript('usr/SConscript', variant_dir=f'{VariantDir}/usr', duplicate=0)
@@ -238,7 +250,7 @@ if BuildType in ('full', 'usr', 'image'):
 if BuildType in ('full', 'kernel', 'image'):
     SConscript('kernel/SConscript', variant_dir=f'{VariantDir}/kernel', duplicate=0)
 
-if BuildType in ('full', 'bootloader', 'image'):
+if BuildType in ('full', 'bootloader', 'image') and ShouldBuildSystemBootloader(BootSystem):
     SConscript('bootloader/Sconscript', variant_dir=f'{VariantDir}/bootloader', duplicate=0)
 
 if BuildType in ('full', 'image'):

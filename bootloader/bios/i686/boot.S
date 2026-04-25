@@ -60,9 +60,11 @@ _start:
 	jne boot_fail
 
 	movw SCAN_BUFFER + 4, %ax
-	cmpw $1, %ax
+	cmpw $2, %ax
 	jb boot_fail
+	decw %ax
 	movw %ax, stage2_sectors_left
+	movl $2, temp_lba
 
 	movzwl %ax, %edx
 	movl $1, %ecx

@@ -4,6 +4,8 @@ import os
 import subprocess
 import textwrap
 
+from scripts.scons.bootloader import InstallSystemBootloader
+
 VolumeLabel = 'VALECIUM'
 EfiSystemPartitionGuid = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
 LinuxFilesystemPartitionGuid = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
@@ -192,48 +194,54 @@ def CreateBootableDisk(
     TotalMb: int,
     PartStartSector: int,
     PartitionTypeIdentifier: str,
+    BootSystem: str,
     BootType: str,
     Architecture: str,
     PartitionMap: str,
+    BootloaderComponents: dict,
 ):
     ImgDir = os.path.dirname(ImagePath) or '.'
     TmpPart = os.path.join(ImgDir, 'part.tmp')
     GrubCore = os.path.join(ImgDir, 'grub.core')
     BootHead = os.path.join(ImgDir, 'boot_head.img')
-    GrubTarget = GetGrubTarget(BootType, Architecture)
-    GrubPath = os.path.join('/usr/lib/grub', GrubTarget)
-    GrubPrefix = GetGrubPrefix(PartitionMap)
-    BootHeadRequired = (BootType == 'bios')
+    BootHeadRequired = (BootSystem == 'grub' and BootType == 'bios')
     GeneratedEfiBinary = None
 
-    print("   GRUB-MKIMAGE")
-    if BootType == 'bios':
-        RunCommand([
-            'grub-mkimage',
-            '-O', GrubTarget,
-            '-o', GrubCore,
-            '-p', GrubPrefix,
-            *GetGrubModules(Filesystem, BootType, PartitionMap),
-        ])
+    if BootSystem == 'grub':
+        GrubTarget = GetGrubTarget(BootType, Architecture)
+        GrubPath = os.path.join('/usr/lib/grub', GrubTarget)
+        GrubPrefix = GetGrubPrefix(PartitionMap)
 
-        with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
-             open(GrubCore, 'rb') as CoreImg, \
-             open(BootHead, 'wb') as OutImg:
-            OutImg.write(BootImg.read())
-            OutImg.write(CoreImg.read())
-    elif BootType == 'efi':
-        EfiDirectory = os.path.join(Stage, 'EFI', 'BOOT')
-        os.makedirs(EfiDirectory, exist_ok=True)
-        GeneratedEfiBinary = os.path.join(EfiDirectory, GetEfiDefaultBinaryName(Architecture))
-        RunCommand([
-            'grub-mkimage',
-            '-O', GrubTarget,
-            '-o', GeneratedEfiBinary,
-            '-p', GrubPrefix,
-            *GetGrubModules(Filesystem, BootType, PartitionMap),
-        ])
-    else:
-        raise ValueError(f"Unsupported boot type: {BootType}")
+        print("   GRUB-MKIMAGE")
+        if BootType == 'bios':
+            RunCommand([
+                'grub-mkimage',
+                '-O', GrubTarget,
+                '-o', GrubCore,
+                '-p', GrubPrefix,
+                *GetGrubModules(Filesystem, BootType, PartitionMap),
+            ])
+
+            with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
+                 open(GrubCore, 'rb') as CoreImg, \
+                 open(BootHead, 'wb') as OutImg:
+                OutImg.write(BootImg.read())
+                OutImg.write(CoreImg.read())
+        elif BootType == 'efi':
+            EfiDirectory = os.path.join(Stage, 'EFI', 'BOOT')
+            os.makedirs(EfiDirectory, exist_ok=True)
+            GeneratedEfiBinary = os.path.join(EfiDirectory, GetEfiDefaultBinaryName(Architecture))
+            RunCommand([
+                'grub-mkimage',
+                '-O', GrubTarget,
+                '-o', GeneratedEfiBinary,
+                '-p', GrubPrefix,
+                *GetGrubModules(Filesystem, BootType, PartitionMap),
+            ])
+        else:
+            raise ValueError(f"Unsupported boot type: {BootType}")
+    elif BootSystem != 'system':
+        raise ValueError(f"Unsupported boot system: {BootSystem}")
 
     try:
         print(f"   CREATE PARTITION FILE {Filesystem}")
@@ -303,6 +311,13 @@ def CreateBootableDisk(
             with open(ImagePath, 'r+b') as DiskFile:
                 DiskFile.seek(92)
                 DiskFile.write(b'\x01\x00\x00\x00')
+        elif BootSystem == 'system':
+            InstallSystemBootloader(
+                ImagePath,
+                BootType,
+                BootloaderComponents,
+                PartStartSector,
+            )
 
         print(f"   INJECT FILES {Stage}")
         GuestfishCopy = '\n'.join([

@@ -47,9 +47,16 @@ ConfigureBootloaderEnvironment(
 Sources = []
 SConscript('common/SConscript', exports='Sources')
 
+BootloaderComponents = {
+    'BootType': BootType,
+    'Architecture': Architecture,
+}
+
 if BootType == 'bios':
     BootBin = MainBootloaderEnv.File('boot.bin')
     CoreBin = MainBootloaderEnv.File('core.bin')
+    BootloaderComponents['Stage1'] = BootBin
+    BootloaderComponents['Stage2'] = CoreBin
     SConscript(
         'bios/SConscript',
         exports=[
@@ -66,6 +73,7 @@ if BootType == 'bios':
     )
 elif BootType == 'efi':
     EfiBin = MainBootloaderEnv.File('boot.efi')
+    BootloaderComponents['EfiBinary'] = EfiBin
     SConscript(
         'efi/SConscript',
         exports=[
@@ -81,6 +89,8 @@ elif BootType == 'efi':
     )
 else:
     raise RuntimeError(f'Unsupported boot type: {BootType}')
+
+TargetEnvironment['BootloaderComponents'] = BootloaderComponents
 
 Objects = MainBootloaderEnv.Object(Sources)
 
