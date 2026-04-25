@@ -17,9 +17,7 @@ from scripts.scons.disk import (
     VolumeLabel,
     CreateBootableIso,
     CreateBootableDisk,
-    FormatPartitionImage,
     GenerateGrubConfig,
-    GetGrubModules,
     GetPartitionTypeIdentifier,
 )
 
@@ -68,15 +66,13 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
     Filesystem = EnvironmentObject['ImageFs']
     OutputFormat = EnvironmentObject.get('ImageFormat', 'img')
     Architecture = EnvironmentObject.get('BuildArch', 'i686')
+    BootType = EnvironmentObject.get('BootType', 'bios')
+    PartitionMap = EnvironmentObject.get('DiskPartitionMap', 'mbr')
     BuildConfig = EnvironmentObject.get('BuildConfig', 'release')
 
     Volume = VolumeLabel
     PartStartMb = 1
     PartitionTypeIdentifier = GetPartitionTypeIdentifier(Filesystem)
-    GrubCoreName = 'grub.core'
-    BootHeadName = 'boot_head.img'
-    GrubPath = '/usr/lib/grub/i386-pc'
-
     TotalMb = max(1, (ImageSize + (1024 * 1024 - 1)) // (1024 * 1024))
     PartMb = TotalMb - PartStartMb
     if PartMb <= 0:
@@ -178,14 +174,14 @@ def BuildDisk(ImagePath, KernelExecutablePath, Libraries, Applications, ExtraFil
             Stage,
             ImagePath,
             Volume,
-            GrubCoreName,
-            BootHeadName,
-            GrubPath,
             Filesystem,
             PartMb,
             TotalMb,
             PartStartSector,
             PartitionTypeIdentifier,
+            BootType,
+            Architecture,
+            PartitionMap,
         )
 
 def BuildImageAction(*_Args, **KeywordArguments):

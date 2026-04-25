@@ -14,7 +14,7 @@ from SCons.Environment import Environment
 from SCons.Variables import EnumVariable, Variables
 
 from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
-from scripts.scons.disk import GetSupportedFilesystems
+from scripts.scons.disk import GetSupportedFilesystems, GetSupportedPartitionMaps
 from scripts.scons.utility import ParseSize
 
 
@@ -84,7 +84,8 @@ if not ConfigPath.exists():
         'ImageName': 'valeciumos',
         'ImageFormat': 'img',
         'KernelName': 'valeciumx',
-        'BootType': 'bios'
+        'BootType': 'bios',
+        'DiskPartitionMap': 'mbr',
     }
     with open(ConfigPath, 'w', encoding='utf-8') as CfgFile:
         for Key, Value in DefaultConfig.items():
@@ -121,6 +122,10 @@ Vars.AddVariables(
                  help='Boot type',
                  default='bios',
                  allowed_values=('bios', 'efi')),
+    EnumVariable('DiskPartitionMap',
+                 help='Disk partition map',
+                 default='mbr',
+                 allowed_values=tuple(GetSupportedPartitionMaps())),
 )
 
 Vars.Add('ImageSize',

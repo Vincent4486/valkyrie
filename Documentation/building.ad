@@ -182,6 +182,8 @@ Pass variables to `scons` to customize the build. Common options:
 | `ImageSize` | Size with k/m/g suffix | `250m`
 | `BuildType` | `full`, `kernel`, `usr`, `image` | `full`
 | `ImageFormat` | `img`, `iso` | `img`
+| `BootType` | `bios`, `efi` | `bios`
+| `DiskPartitionMap` | `mbr`, `gpt` | `mbr`
 | `ImageName` | Base name (no extension) | `valeciumos`
 |===
 
@@ -209,6 +211,9 @@ scons ImageSize=512m
 
 # ISO format instead of hard disk
 scons ImageFormat=iso
+
+# EFI image with GPT partition table (x64 example)
+scons BuildArch=x64 BootType=efi DiskPartitionMap=gpt
 ----
 
 === Build Modes

@@ -5,6 +5,8 @@ import subprocess
 import textwrap
 
 VolumeLabel = 'VALECIUM'
+EfiSystemPartitionGuid = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
+LinuxFilesystemPartitionGuid = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
 
 FilesystemConfigurations = {
     'fat12': {
@@ -41,9 +43,7 @@ FilesystemConfigurations = {
     },
 }
 
-CommonGrubModules = [
-    'biosdisk',
-    'part_msdos',
+BootCommonGrubModules = [
     'normal',
     'configfile',
     'multiboot',
@@ -52,6 +52,25 @@ CommonGrubModules = [
     'search_fs_uuid',
     'search_fs_file',
 ]
+
+GrubPartitionMapModule = {
+    'mbr': 'part_msdos',
+    'gpt': 'part_gpt',
+}
+
+GrubTargetByBootAndArch = {
+    ('bios', 'i686'): 'i386-pc',
+    ('bios', 'x64'): 'i386-pc',
+    ('efi', 'i686'): 'i386-efi',
+    ('efi', 'x64'): 'x86_64-efi',
+    ('efi', 'aarch64'): 'arm64-efi',
+}
+
+EfiDefaultBinaryByArch = {
+    'i686': 'BOOTIA32.EFI',
+    'x64': 'BOOTX64.EFI',
+    'aarch64': 'BOOTAA64.EFI',
+}
 
 
 def GetFilesystemConfig(Filesystem: str) -> dict:
@@ -65,13 +84,55 @@ def GetSupportedFilesystems() -> list:
     return list(FilesystemConfigurations.keys())
 
 
+def GetSupportedPartitionMaps() -> list:
+    return list(GrubPartitionMapModule.keys())
+
+
 def GetPartitionTypeIdentifier(Filesystem: str) -> str:
     return GetFilesystemConfig(Filesystem)['PartitionTypeIdentifier']
 
 
-def GetGrubModules(Filesystem: str) -> list:
+def GetGrubTarget(BootType: str, Architecture: str) -> str:
+    Key = (BootType, Architecture)
+    if Key not in GrubTargetByBootAndArch:
+        raise ValueError(
+            f"Unsupported GRUB target for BootType={BootType}, BuildArch={Architecture}"
+        )
+    return GrubTargetByBootAndArch[Key]
+
+
+def GetEfiDefaultBinaryName(Architecture: str) -> str:
+    if Architecture not in EfiDefaultBinaryByArch:
+        raise ValueError(f"Unsupported EFI architecture: {Architecture}")
+    return EfiDefaultBinaryByArch[Architecture]
+
+
+def GetGrubPrefix(PartitionMap: str) -> str:
+    if PartitionMap == 'mbr':
+        return '(hd0,msdos1)/boot/grub'
+    if PartitionMap == 'gpt':
+        return '(hd0,gpt1)/boot/grub'
+    raise ValueError(f"Unsupported partition map: {PartitionMap}")
+
+
+def GetGptPartitionTypeGuid(BootType: str) -> str:
+    if BootType == 'efi':
+        return EfiSystemPartitionGuid
+    return LinuxFilesystemPartitionGuid
+
+
+def GetGrubModules(Filesystem: str, BootType: str, PartitionMap: str) -> list:
     FilesystemModule = GetFilesystemConfig(Filesystem)['GrubFilesystemModule']
-    Modules = [*CommonGrubModules, FilesystemModule]
+    if PartitionMap not in GrubPartitionMapModule:
+        raise ValueError(f"Unsupported partition map: {PartitionMap}")
+
+    Modules = [
+        *BootCommonGrubModules,
+        GrubPartitionMapModule[PartitionMap],
+        FilesystemModule,
+    ]
+    if BootType == 'bios':
+        Modules.insert(0, 'biosdisk')
     UniqueModules = []
     for Module in Modules:
         if Module not in UniqueModules:
@@ -126,51 +187,85 @@ def CreateBootableDisk(
     Stage: str,
     ImagePath: str,
     Volume: str,
-    GrubCoreName: str,
-    BootHeadName: str,
-    GrubPath: str,
     Filesystem: str,
     PartMb: int,
     TotalMb: int,
     PartStartSector: int,
     PartitionTypeIdentifier: str,
+    BootType: str,
+    Architecture: str,
+    PartitionMap: str,
 ):
     ImgDir = os.path.dirname(ImagePath) or '.'
     TmpPart = os.path.join(ImgDir, 'part.tmp')
-    GrubCore = os.path.join(ImgDir, GrubCoreName)
-    BootHead = os.path.join(ImgDir, BootHeadName)
+    GrubCore = os.path.join(ImgDir, 'grub.core')
+    BootHead = os.path.join(ImgDir, 'boot_head.img')
+    GrubTarget = GetGrubTarget(BootType, Architecture)
+    GrubPath = os.path.join('/usr/lib/grub', GrubTarget)
+    GrubPrefix = GetGrubPrefix(PartitionMap)
+    BootHeadRequired = (BootType == 'bios')
+    GeneratedEfiBinary = None
 
     print("   GRUB-MKIMAGE")
-    RunCommand([
-        'grub-mkimage',
-        '-O', 'i386-pc',
-        '-o', GrubCore,
-        '-p', '(hd0,msdos1)/boot/grub',
-        *GetGrubModules(Filesystem),
-    ])
+    if BootType == 'bios':
+        RunCommand([
+            'grub-mkimage',
+            '-O', GrubTarget,
+            '-o', GrubCore,
+            '-p', GrubPrefix,
+            *GetGrubModules(Filesystem, BootType, PartitionMap),
+        ])
 
-    with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
-         open(GrubCore, 'rb') as CoreImg, \
-         open(BootHead, 'wb') as OutImg:
-        OutImg.write(BootImg.read())
-        OutImg.write(CoreImg.read())
+        with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
+             open(GrubCore, 'rb') as CoreImg, \
+             open(BootHead, 'wb') as OutImg:
+            OutImg.write(BootImg.read())
+            OutImg.write(CoreImg.read())
+    elif BootType == 'efi':
+        EfiDirectory = os.path.join(Stage, 'EFI', 'BOOT')
+        os.makedirs(EfiDirectory, exist_ok=True)
+        GeneratedEfiBinary = os.path.join(EfiDirectory, GetEfiDefaultBinaryName(Architecture))
+        RunCommand([
+            'grub-mkimage',
+            '-O', GrubTarget,
+            '-o', GeneratedEfiBinary,
+            '-p', GrubPrefix,
+            *GetGrubModules(Filesystem, BootType, PartitionMap),
+        ])
+    else:
+        raise ValueError(f"Unsupported boot type: {BootType}")
 
     try:
         print(f"   CREATE PARTITION FILE {Filesystem}")
         RunCommand(['truncate', '-s', f'{PartMb}M', TmpPart])
         FormatPartitionImage(TmpPart, Filesystem, Volume)
 
-        print("   CREATE MBR")
+        print(f"   CREATE {PartitionMap.upper()}")
         RunCommand(['truncate', '-s', f'{TotalMb}M', ImagePath])
-        GuestfishMbr = '\n'.join([
+        PartitionEndSector = '-1'
+        if PartitionMap == 'gpt':
+            PartitionEndSector = str((TotalMb * 2048) - 34)
+
+        GuestfishPartitionCommands = [
             'run',
-            'part-init /dev/sda mbr',
-            f'part-add /dev/sda p {PartStartSector} -1',
-            f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}',
-            'quit',
-            '',
-        ])
-        RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishMbr)
+            f'part-init /dev/sda {PartitionMap}',
+            f'part-add /dev/sda p {PartStartSector} {PartitionEndSector}',
+        ]
+        if PartitionMap == 'mbr':
+            GuestfishPartitionCommands.append(
+                f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}'
+            )
+        elif PartitionMap == 'gpt':
+            GuestfishPartitionCommands.append(
+                f'part-set-gpt-type /dev/sda 1 {GetGptPartitionTypeGuid(BootType)}'
+            )
+        else:
+            raise ValueError(f"Unsupported partition map: {PartitionMap}")
+        GuestfishPartitionCommands.extend(['quit', ''])
+        RunCommand(
+            ['guestfish', '-a', ImagePath],
+            InputText='\n'.join(GuestfishPartitionCommands),
+        )
 
         print("   SPLICE PARTITION")
         RunCommand([
@@ -183,30 +278,31 @@ def CreateBootableDisk(
             'status=none',
         ])
 
-        print("   WRITE BOOTLOADER")
-        RunCommand([
-            'dd',
-            f'if={BootHead}',
-            f'of={ImagePath}',
-            'bs=446',
-            'count=1',
-            'conv=notrunc',
-            'status=none',
-        ])
-        RunCommand([
-            'dd',
-            f'if={BootHead}',
-            f'of={ImagePath}',
-            'bs=512',
-            'skip=1',
-            'seek=1',
-            'conv=notrunc',
-            'status=none',
-        ])
+        if BootHeadRequired:
+            print("   WRITE BOOTLOADER")
+            RunCommand([
+                'dd',
+                f'if={BootHead}',
+                f'of={ImagePath}',
+                'bs=446',
+                'count=1',
+                'conv=notrunc',
+                'status=none',
+            ])
+            RunCommand([
+                'dd',
+                f'if={BootHead}',
+                f'of={ImagePath}',
+                'bs=512',
+                'skip=1',
+                'seek=1',
+                'conv=notrunc',
+                'status=none',
+            ])
 
-        with open(ImagePath, 'r+b') as DiskFile:
-            DiskFile.seek(92)
-            DiskFile.write(b'\x01\x00\x00\x00')
+            with open(ImagePath, 'r+b') as DiskFile:
+                DiskFile.seek(92)
+                DiskFile.write(b'\x01\x00\x00\x00')
 
         print(f"   INJECT FILES {Stage}")
         GuestfishCopy = '\n'.join([
@@ -219,8 +315,8 @@ def CreateBootableDisk(
         RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishCopy)
 
     finally:
-        for Tmp in (TmpPart, BootHead, GrubCore):
-            if os.path.exists(Tmp):
+        for Tmp in (TmpPart, BootHead, GrubCore, GeneratedEfiBinary):
+            if Tmp is not None and os.path.exists(Tmp):
                 os.remove(Tmp)
 
 

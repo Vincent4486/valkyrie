@@ -90,6 +90,8 @@ Common SCons variables:
 - `ImageFs`: `fat12`, `fat16`, `fat32` (default), `ext2`
 - `ImageSize`: image size (for example `250m`)
 - `ImageFormat`: `img` (default) or `iso`
+- `BootType`: `bios` (default) or `efi`
+- `DiskPartitionMap`: `mbr` (default) or `gpt`
 - `ImageName`: base name of output image
 
 Examples:
@@ -99,6 +101,7 @@ scons BuildConfig=release
 scons BuildArch=x64 BuildConfig=release
 scons BuildType=kernel
 scons ImageFormat=iso
+scons BootType=efi DiskPartitionMap=gpt BuildArch=x64
 ```
 
 For full build and platform notes, read [`Documents/building.ad`](Documents/building.ad).
