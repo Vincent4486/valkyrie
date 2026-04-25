@@ -60,15 +60,15 @@ GrubPartitionMapModule = {
 
 GrubTargetByBootAndArch = {
     ('bios', 'i686'): 'i386-pc',
-    ('bios', 'x64'): 'i386-pc',
+    ('bios', 'x86_64'): 'i386-pc',
     ('efi', 'i686'): 'i386-efi',
-    ('efi', 'x64'): 'x86_64-efi',
+    ('efi', 'x86_64'): 'x86_64-efi',
     ('efi', 'aarch64'): 'arm64-efi',
 }
 
 EfiDefaultBinaryByArch = {
     'i686': 'BOOTIA32.EFI',
-    'x64': 'BOOTX64.EFI',
+    'x86_64': 'BOOTx86_64.EFI',
     'aarch64': 'BOOTAA64.EFI',
 }
 

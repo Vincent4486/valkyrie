@@ -19,7 +19,7 @@ Valecium OS is a Unix-like, multi-architecture operating system kernel designed 
 
 Valecium OS is built with the following principles:
 
-* *Multi-architecture support* — Designed from the ground up to support multiple CPU architectures (i686, x64, ARM64, etc.)
+* *Multi-architecture support* — Designed from the ground up to support multiple CPU architectures (i686, x86_64, ARM64, etc.)
 * *Clean separation of concerns* — Hardware abstraction layer (HAL) isolates platform-specific code
 * *Modular design* — Each subsystem (memory, filesystem, drivers) is self-contained
 * *Well-documented* — Code and systems are documented for learning purposes

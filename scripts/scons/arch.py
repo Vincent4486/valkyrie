@@ -14,13 +14,13 @@ ArchConfigurations = {
         'QemuSystem': 'qemu-system-i386',
         'QemuMachine': 'pc',
     },
-    'x64': {
+    'x86_64': {
         'TargetTriple': 'x86_64-linux-musl',
         'ToolchainPrefix': 'x86_64-linux-musl-',
         'AsmFormat': 'elf64',
         'Bits': 64,
         'LoaderMuslName': 'ld-musl-x86_64.so.1',
-        'Define': 'X64',
+        'Define': 'x86_64',
         'AssemblyFlags': ['-m64', '-g'],
         'CompilerFlags': [],
         'LinkerFlags': [],

@@ -413,7 +413,7 @@ def main():
         epilog='''
 Examples:
   %(prog)s toolchain/                    # Build for default target (i686-linux-musl)
-  %(prog)s toolchain/ -a x64             # Build for x86_64
+  %(prog)s toolchain/ -a x86_64             # Build for x86_64
   %(prog)s toolchain/ -t x86_64-elf      # Build for custom target
     %(prog)s toolchain/ --check            # Exit if installed, build if missing
     %(prog)s toolchain/ --check-only       # Check only (exit 0/1)

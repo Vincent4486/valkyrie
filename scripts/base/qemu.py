@@ -54,7 +54,7 @@ def run_qemu(arch: str, image_type: str, image_path: str,
     """Run QEMU with the specified configuration.
     
     Args:
-        arch: Target architecture (i686, x64, aarch64)
+        arch: Target architecture (i686, x86_64, aarch64)
         image_type: Type of image ('disk', 'cdrom' or 'floppy')
         image_path: Path to the disk image
         memory: Memory size (e.g., '4G', '512M')

@@ -46,7 +46,7 @@ sudo apt-get install -y python3 scons
 **macOS (Partial Support):**
 
 * i686 builds supported but may require manual setup
-* x64 and ARM64 builds not fully tested
+* x86_64 and ARM64 builds not fully tested
 * Cross-compiler toolchain building may fail or require manual intervention
 * Consider using Docker or a Linux VM for production builds
 * Manual toolchain installation may be necessary (see <<Troubleshooting>>)
@@ -140,15 +140,15 @@ To build for multiple target architectures, build the toolchain for each archite
 # Build toolchain for i686
 scons BuildArch=i686 toolchain
 
-# Build toolchain for x64
-scons BuildArch=x64 toolchain
+# Build toolchain for x86_64
+scons BuildArch=x86_64 toolchain
 
 # Build toolchain for ARM64
 scons BuildArch=aarch64 toolchain
 
 # Now you can switch between architectures:
 scons BuildArch=i686 BuildType=kernel      # i686 kernel
-scons BuildArch=x64 BuildType=kernel       # x64 kernel
+scons BuildArch=x86_64 BuildType=kernel       # x86_64 kernel
 scons BuildArch=aarch64 BuildType=kernel   # ARM64 kernel
 ----
 
@@ -164,7 +164,7 @@ You can edit `.config` directly to persist settings, or use command-line argumen
 [source,bash]
 ----
 scons BuildConfig=release      # Use release for this build only (still uses .config defaults for other vars)
-scons BuildArch=x64            # Use x64 for this build only
+scons BuildArch=x86_64            # Use x86_64 for this build only
 ----
 
 == Build Configuration
@@ -177,7 +177,7 @@ Pass variables to `scons` to customize the build. Common options:
 |===
 | Variable | Values | Default
 | `BuildConfig` | `debug`, `release` | `debug`
-| `BuildArch` | `i686`, `x64`, `aarch64` | `i686`
+| `BuildArch` | `i686`, `x86_64`, `aarch64` | `i686`
 | `ImageFs` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
 | `ImageSize` | Size with k/m/g suffix | `250m`
 | `BuildType` | `full`, `kernel`, `usr`, `image` | `full`
@@ -194,8 +194,8 @@ Pass variables to `scons` to customize the build. Common options:
 # Build for release with optimizations
 scons BuildConfig=release
 
-# Build for x64 architecture
-scons BuildArch=x64 BuildConfig=release
+# Build for x86_64 architecture
+scons BuildArch=x86_64 BuildConfig=release
 
 # Build only the kernel (skip userspace)
 scons BuildType=kernel
@@ -212,8 +212,8 @@ scons ImageSize=512m
 # ISO format instead of hard disk
 scons ImageFormat=iso
 
-# EFI image with GPT partition table (x64 example)
-scons BuildArch=x64 BootType=efi DiskPartitionMap=gpt
+# EFI image with GPT partition table (x86_64 example)
+scons BuildArch=x86_64 BootType=efi DiskPartitionMap=gpt
 ----
 
 === Build Modes
@@ -432,7 +432,7 @@ Build and test across architectures:
 
 [source,bash]
 ----
-for arch in i686 x64 aarch64; do
+for arch in i686 x86_64 aarch64; do
   scons BuildArch=$arch BuildConfig=release BuildType=kernel
 done
 ----

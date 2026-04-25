@@ -57,7 +57,7 @@ void SYS_Finalize()
    if (g_SysInfo->arch.arch == 1)
       arch_str = "x86";
    else if (g_SysInfo->arch.arch == 2)
-      arch_str = "x64";
+      arch_str = "X86_64";
    else
       arch_str = "aarch64";
 

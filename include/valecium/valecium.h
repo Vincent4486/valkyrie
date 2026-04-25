@@ -8,7 +8,7 @@
 #endif
 
 #define ARCH_I686 1
-#define ARCH_X64 2
+#define ARCH_X86_64 2
 #define ARCH_AARCH64 3
 
 #endif /* VALECIUM_H */
