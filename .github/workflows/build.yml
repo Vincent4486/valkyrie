@@ -71,7 +71,7 @@ jobs:
             -e CURRENT_FORMAT \
             -e SHORT_HASH \
             "$DOCKER_IMAGE_REPOSITORY:$DOCKER_IMAGE_TAG" \
-            bash -lc '
+            bash -c '
               set -euo pipefail
               scons -Q \
                 BuildArch="$BUILD_ARCH" \
@@ -98,7 +98,7 @@ jobs:
             -e CURRENT_FORMAT \
             -e SHORT_HASH \
             "$DOCKER_IMAGE_REPOSITORY:$DOCKER_IMAGE_TAG" \
-            bash -lc '
+            bash -c '
               set -euo pipefail
               scons -Q \
                 BuildArch="$BUILD_ARCH" \
