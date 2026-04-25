@@ -1,14 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Bootloader builder
+Bootloader build configuration.
 """
 
 import os
-import re
 
-from SCons.Action import Action
 from SCons.Environment import Environment
-from SCons.Script import Flatten
+from SCons.Script import Dir, Export, SConscript
+
+from scripts.scons.arch import GetArchConfig
+from scripts.scons.bootloader import (
+    ConfigureBootloaderEnvironment,
+    GetBootloaderBuildConfig,
+)
+
 
 Import('TargetEnvironment')
 TargetEnvironment: Environment
@@ -18,14 +23,49 @@ TargetEnvironment: Environment
 # =============================================================================
 
 Env = TargetEnvironment.Clone()
+
 SourcePath = Dir('#bootloader').abspath
-Arch = TargetEnvironment['BuildArch']
-Boot = TargetEnvironment['BootType']
+Architecture = TargetEnvironment['BuildArch']
+BootType = TargetEnvironment['BootType']
+ArchitecturePath = os.path.join(SourcePath, BootType, Architecture)
 
-ArchitecturePath = os.path.join(SourcePath, f'{Arch}-{Boot}')
-LinkerScript = os.path.join(ArchitecturePath, 'linker.ld')
+ArchitectureConfig = GetArchConfig(Architecture)
+BootloaderBuildConfig = GetBootloaderBuildConfig(BootType, Architecture)
 
-Stage1Sources = []
-Stage2Sources = []
-Stage3Sources = []
+ConfigureBootloaderEnvironment(
+    Env,
+    SourcePath,
+    ArchitecturePath,
+    ArchitectureConfig,
+    BootloaderBuildConfig,
+)
 
+# =============================================================================
+# Source Files
+# =============================================================================
+
+Sources = []
+SConscript('common/SConscript', exports='Sources')
+
+if BootType == 'bios':
+    SConscript('bios/SConscript', exports=['Env', 'Sources', 'Architecture'])
+elif BootType == 'efi':
+    SConscript('efi/SConscript', exports=['Sources', 'Architecture'])
+else:
+    raise RuntimeError(f'Unsupported boot type: {BootType}')
+
+if not Sources:
+    raise RuntimeError(
+        f'No bootloader sources selected for BootType={BootType}, BuildArch={Architecture}'
+    )
+
+Objects = Env.Object(Sources)
+
+
+# =============================================================================
+# Build Target
+# =============================================================================
+
+Bootloader = Env.Library(BootloaderBuildConfig['OutputName'], Objects)
+
+Export('Bootloader')

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+from SCons.Script import File
+
+
+Import('Sources')
+
+
+Sources += [
+    File('boot.S'),
+]

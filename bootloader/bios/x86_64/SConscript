@@ -6,10 +6,5 @@ from SCons.Script import File, Return
 Import('Sources')
 
 
-Sources += [
-    File('core.S'),
-    File('i686.S'),
-]
-
 BootSector = File('boot.S')
 Return('BootSector')

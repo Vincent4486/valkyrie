@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+import os
+
+from SCons.Script import SConscript
+
+
+Import('Env')
+Import('Architecture')
+Import('Sources')
+
+
+if Architecture == 'i686':
+    BootSector = SConscript('i686/Sconscript', exports='Sources')
+elif Architecture == 'x86_64':
+    BootSector = SConscript('x86_64/SConscript', exports='Sources')
+else:
+    raise RuntimeError(f'Unsupported BIOS architecture: {Architecture}')
+
+
+LinkModeByArchitecture = {
+    'i686': 'elf_i386',
+    'x86_64': 'elf_x86_64',
+}
+
+BootSectorLinkerScript = Env.File(f'{Architecture}/bootsector.ld').srcnode()
+
+
+def ValidateBootSectorSize(target, source, env):
+    _ = source
+    _ = env
+    boot_sector_size = os.path.getsize(str(target[0]))
+    if boot_sector_size > 0x1BE:
+        raise RuntimeError(
+            f'BIOS boot sector exceeds 0x1be bytes: {boot_sector_size} bytes'
+        )
+
+if BootSector is None:
+    raise RuntimeError(
+        f'No BIOS boot sector source was provided for {Architecture}'
+    )
+
+BootSectorObject = Env.Object('boot_stage1.o', BootSector)
+BootSectorBinary = Env.Command(
+    'boot.bin',
+    BootSectorObject,
+    action=[
+        (
+            f'$CC -nostdlib -Wl,-N -Wl,-m,{LinkModeByArchitecture[Architecture]} '
+            f'-Wl,-T,{BootSectorLinkerScript.path} -Wl,--oformat,binary -o $TARGET $SOURCE'
+        ),
+        ValidateBootSectorSize,
+    ],
+)
+
+Env.Depends(BootSectorBinary, BootSectorLinkerScript)
+
+Export('BootSectorBinary')
+

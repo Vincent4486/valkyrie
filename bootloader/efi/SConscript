@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+from SCons.Script import SConscript
+
+
+Import('Architecture')
+Import('Sources')
+
+
+if Architecture == 'i686':
+    SConscript('i686/SConscript', exports='Sources')
+elif Architecture == 'x86_64':
+    SConscript('x86_64/SConscript', exports='Sources')
+elif Architecture == 'aarch64':
+    SConscript('aarch64/SConscript', exports='Sources')
+else:
+    raise RuntimeError(f'Unsupported EFI architecture: {Architecture}')
