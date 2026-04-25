@@ -1,11 +1,27 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from SCons.Script import SConscript
+from scripts.scons.bootloader import ConfigureBootloaderEnvironment
 
 
+Import('TargetEnvironment')
+Import('SourcePath')
+Import('ArchitecturePath')
+Import('ArchitectureConfig')
+Import('BootloaderBuildConfig')
 Import('Architecture')
 Import('Sources')
 Import('EfiBin')
+
+
+EfiEnv = TargetEnvironment.Clone()
+ConfigureBootloaderEnvironment(
+    EfiEnv,
+    SourcePath,
+    ArchitecturePath,
+    ArchitectureConfig,
+    BootloaderBuildConfig,
+)
 
 
 if Architecture == 'i686':
@@ -16,3 +32,8 @@ elif Architecture == 'aarch64':
     SConscript('aarch64/SConscript', exports='Sources')
 else:
     raise RuntimeError(f'Unsupported EFI architecture: {Architecture}')
+
+EfiObjects = EfiEnv.Object(Sources)
+EfiBinary = EfiEnv.Program(EfiBin, EfiObjects)
+
+Export('EfiBinary')

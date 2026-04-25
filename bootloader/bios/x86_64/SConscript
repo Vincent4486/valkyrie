@@ -4,6 +4,12 @@ from SCons.Script import File, Return
 
 
 Import('Sources')
+Import('CoreSources')
+
+
+CoreSources += [
+	File('core.S'),
+]
 
 
 BootSector = File('boot.S')

@@ -3,20 +3,17 @@
 import os
 
 from SCons.Script import SConscript
+from scripts.scons.bootloader import ConfigureBootloaderEnvironment
 
-
-Import('Env')
+Import('TargetEnvironment')
+Import('SourcePath')
+Import('ArchitecturePath')
+Import('ArchitectureConfig')
+Import('BootloaderBuildConfig')
 Import('Architecture')
 Import('Sources')
 Import('BootBin')
-
-
-if Architecture == 'i686':
-    BootSector = SConscript('i686/Sconscript', exports='Sources')
-elif Architecture == 'x86_64':
-    BootSector = SConscript('x86_64/SConscript', exports='Sources')
-else:
-    raise RuntimeError(f'Unsupported BIOS architecture: {Architecture}')
+Import('CoreBin')
 
 
 LinkModeByArchitecture = {
@@ -24,37 +21,78 @@ LinkModeByArchitecture = {
     'x86_64': 'elf_x86_64',
 }
 
-BootSectorLinkerScript = Env.File(f'{Architecture}/bootsector.ld').srcnode()
 
+CoreSources = []
 
-def ValidateBootSectorSize(target, source, env):
-    _ = source
-    _ = env
-    boot_sector_size = os.path.getsize(str(target[0]))
-    if boot_sector_size > 0x1BE:
-        raise RuntimeError(
-            f'BIOS boot sector exceeds 0x1be bytes: {boot_sector_size} bytes'
-        )
+if Architecture == 'i686':
+    BootSector = SConscript('i686/Sconscript', exports=['Sources', 'CoreSources'])
+elif Architecture == 'x86_64':
+    BootSector = SConscript('x86_64/SConscript', exports=['Sources', 'CoreSources'])
+else:
+    raise RuntimeError(f'Unsupported BIOS architecture: {Architecture}')
 
-if BootSector is None:
-    raise RuntimeError(
-        f'No BIOS boot sector source was provided for {Architecture}'
-    )
+BootLinkerScript = TargetEnvironment.File(f'{Architecture}/boot.ld').srcnode()
+CoreLinkerScript = TargetEnvironment.File(f'{Architecture}/core.ld').srcnode()
+BootEnv = TargetEnvironment.Clone()
+CoreEnv = TargetEnvironment.Clone()
 
-BootSectorObject = Env.Object('boot_stage1.o', BootSector)
-BootSectorBinary = Env.Command(
-    BootBin,
-    BootSectorObject,
-    action=[
-        (
-            f'$CC -nostdlib -Wl,-N -Wl,-m,{LinkModeByArchitecture[Architecture]} '
-            f'-Wl,-T,{BootSectorLinkerScript.path} -Wl,--oformat,binary -o $TARGET $SOURCE'
-        ),
-        ValidateBootSectorSize,
-    ],
+ConfigureBootloaderEnvironment(
+    BootEnv,
+    SourcePath,
+    ArchitecturePath,
+    ArchitectureConfig,
+    BootloaderBuildConfig,
+)
+ConfigureBootloaderEnvironment(
+    CoreEnv,
+    SourcePath,
+    ArchitecturePath,
+    ArchitectureConfig,
+    BootloaderBuildConfig,
 )
 
-Env.Depends(BootSectorBinary, BootSectorLinkerScript)
+BootEnv.AppendUnique(LINKFLAGS=[
+    '-nostdlib',
+    '-Wl,-N',
+    f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
+    f'-Wl,-T,{BootLinkerScript.path}',
+    '-Wl,--oformat,binary',
+])
+CoreEnv.AppendUnique(LINKFLAGS=[
+    '-nostdlib',
+    '-Wl,-N',
+    f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
+    f'-Wl,-T,{CoreLinkerScript.path}',
+    '-Wl,--oformat,binary',
+])
 
-Export('BootSectorBinary')
+BootSectorObject = BootEnv.Object(BootSector)
+CoreObjects = CoreEnv.Object(CoreSources)
 
+BootSectorBinary = BootEnv.Program(
+    BootBin,
+    BootSectorObject,
+)
+
+CoreBinary = CoreEnv.Program(
+    CoreBin,
+    CoreObjects,
+)
+
+BootEnv.AddPostAction(
+    BootSectorBinary,
+    lambda target, source, env: (
+        (_ for _ in ()).throw(
+            RuntimeError(
+                f'BIOS boot sector exceeds 0x1be bytes: {boot_sector_size} bytes'
+            )
+        )
+        if (boot_sector_size := os.path.getsize(str(target[0]))) > 0x1BE
+        else None
+    ),
+)
+
+BootEnv.Depends(BootSectorBinary, BootLinkerScript)
+CoreEnv.Depends(CoreBinary, CoreLinkerScript)
+
+Export('BootSectorBinary', 'CoreBinary')

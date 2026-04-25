@@ -4,11 +4,15 @@ from SCons.Script import File, Return
 
 
 Import('Sources')
+Import('CoreSources')
 
 
 Sources += [
-    File('core.S'),
     File('i686.S'),
+]
+
+CoreSources += [
+    File('core.S'),
 ]
 
 BootSector = File('boot.S')
