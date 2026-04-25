@@ -122,6 +122,108 @@ def CreateBootableIso(StagingDirectory: str, OutputIso: str, VolumeLabelName: st
     RunCommand(['grub-mkrescue', '-o', OutputIso, StagingDirectory, '--', '-volid', VolumeLabelName])
 
 
+def CreateBootableDisk(
+    Stage: str,
+    ImagePath: str,
+    Volume: str,
+    GrubCoreName: str,
+    BootHeadName: str,
+    GrubPath: str,
+    Filesystem: str,
+    PartMb: int,
+    TotalMb: int,
+    PartStartSector: int,
+    PartitionTypeIdentifier: str,
+):
+    ImgDir = os.path.dirname(ImagePath) or '.'
+    TmpPart = os.path.join(ImgDir, 'part.tmp')
+    GrubCore = os.path.join(ImgDir, GrubCoreName)
+    BootHead = os.path.join(ImgDir, BootHeadName)
+
+    print("   GRUB-MKIMAGE")
+    RunCommand([
+        'grub-mkimage',
+        '-O', 'i386-pc',
+        '-o', GrubCore,
+        '-p', '(hd0,msdos1)/boot/grub',
+        *GetGrubModules(Filesystem),
+    ])
+
+    with open(os.path.join(GrubPath, 'boot.img'), 'rb') as BootImg, \
+         open(GrubCore, 'rb') as CoreImg, \
+         open(BootHead, 'wb') as OutImg:
+        OutImg.write(BootImg.read())
+        OutImg.write(CoreImg.read())
+
+    try:
+        print(f"   CREATE PARTITION FILE {Filesystem}")
+        RunCommand(['truncate', '-s', f'{PartMb}M', TmpPart])
+        FormatPartitionImage(TmpPart, Filesystem, Volume)
+
+        print("   CREATE MBR")
+        RunCommand(['truncate', '-s', f'{TotalMb}M', ImagePath])
+        GuestfishMbr = '\n'.join([
+            'run',
+            'part-init /dev/sda mbr',
+            f'part-add /dev/sda p {PartStartSector} -1',
+            f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}',
+            'quit',
+            '',
+        ])
+        RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishMbr)
+
+        print("   SPLICE PARTITION")
+        RunCommand([
+            'dd',
+            f'if={TmpPart}',
+            f'of={ImagePath}',
+            'bs=512',
+            f'seek={PartStartSector}',
+            'conv=notrunc',
+            'status=none',
+        ])
+
+        print("   WRITE BOOTLOADER")
+        RunCommand([
+            'dd',
+            f'if={BootHead}',
+            f'of={ImagePath}',
+            'bs=446',
+            'count=1',
+            'conv=notrunc',
+            'status=none',
+        ])
+        RunCommand([
+            'dd',
+            f'if={BootHead}',
+            f'of={ImagePath}',
+            'bs=512',
+            'skip=1',
+            'seek=1',
+            'conv=notrunc',
+            'status=none',
+        ])
+
+        with open(ImagePath, 'r+b') as DiskFile:
+            DiskFile.seek(92)
+            DiskFile.write(b'\x01\x00\x00\x00')
+
+        print(f"   INJECT FILES {Stage}")
+        GuestfishCopy = '\n'.join([
+            'run',
+            'mount /dev/sda1 /',
+            f'copy-in {Stage}/. /',
+            'quit',
+            '',
+        ])
+        RunCommand(['guestfish', '-a', ImagePath], InputText=GuestfishCopy)
+
+    finally:
+        for Tmp in (TmpPart, BootHead, GrubCore):
+            if os.path.exists(Tmp):
+                os.remove(Tmp)
+
+
 def BuildGrubConfigContent(
     Config: str = 'release',
     KernelName: str = 'valeciumx',
