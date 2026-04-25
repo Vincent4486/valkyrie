@@ -5,6 +5,7 @@ from SCons.Script import SConscript
 
 Import('Architecture')
 Import('Sources')
+Import('EfiBin')
 
 
 if Architecture == 'i686':

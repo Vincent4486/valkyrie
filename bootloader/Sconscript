@@ -48,9 +48,14 @@ Sources = []
 SConscript('common/SConscript', exports='Sources')
 
 if BootType == 'bios':
-    SConscript('bios/SConscript', exports=['Env', 'Sources', 'Architecture'])
+    BootBin = Env.File('boot.bin')
+    SConscript(
+        'bios/SConscript',
+        exports=['Env', 'Sources', 'Architecture', 'BootBin'],
+    )
 elif BootType == 'efi':
-    SConscript('efi/SConscript', exports=['Sources', 'Architecture'])
+    EfiBin = Env.File('boot.efi')
+    SConscript('efi/SConscript', exports=['Sources', 'Architecture', 'EfiBin'])
 else:
     raise RuntimeError(f'Unsupported boot type: {BootType}')
 

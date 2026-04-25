@@ -8,6 +8,7 @@ from SCons.Script import SConscript
 Import('Env')
 Import('Architecture')
 Import('Sources')
+Import('BootBin')
 
 
 if Architecture == 'i686':
@@ -42,7 +43,7 @@ if BootSector is None:
 
 BootSectorObject = Env.Object('boot_stage1.o', BootSector)
 BootSectorBinary = Env.Command(
-    'boot.bin',
+    BootBin,
     BootSectorObject,
     action=[
         (
