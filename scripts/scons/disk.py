@@ -9,6 +9,7 @@ from scripts.scons.bootloader import InstallSystemBootloader
 VolumeLabel = 'VALECIUM'
 EfiSystemPartitionGuid = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
 LinuxFilesystemPartitionGuid = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
+BiosBootPartitionGuid = '21686148-6449-6E6F-744E-656564454649'
 
 FilesystemConfigurations = {
     'fat12': {
@@ -205,7 +206,11 @@ def CreateBootableDisk(
     GrubCore = os.path.join(ImgDir, 'grub.core')
     BootHead = os.path.join(ImgDir, 'boot_head.img')
     BootHeadRequired = (BootSystem == 'grub' and BootType == 'bios')
+    UseGptSystemBiosLayout = (
+        BootSystem == 'system' and BootType == 'bios' and PartitionMap == 'gpt'
+    )
     GeneratedEfiBinary = None
+    RootPartitionIndex = 1
 
     if BootSystem == 'grub':
         GrubTarget = GetGrubTarget(BootType, Architecture)
@@ -257,18 +262,36 @@ def CreateBootableDisk(
         GuestfishPartitionCommands = [
             'run',
             f'part-init /dev/sda {PartitionMap}',
-            f'part-add /dev/sda p {PartStartSector} {PartitionEndSector}',
         ]
-        if PartitionMap == 'mbr':
-            GuestfishPartitionCommands.append(
-                f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}'
-            )
-        elif PartitionMap == 'gpt':
-            GuestfishPartitionCommands.append(
-                f'part-set-gpt-type /dev/sda 1 {GetGptPartitionTypeGuid(BootType)}'
-            )
+        if UseGptSystemBiosLayout:
+            BiosBootStart = 34
+            BiosBootEnd = PartStartSector - 1
+            if BiosBootEnd < BiosBootStart:
+                raise RuntimeError(
+                    'Not enough room before root partition for GPT BIOS boot partition'
+                )
+
+            GuestfishPartitionCommands.extend([
+                f'part-add /dev/sda p {BiosBootStart} {BiosBootEnd}',
+                f'part-set-gpt-type /dev/sda 1 {BiosBootPartitionGuid}',
+                f'part-add /dev/sda p {PartStartSector} {PartitionEndSector}',
+                f'part-set-gpt-type /dev/sda 2 {GetGptPartitionTypeGuid(BootType)}',
+            ])
+            RootPartitionIndex = 2
         else:
-            raise ValueError(f"Unsupported partition map: {PartitionMap}")
+            GuestfishPartitionCommands.append(
+                f'part-add /dev/sda p {PartStartSector} {PartitionEndSector}'
+            )
+            if PartitionMap == 'mbr':
+                GuestfishPartitionCommands.append(
+                    f'part-set-mbr-id /dev/sda 1 {PartitionTypeIdentifier}'
+                )
+            elif PartitionMap == 'gpt':
+                GuestfishPartitionCommands.append(
+                    f'part-set-gpt-type /dev/sda 1 {GetGptPartitionTypeGuid(BootType)}'
+                )
+            else:
+                raise ValueError(f"Unsupported partition map: {PartitionMap}")
         GuestfishPartitionCommands.extend(['quit', ''])
         RunCommand(
             ['guestfish', '-a', ImagePath],
@@ -322,7 +345,7 @@ def CreateBootableDisk(
         print(f"   INJECT FILES {Stage}")
         GuestfishCopy = '\n'.join([
             'run',
-            'mount /dev/sda1 /',
+            f'mount /dev/sda{RootPartitionIndex} /',
             f'copy-in {Stage}/. /',
             'quit',
             '',

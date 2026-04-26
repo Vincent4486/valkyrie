@@ -3,21 +3,17 @@
 /*
  * i686 PC MBR stage1 loader.
  *
- * Expected stage2 header at the first sector of stage2:
- *   +0x00 u32 magic        = 0x32534c56 ('VLS2')
- *   +0x04 u16 sector_count = total stage2 sectors (including header sector)
+ * Stage2 load metadata is patched into stage1 at install time:
+ *   stage2_start_lba:   u32 disk LBA where stage2 begins
+ *   stage2_sector_count u16 number of sectors to load
  *
- * Stage2 is expected to start at LBA 1 (disk sector 2), directly after the
- * 512-byte MBR sector. The loader reads the header there, validates it, then
- * loads sector_count sectors to 0000:8000 and jumps there.
+ * Stage1 loads stage2 to 0000:8000 and jumps there.
  */
 
 .code16
 .section .mbr, "ax"
 .global _start
 
-.equ STAGE2_MAGIC, 0x32534c56
-.equ SCAN_BUFFER,  0x0600
 .equ STAGE2_LOAD,  0x8000
 
 _start:
@@ -43,34 +39,15 @@ _start:
 	testw $0x0001, %cx
 	jz boot_fail
 
-	/* First partition start LBA is at MBR + 0x1be + 8. */
-	movl 0x7c00 + 0x1be + 8, %eax
-	movl %eax, scan_limit_lba
-	cmpl $2, %eax
-	jb boot_fail
+	movl stage2_start_lba, %eax
+	testl %eax, %eax
+	jz boot_fail
+	movl %eax, temp_lba
 
-	/* Stage2 starts immediately after the boot sector (LBA 1). */
-	movl $1, temp_lba
-	movw $SCAN_BUFFER, %bx
-	movw $1, %cx
-	call bios_ext_read
-	jc boot_fail
-
-	cmpl $STAGE2_MAGIC, SCAN_BUFFER
-	jne boot_fail
-
-	movw SCAN_BUFFER + 4, %ax
-	cmpw $2, %ax
-	jb boot_fail
-	decw %ax
+	movw stage2_sector_count, %ax
+	testw %ax, %ax
+	jz boot_fail
 	movw %ax, stage2_sectors_left
-	movl $2, temp_lba
-
-	movzwl %ax, %edx
-	movl $1, %ecx
-	addl %edx, %ecx
-	cmpl scan_limit_lba, %ecx
-	ja boot_fail
 
 	movw $STAGE2_LOAD, stage2_offset
 load_stage2_loop:
@@ -137,8 +114,14 @@ bios_ext_read:
 boot_drive:
 	.byte 0
 
-scan_limit_lba:
+stage2_patch_signature:
+	.ascii "VLSP"
+
+stage2_start_lba:
 	.long 0
+
+stage2_sector_count:
+	.word 0
 
 temp_lba:
 	.long 0
