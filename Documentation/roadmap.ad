@@ -17,9 +17,10 @@ See also: link:index.html[Home], link:devel.html[Developer Guide]
 * [x] External runtime dependencies compiled during build not toolchain
 * [ ] Make kernel PIC & PIE
 * [ ] Smart heap allocation for kernel that actually "frees" the memory
-* [ ] Add option for GRUB or default boot
-* [ ] Not hard code GRUB install to be i386-pc
+* [x] Add option for GRUB or default boot
+* [x] Not hard code GRUB install to be i386-pc
 * [x] Fix GitHub workflow
+* [ ] Kernel should detect partition filesysten *not* only base on partition ID
 
 == Phase 1: Core OS Infrastructure (Current)
 
