@@ -9,6 +9,7 @@ Detects the Linux distribution and installs required packages.
 import argparse
 import multiprocessing
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -240,6 +241,45 @@ DEPENDENCIES = {
         'update_cmd': ['apk', 'update'],
         'install_cmd': ['apk', 'add'],
     },
+    'darwin': {
+        'packages': [
+            # === Core Build Tools ===
+            'python',
+            'scons',
+            'gcc',
+            'make',
+
+            # === Development Libraries (Required for Toolchain Build) ===
+            'gmp',
+            'mpfr',
+            'libmpc',
+            'zlib',
+
+            # === Filesystem & Disk Tools ===
+            'dosfstools',
+            'e2fsprogs',
+            'mtools',
+            'xorriso',
+
+            # === Boot & Image Creation ===
+            'i686-elf-grub',
+
+            # === Emulation & Debugging ===
+            'qemu',
+            'gdb',
+
+            # === Code Quality ===
+            'llvm',
+
+            # === Documentation ===
+            'pandoc',
+            'asciidoctor',
+            'texinfo',
+        ],
+        'update_cmd': ['brew', 'update'],
+        'install_cmd': ['brew', 'install'],
+        'use_sudo': False,
+    },
 }
 
 def get_cpu_count() -> int:
@@ -273,7 +313,10 @@ def extract_archive(archive: Path, dest_dir: Path):
         tar.extractall(str(dest_dir))
 
 def detect_distro() -> str:
-    """Detect the Linux distribution family."""
+    """Detect the host package-manager family."""
+    if platform.system() == 'Darwin':
+        return 'darwin'
+
     # Check for package managers
     if shutil.which('apt-get'):
         return 'debian'
@@ -325,9 +368,15 @@ def install_dependencies(distro: str, dry_run: bool = False,
     
     config = DEPENDENCIES[distro]
     packages = config['packages']
+    config_uses_sudo = config.get('use_sudo', True)
+
+    if distro == 'darwin' and not shutil.which('brew'):
+        print("Error: Homebrew is required for macOS dependency installation.", file=sys.stderr)
+        print("Install Homebrew from https://brew.sh/, then rerun this command.", file=sys.stderr)
+        return 1
     
     def run_cmd(cmd):
-        if use_sudo and os.geteuid() != 0:
+        if config_uses_sudo and use_sudo and os.geteuid() != 0:
             cmd = ['sudo'] + cmd
         
         print(f"$ {' '.join(cmd)}")

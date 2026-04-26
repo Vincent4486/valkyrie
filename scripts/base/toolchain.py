@@ -169,6 +169,15 @@ class ToolchainBuilder:
     
     def _get_configure_opts(self, pkg: str) -> list:
         """Get platform-specific configure options."""
+        if detect_os() == 'Darwin':
+            if pkg == 'binutils':
+                return ['--with-system-zlib']
+            if pkg == 'gcc':
+                return [
+                    '--with-gmp=/opt/homebrew/opt/gmp',
+                    '--with-mpfr=/opt/homebrew/opt/mpfr',
+                    '--with-mpc=/opt/homebrew/opt/libmpc',
+                ]
         return []
     
     def build_binutils(self):

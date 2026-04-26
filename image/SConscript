@@ -19,6 +19,7 @@ from scripts.scons.disk import (
     CreateBootableDisk,
     GenerateGrubConfig,
     GetPartitionTypeIdentifier,
+    PreflightImageTools,
 )
 
 Import('Kernel')
@@ -78,6 +79,8 @@ def BuildDisk(
     BootType = EnvironmentObject.get('BootType', 'bios')
     PartitionMap = EnvironmentObject.get('DiskPartitionMap', 'mbr')
     BuildConfig = EnvironmentObject.get('BuildConfig', 'release')
+
+    PreflightImageTools(OutputFormat, Filesystem, BootSystem, BootType, Architecture)
 
     Volume = VolumeLabel
     PartStartMb = 1
@@ -253,15 +256,21 @@ def BuildImageAction(*_Args, **KeywordArguments):
         and str(Src) not in BootloaderComponentSet
     ]
 
-    BuildDisk(
-        str(Target[0]),
-        KernelExecutablePath,
-        LibraryPaths,
-        ApplicationPaths,
-        ExtraFiles,
-        BootloaderComponentPaths,
-        EnvObj,
-    )
+    try:
+        BuildDisk(
+            str(Target[0]),
+            KernelExecutablePath,
+            LibraryPaths,
+            ApplicationPaths,
+            ExtraFiles,
+            BootloaderComponentPaths,
+            EnvObj,
+        )
+    except RuntimeError as Error:
+        print(f"Error: {Error}")
+        return 1
+
+    return 0
 
 
 Root = Env.Dir('root')

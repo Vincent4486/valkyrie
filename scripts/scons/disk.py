@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import shutil
 import subprocess
 import textwrap
 
@@ -104,6 +105,169 @@ def GetGrubTarget(BootType: str, Architecture: str) -> str:
     return GrubTargetByBootAndArch[Key]
 
 
+def IsDarwin() -> bool:
+    return os.uname().sysname == 'Darwin'
+
+
+def GetHomebrewPrefixes() -> list:
+    Prefixes = []
+    EnvPrefix = os.environ.get('HOMEBREW_PREFIX')
+    if EnvPrefix:
+        Prefixes.append(EnvPrefix)
+    Prefixes.extend(['/opt/homebrew', '/usr/local'])
+
+    UniquePrefixes = []
+    for Prefix in Prefixes:
+        if Prefix not in UniquePrefixes:
+            UniquePrefixes.append(Prefix)
+    return UniquePrefixes
+
+
+def GetExecutableSearchPath() -> str:
+    Paths = os.environ.get('PATH', '').split(os.pathsep)
+    for Prefix in GetHomebrewPrefixes():
+        Paths.extend([
+            os.path.join(Prefix, 'bin'),
+            os.path.join(Prefix, 'sbin'),
+            os.path.join(Prefix, 'opt', 'make', 'libexec', 'gnubin'),
+            os.path.join(Prefix, 'opt', 'dosfstools', 'sbin'),
+            os.path.join(Prefix, 'opt', 'e2fsprogs', 'bin'),
+            os.path.join(Prefix, 'opt', 'e2fsprogs', 'sbin'),
+        ])
+
+    UniquePaths = []
+    for PathEntry in Paths:
+        if PathEntry and PathEntry not in UniquePaths:
+            UniquePaths.append(PathEntry)
+    return os.pathsep.join(UniquePaths)
+
+
+def FindExecutable(Candidates: list, EnvOverride: str = None) -> str:
+    SearchPath = GetExecutableSearchPath()
+    if EnvOverride:
+        Override = os.environ.get(EnvOverride)
+        if Override:
+            if os.path.isabs(Override) and os.path.exists(Override):
+                return Override
+            FoundOverride = shutil.which(Override, path=SearchPath)
+            if FoundOverride:
+                return FoundOverride
+
+    for Candidate in Candidates:
+        Found = shutil.which(Candidate, path=SearchPath)
+        if Found:
+            return Found
+
+    return None
+
+
+def RequireExecutable(
+    Candidates: list,
+    Purpose: str,
+    EnvOverride: str = None,
+    Suggestion: str = None,
+) -> str:
+    Found = FindExecutable(Candidates, EnvOverride)
+    if Found:
+        return Found
+
+    Names = ', '.join(Candidates)
+    Message = f"Missing required tool for {Purpose}: one of {Names}"
+    if EnvOverride:
+        Message += f" (or set {EnvOverride})"
+    if Suggestion:
+        Message += f". {Suggestion}"
+    raise RuntimeError(Message)
+
+
+def GetGrubMkimageCommand() -> str:
+    return RequireExecutable(
+        ['grub-mkimage', 'i686-elf-grub-mkimage', 'x86_64-elf-grub-mkimage'],
+        'GRUB image generation',
+        EnvOverride='GRUB_MKIMAGE',
+        Suggestion='Install GRUB tools, or set GRUB_MKIMAGE to the executable path.',
+    )
+
+
+def GetGrubMkrescueCommand() -> str:
+    return RequireExecutable(
+        ['grub-mkrescue', 'i686-elf-grub-mkrescue', 'x86_64-elf-grub-mkrescue'],
+        'GRUB rescue ISO generation',
+        EnvOverride='GRUB_MKRESCUE',
+        Suggestion='Install GRUB rescue tools, or set GRUB_MKRESCUE to the executable path.',
+    )
+
+
+def GetGrubPlatformDirectory(GrubTarget: str) -> str:
+    Candidates = []
+    Override = os.environ.get('GRUB_PLATFORM_DIR')
+    if Override:
+        Candidates.append(Override)
+
+    Candidates.extend([
+        os.path.join('/usr/lib/grub', GrubTarget),
+        os.path.join('/usr/local/lib/grub', GrubTarget),
+    ])
+
+    for Prefix in GetHomebrewPrefixes():
+        Candidates.extend([
+            os.path.join(Prefix, 'opt', 'i686-elf-grub', 'lib', 'i686-elf', 'grub', GrubTarget),
+            os.path.join(Prefix, 'opt', 'x86_64-elf-grub', 'lib', 'x86_64-elf', 'grub', GrubTarget),
+        ])
+
+    for Candidate in Candidates:
+        if os.path.exists(os.path.join(Candidate, 'boot.img')):
+            return Candidate
+
+    raise RuntimeError(
+        f"Could not find GRUB platform directory for {GrubTarget}. "
+        "Install GRUB platform files, or set GRUB_PLATFORM_DIR to the directory "
+        "containing boot.img."
+    )
+
+
+def PreflightImageTools(
+    OutputFormat: str,
+    Filesystem: str,
+    BootSystem: str,
+    BootType: str,
+    Architecture: str,
+):
+    if OutputFormat == 'iso':
+        if BootSystem == 'grub':
+            GetGrubMkrescueCommand()
+            RequireExecutable(
+                ['xorriso'],
+                'ISO generation',
+                Suggestion='Install xorriso before building ISO images.',
+            )
+        return
+
+    MacImageSuggestion = (
+        "On macOS, raw .img builds require guestfish. Build an ISO with "
+        "`scons ImageFormat=iso`, or build raw disk images in Linux or a Linux container."
+        if IsDarwin()
+        else 'Install guestfish/libguestfs before building raw disk images.'
+    )
+
+    RequireExecutable(['truncate'], 'raw disk image sizing')
+    RequireExecutable(['dd'], 'raw disk image writing')
+    RequireExecutable(
+        ['guestfish'],
+        'raw disk image partitioning and file injection',
+        Suggestion=MacImageSuggestion,
+    )
+    RequireExecutable(
+        [GetFilesystemConfig(Filesystem)['MakeFilesystemCommand']],
+        f'{Filesystem} filesystem creation',
+    )
+
+    if BootSystem == 'grub':
+        GetGrubMkimageCommand()
+        if BootType == 'bios':
+            GetGrubPlatformDirectory(GetGrubTarget(BootType, Architecture))
+
+
 def GetEfiDefaultBinaryName(Architecture: str) -> str:
     if Architecture not in EfiDefaultBinaryByArch:
         raise ValueError(f"Unsupported EFI architecture: {Architecture}")
@@ -154,9 +318,13 @@ def RunCommand(Arguments: list, InputText: str = None):
 
 def FormatPartitionImage(PartitionPath: str, Filesystem: str, VolumeLabelName: str = VolumeLabel):
     FilesystemConfig = GetFilesystemConfig(Filesystem)
-    MakeFilesystemCommand = FilesystemConfig['MakeFilesystemCommand']
+    MakeFilesystemName = FilesystemConfig['MakeFilesystemCommand']
+    MakeFilesystemCommand = RequireExecutable(
+        [MakeFilesystemName],
+        f'{Filesystem} filesystem creation',
+    )
 
-    if MakeFilesystemCommand == 'mkfs.fat':
+    if MakeFilesystemName == 'mkfs.fat':
         RunCommand([
             MakeFilesystemCommand,
             *FilesystemConfig['MakeFilesystemArguments'],
@@ -164,7 +332,7 @@ def FormatPartitionImage(PartitionPath: str, Filesystem: str, VolumeLabelName: s
             VolumeLabelName,
             PartitionPath,
         ])
-    elif MakeFilesystemCommand == 'mkfs.ext2':
+    elif MakeFilesystemName == 'mkfs.ext2':
         RunCommand([MakeFilesystemCommand, '-L', VolumeLabelName, PartitionPath])
     else:
         raise ValueError(
@@ -183,7 +351,15 @@ def CreateBootableIso(StagingDirectory: str, OutputIso: str, VolumeLabelName: st
         VolumeLabelName: ISO volume label
     """
     print("   GRUB-MKRESCUE")
-    RunCommand(['grub-mkrescue', '-o', OutputIso, StagingDirectory, '--', '-volid', VolumeLabelName])
+    RunCommand([
+        GetGrubMkrescueCommand(),
+        '-o',
+        OutputIso,
+        StagingDirectory,
+        '--',
+        '-volid',
+        VolumeLabelName,
+    ])
 
 
 def CreateBootableDisk(
@@ -214,13 +390,14 @@ def CreateBootableDisk(
 
     if BootSystem == 'grub':
         GrubTarget = GetGrubTarget(BootType, Architecture)
-        GrubPath = os.path.join('/usr/lib/grub', GrubTarget)
         GrubPrefix = GetGrubPrefix(PartitionMap)
+        GrubMkimage = GetGrubMkimageCommand()
 
         print("   GRUB-MKIMAGE")
         if BootType == 'bios':
+            GrubPath = GetGrubPlatformDirectory(GrubTarget)
             RunCommand([
-                'grub-mkimage',
+                GrubMkimage,
                 '-O', GrubTarget,
                 '-o', GrubCore,
                 '-p', GrubPrefix,
@@ -237,7 +414,7 @@ def CreateBootableDisk(
             os.makedirs(EfiDirectory, exist_ok=True)
             GeneratedEfiBinary = os.path.join(EfiDirectory, GetEfiDefaultBinaryName(Architecture))
             RunCommand([
-                'grub-mkimage',
+                GrubMkimage,
                 '-O', GrubTarget,
                 '-o', GeneratedEfiBinary,
                 '-p', GrubPrefix,

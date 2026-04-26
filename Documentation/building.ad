@@ -25,7 +25,7 @@ Install only Python and SCons via your system package manager:
 **macOS:**
 [source,bash]
 ----
-brew install python3 scons
+brew install python scons
 ----
 
 **Debian/Ubuntu:**
@@ -43,14 +43,13 @@ sudo apt-get install -y python3 scons
 * Cross-compiler toolchain builds reliably
 * QEMU and GDB installation straightforward
 
-**macOS (Partial Support):**
+**macOS:**
 
-* i686 builds supported but may require manual setup
+* i686 builds are supported with the managed local toolchain
 * x86_64 and ARM64 builds not fully tested
-* Cross-compiler toolchain building may fail or require manual intervention
-* Consider using Docker or a Linux VM for production builds
-* Manual toolchain installation may be necessary (see <<Troubleshooting>>)
-* Does not support disk image builds because of `parted`
+* ISO image builds are supported through `grub-mkrescue` and `xorriso`
+* Raw `.img` builds require `guestfish`, which is not normally available through Homebrew
+* Use `ImageFormat=iso` on macOS unless you build raw disk images in Linux or a Linux container
 
 == Building the Project
 
@@ -72,10 +71,13 @@ BuildArch = 'i686'
 ImageFs = 'fat32'
 BuildType = 'full'
 ImageSize = '250m'
-toolchain = '../os_toolchain'
 ImageName = 'valeciumos'
 ImageFormat = 'img'
 KernelName = 'valeciumx'
+ToolchainPrefix = 'toolchain'
+RunMemory = '4G'
+RunSmp = '1'
+GdbCommand = 'gdb'
 ----
 
 === Step 1: Install Dependencies
@@ -90,9 +92,16 @@ scons deps
 
 This automatically:
 
-* Detects your architecture and OS
-* Downloads and builds required dependencies
-* Installs QEMU and debugging tools
+* Detects your host OS or Linux distribution
+* Installs host packages for building, image creation, QEMU, debugging, and documentation
+* Uses Homebrew on macOS and the supported distro package manager on Linux
+
+To preview the package command without installing:
+
+[source,bash]
+----
+python3 scripts/base/dependencies.py -n
+----
 
 === Step 2: Building the Toolchain
 
@@ -103,15 +112,29 @@ Once dependencies are installed via `scons deps`, you can build the cross-compil
 scons toolchain
 ----
 
-This builds the cross-compiler for your target architecture based on the `BuildArch` variable in `.config` or if you explicitly set it via arguments. The toolchain build requires dependencies to be installed first. The path that the toolchain will install to is the directory the `toolchain` variable points to (You may need root privillages if you would like to install it system wide to locations like `/opt/cross`).
+This builds the cross-compiler for your target architecture based on the `BuildArch` variable in `.config`, or an explicit command-line override. The toolchain build requires dependencies to be installed first. The default install location is `toolchain/` at the repository root.
+
+To use a different install location:
+
+[source,bash]
+----
+scons ToolchainPrefix=/opt/cross toolchain
+----
 
 === Step 3: Build
 
-Once dependencies are installed and toolchain is built, build normally (make sure that you set the toolchain path to the acctual toolchain path):
+Once dependencies are installed and the toolchain is built, build normally:
 
 [source,bash]
 ----
 scons                    # Build with default settings (debug mode)
+----
+
+On macOS, build an ISO image:
+
+[source,bash]
+----
+scons ImageFormat=iso
 ----
 
 This builds:
@@ -129,6 +152,14 @@ Build artifacts are placed in the `build/` directory.
 scons run                # Boot in QEMU
 # or
 scons debug              # Start debugging session
+----
+
+On macOS with ISO output:
+
+[source,bash]
+----
+scons run ImageFormat=iso
+scons debug ImageFormat=iso
 ----
 
 === Building for Multiple Architectures
@@ -185,6 +216,10 @@ Pass variables to `scons` to customize the build. Common options:
 | `BootType` | `bios`, `efi` | `bios`
 | `DiskPartitionMap` | `mbr`, `gpt` | `mbr`
 | `ImageName` | Base name (no extension) | `valeciumos`
+| `ToolchainPrefix` | Toolchain install prefix | `toolchain`
+| `RunMemory` | QEMU memory size for `run`/`debug` | `4G`
+| `RunSmp` | QEMU CPU count for `run` | `1`
+| `GdbCommand` | Debugger executable for `debug` | `gdb`
 |===
 
 === Examples
@@ -211,6 +246,9 @@ scons ImageSize=512m
 
 # ISO format instead of hard disk
 scons ImageFormat=iso
+
+# Run an ISO with custom QEMU memory
+scons run ImageFormat=iso RunMemory=512M
 
 # EFI image with GPT partition table (x86_64 example)
 scons BuildArch=x86_64 BootType=efi DiskPartitionMap=gpt
@@ -261,7 +299,7 @@ scons BuildType=full
 scons BuildType=kernel
 ----
 
-Output: `build/kernel/valeciumx` (ELF executable with debug symbols)
+Output: `build/<arch>_<config>/kernel/valeciumx-<version>` (ELF executable with debug symbols)
 
 === Userspace Only
 
@@ -293,7 +331,7 @@ scons run
 ----
 
 This starts a QEMU virtual machine with:
-* 32 MB of RAM (configurable)
+* `RunMemory` RAM (`4G` by default)
 * Disk image if available
 * Display output
 
@@ -302,10 +340,13 @@ This starts a QEMU virtual machine with:
 [source,bash]
 ----
 # Increase memory to 64 MB
-scons run -- --memory=64M
+scons run RunMemory=64M
 
-# Use specific output image
-scons run -- --image=build/valeciumos.img
+# Use two virtual CPUs
+scons run RunSmp=2
+
+# Run the ISO image workflow
+scons run ImageFormat=iso
 ----
 
 === Debugging with GDB
@@ -315,6 +356,7 @@ Start a debug session with kernel symbols:
 [source,bash]
 ----
 scons debug
+scons debug GdbCommand=/opt/homebrew/bin/gdb
 ----
 
 This:
@@ -339,20 +381,34 @@ From another terminal, you can set breakpoints and step through code:
 
 SCons caches build results, so subsequent builds only recompile changed files.
 
-=== macOS Toolchain Issues
+=== macOS Toolchain and Image Notes
 
-macOS support for automated toolchain building is limited. If `scons toolchain` fails:
-
-**Option 1: Use Homebrew (easiest, i686 only)**
+The supported macOS workflow is:
 
 [source,bash]
 ----
-brew install gmp mpc mpfr
-
-# include --with-gmp=... --with-mpc=... in your configure command for autoconf to find dependencies
+brew install python scons
+scons deps
+scons toolchain
+scons ImageFormat=iso
+scons run ImageFormat=iso
 ----
 
-**Option 2: Use Docker (recommended for reliable builds)**
+If the toolchain build cannot find Homebrew libraries, confirm that these packages are installed:
+
+[source,bash]
+----
+brew install gcc gmp mpfr libmpc zlib make texinfo
+----
+
+Raw `.img` builds need `guestfish`. If it is unavailable, build an ISO instead:
+
+[source,bash]
+----
+scons ImageFormat=iso
+----
+
+**Linux container fallback:**
 
 [source,bash]
 ----
@@ -360,20 +416,7 @@ docker run -it -v $(pwd):/valecium ubuntu:22.04 bash
 # Inside container:
 apt-get update && apt-get install -y scons python3
 cd /valecium
-scons deps && scons toolchain && scons build
-----
-
-**Option 3: Use a Linux VM (VirtualBox, Parallels)**
-
-Running Valecium OS builds on Linux is more reliable. Consider setting up a development VM.
-
-**Option 4: Manual toolchain installation (advanced)**
-
-Build from source following GNU toolchain documentation, then configure `.config`:
-
-[source,ini]
-----
-toolchain = '/path/to/custom/toolchain'
+scons deps && scons toolchain && scons
 ----
 
 === Cleaning Build Artifacts
@@ -385,15 +428,14 @@ Remove all build artifacts:
 scons -c              # Clean build directory
 ----
 
-== Environment Variables
+== Command-Line Overrides
 
-You can also set build options via environment variables (lower precedence than command-line):
+Pass build options directly to SCons. Command-line values override `.config` for that invocation:
 
 [source,bash]
 ----
-export VALECIUM_ARCH=i686
-export VALECIUM_CONFIG=release
-scons
+scons BuildArch=i686 BuildConfig=release
+scons ToolchainPrefix=/opt/cross BuildType=kernel
 ----
 
 == Advanced Topics
@@ -404,16 +446,16 @@ If your cross-compiler is in a non-standard location:
 
 [source,bash]
 ----
-scons toolchain=/opt/cross/
+scons ToolchainPrefix=/opt/cross/
 ----
 
-=== Verbose Build Output
+=== Build Explanation Output
 
-See detailed compiler commands:
+Ask SCons why targets are being rebuilt:
 
 [source,bash]
 ----
-scons --verbose
+scons --debug=explain
 ----
 
 === Parallel Builds
@@ -455,7 +497,7 @@ Generate documentation in multiple formats (PDF, HTML, man pages, info pages):
 
 [source,bash]
 ----
-cd Documents
+cd Documentation
 make pdf                 # Generate PDF documents
 make html                # Generate HTML documents
 make man                 # Generate man pages
