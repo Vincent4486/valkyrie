@@ -21,6 +21,13 @@ print_loop:
 
 done:
 	cli
+
+	/* Enable A20 through System Control Port A (0x92). */
+	inb $0x92, %al
+	orb $0x02, %al
+	andb $0xfe, %al
+	outb %al, $0x92
+
 	lgdtl gdt_descriptor
 
 	movl %cr0, %eax

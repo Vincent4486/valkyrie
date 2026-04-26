@@ -1,25 +1,25 @@
 # SPDX-License-Identifier: BSD-3-Clause
 FROM debian:stable-slim
 
-# 1. Enable i386 architecture for GRUB binaries
-# 2. Install qemu-user-static to run x86 binaries on ARM if needed
-RUN dpkg --add-architecture i386 && \
+RUN native_arch="$(dpkg --print-architecture)" && \
+    dpkg --add-architecture i386 && \
+    if [ "$native_arch" != "amd64" ]; then dpkg --add-architecture amd64; fi && \
     apt-get update && apt-get install -y \
     scons python3 build-essential \
     gcc g++ make libmpfr-dev libgmp-dev \
     libmpc-dev coreutils grep dosfstools \
     xorriso guestfish qemu-system-x86 \
+    e2fsprogs mtools parted gdisk \
     gdb texinfo git qemu-user-static \
-    # Install the x86 version of grub-pc-bin specifically
+    gnu-efi \
     grub-pc-bin:i386 \
+    grub-efi-amd64-bin:amd64 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/opt/cross/bin:${PATH}"
 
 WORKDIR /build
 
-# Ensure the toolchain script builds a CROSS-compiler (x86_64) 
-# rather than a native one.
 RUN --mount=type=bind,source=.,target=/build \
     python3 ./scripts/base/toolchain.py /opt/cross -a x86_64
 
