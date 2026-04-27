@@ -16,6 +16,8 @@
 .global _start
 .extern Parser_Multiboot
 
+.equ BOOTSTRAP_STACK_TOP, 0x90000
+
 _start:
 	# GRUB/Multiboot passes: EAX = 0x2BADB002 (magic), EBX = *multiboot_info_t
     cmpl $0x2BADB002, %eax
@@ -25,8 +27,19 @@ _start:
     movl %eax, %edi         # edi = magic   (1st argument to Parser_Multiboot)
     movl %ebx, %esi         # esi = mbi ptr (2nd argument to Parser_Multiboot)
 
+	# Enter C with known flat data segments.  Multiboot enters protected
+	# mode with SS holding a valid data selector; copy that selector rather
+	# than assuming a specific bootloader GDT index.
+	cld
+	movw %ss, %ax
+	movw %ax, %ds
+	movw %ax, %es
+	movw %ax, %fs
+	movw %ax, %gs
+	movw %ax, %ss
+
 	# Set up a small temporary stack (below the 640 KB low-memory mark).
-    movl $0x90000, %esp
+    movl $BOOTSTRAP_STACK_TOP, %esp
     movl %esp, %ebp
 
 	# Push arguments in cdecl right-to-left order:
