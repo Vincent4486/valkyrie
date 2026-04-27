@@ -6,7 +6,7 @@
 #include <mem/mm_kernel.h>
 #include <stdint.h>
 
-extern uint8_t __end;
+extern uint8_t __end[];
 
 /** Kernel base address - identity mapped at 3GB (0xC0000000) */
 #define KERNEL_BASE 0xC0000000UL

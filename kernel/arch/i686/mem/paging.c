@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-extern uint8_t __end; // provided by linker, end of kernel image
+extern uint8_t __end[]; // provided by linker, end of kernel image
 
 #define PAGE_TABLE_ENTRIES 1024
 #define PAGE_DIR_ENTRIES 1024
@@ -71,7 +71,7 @@ static uint32_t alloc_frame(void)
    // Fallback bump allocator (early bootstrap only)
    if (!phys_alloc_ptr)
    {
-      phys_alloc_ptr = align_up((uintptr_t)&__end, PAGE_SIZE);
+      phys_alloc_ptr = align_up((uintptr_t)__end, PAGE_SIZE);
    }
 
    // Cap to 256MB to avoid wrap/overlap; this is a soft guard for early use.
