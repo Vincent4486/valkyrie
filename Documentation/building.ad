@@ -50,6 +50,55 @@ docker run --rm -v "$PWD:/build" -w /build \
 
 Build artifacts are written under `build/`.
 
+== macOS: Build and Run
+
+Native macOS builds are not a supported workflow. Build with Docker Desktop and
+run the generated disk image with QEMU installed on macOS.
+
+Prerequisites:
+
+* Docker Desktop installed and running
+* QEMU installed on macOS for running the built image
+
+[source,bash]
+----
+brew install qemu
+----
+
+Build a raw disk image through the Docker builder:
+
+[source,bash]
+----
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 ImageFormat=img
+----
+
+The raw disk image is created inside Docker, so macOS does not need Linux image
+tools such as `guestfish`. Find the generated image:
+
+[source,bash]
+----
+ls build/i686_debug/*.img
+----
+
+Run the image with host QEMU:
+
+[source,bash]
+----
+qemu-system-i386 -m 4G -machine pc -smp 1 \
+  -device VGA,vgamem_mb=64 \
+  -drive file=build/i686_debug/<generated-image>.img,format=raw,if=ide,index=0,media=disk \
+  -debugcon stdio
+----
+
+ISO artifacts can still be built with `ImageFormat=iso`, but the runtime path
+above uses the raw disk image because the current OS mounts its root filesystem
+from an ATA disk.
+
+Windows instructions are not documented yet. The expected future path is Docker
+Desktop or WSL2 for building, with a separate run/debug setup.
+
 == Host Builds
 
 Host builds are for developers who already have the correct Linux build tools
@@ -68,9 +117,6 @@ scons BuildArch=i686 BuildType=image ImageFormat=iso
 Disk image builds require Linux image tooling such as `guestfish`, filesystem
 formatters, GRUB tools, and `xorriso`. If host setup differs from the expected
 Linux toolchain, use the Docker builder instead.
-
-macOS host builds are not a supported workflow. Use Docker for reproducible
-builds from macOS.
 
 == Build Configuration
 

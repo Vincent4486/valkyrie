@@ -56,6 +56,7 @@ Notes:
 
 - Build settings are persisted in `.config` at repository root (auto-created on first run).
 - Host builds are possible when the required cross-toolchain and image tools are already installed, but Docker is the supported reproducible path.
+- On macOS, build with Docker and run the generated disk image with host QEMU. See [`Documentation/building.ad`](Documentation/building.ad).
 - QEMU and GDB helpers live under `scripts/base/` for manual use; SCons does not provide `run` or `debug` targets.
 
 ## Repository Guide
