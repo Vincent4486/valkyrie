@@ -37,12 +37,15 @@ Env.Append(
         '-ffreestanding',       # No hosted environment
         '-nostdlib',            # No standard library (kernel-only)
         '-fno-stack-protector', # No stack protection (requires libc)
+        '-fno-pic',             # No GOT/PLT indirection in early kernel code
+        '-fno-pie',             # Build a fixed-address kernel image
         '-fno-builtin',         # Don't use compiler builtin replacements for libc functions
         '-Wall',
         '-Wextra',
     ],
     LINKFLAGS=[
         '-nostdlib',
+        '-no-pie',
         '-Wl,-T', LinkerScript,
         '-Wl,-Map=' + Env.File('kernel.map').path,
         '-Wl,-z,relro,-z,now',   # Security: read-only relocations
