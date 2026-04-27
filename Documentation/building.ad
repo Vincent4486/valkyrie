@@ -5,63 +5,123 @@
 
 See also: link:index.html[Home], link:devel.html[Developer Guide]
 
-This guide walks you through building Valecium OS from source, including the kernel, userspace applications, and bootable disk images.
+This guide describes the supported build workflow for Valecium OS. The
+recommended path is the published Docker builder image, which keeps the
+cross-toolchain and image-generation tools consistent across host systems.
 
-== Prerequisites
+== Recommended Workflow: Docker Builder
 
-=== Minimal Requirements
-
-The absolute minimum to get started:
-
-* **Python 3+** — For SCons and build scripts
-* **SCons** — Build system
-
-That's it! Everything else can be installed and built automatically.
-
-=== Host Package Manager Setup
-
-Install only Python and SCons via your system package manager:
-
-**macOS:**
-[source,bash]
-----
-brew install python3 scons
-----
-
-**Debian/Ubuntu:**
-[source,bash]
-----
-sudo apt-get update
-sudo apt-get install -y python3 scons
-----
-
-=== Platform-Specific Notes
-
-**Linux (Recommended):**
-
-* Full support for all architectures
-* Cross-compiler toolchain builds reliably
-* QEMU and GDB installation straightforward
-
-**macOS (Partial Support):**
-
-* i686 builds supported but may require manual setup
-* x86_64 and ARM64 builds not fully tested
-* Cross-compiler toolchain building may fail or require manual intervention
-* Consider using Docker or a Linux VM for production builds
-* Manual toolchain installation may be necessary (see <<Troubleshooting>>)
-* Does not support disk image builds because of `parted`
-
-== Building the Project
-
-=== Configuration File (.config)
-
-Build settings are stored in `.config` at the project root. This file persists your preferences across builds, it will create itself when you run scons once.
+Pull the i686 builder image:
 
 [source,bash]
 ----
-cat .config
+docker pull vincent4486/valeciumos-builder:i686
 ----
+
+Build everything with the default debug configuration:
+
+[source,bash]
+----
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686
+----
+
+Build individual artifact groups:
+
+[source,bash]
+----
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=kernel
+
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=usr
+
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=image ImageFormat=img
+
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=image ImageFormat=iso
+----
+
+Build artifacts are written under `build/`.
+
+== macOS: Build and Run
+
+Native macOS builds are not a supported workflow. Build with Docker Desktop and
+run the generated disk image with QEMU installed on macOS.
+
+Prerequisites:
+
+* Docker Desktop installed and running
+* QEMU installed on macOS for running the built image
+
+[source,bash]
+----
+brew install qemu
+----
+
+Build a raw disk image through the Docker builder:
+
+[source,bash]
+----
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 ImageFormat=img
+----
+
+The raw disk image is created inside Docker, so macOS does not need Linux image
+tools such as `guestfish`. Find the generated image:
+
+[source,bash]
+----
+ls build/i686_debug/*.img
+----
+
+Run the image with host QEMU:
+
+[source,bash]
+----
+qemu-system-i386 -m 4G -machine pc -smp 1 \
+  -device VGA,vgamem_mb=64 \
+  -drive file=build/i686_debug/<generated-image>.img,format=raw,if=ide,index=0,media=disk \
+  -debugcon stdio
+----
+
+ISO artifacts can still be built with `ImageFormat=iso`, but the runtime path
+above uses the raw disk image because the current OS mounts its root filesystem
+from an ATA disk.
+
+Windows instructions are not documented yet. The expected future path is Docker
+Desktop or WSL2 for building, with a separate run/debug setup.
+
+== Host Builds
+
+Host builds are for developers who already have the correct Linux build tools
+installed. The cross compiler for the selected architecture must be on `PATH`;
+for the default i686 build this means commands such as
+`i686-linux-musl-gcc` must resolve before running SCons.
+
+[source,bash]
+----
+scons BuildArch=i686 BuildType=kernel
+scons BuildArch=i686 BuildType=usr
+scons BuildArch=i686 BuildType=image ImageFormat=img
+scons BuildArch=i686 BuildType=image ImageFormat=iso
+----
+
+Disk image builds require Linux image tooling such as `guestfish`, filesystem
+formatters, GRUB tools, and `xorriso`. If host setup differs from the expected
+Linux toolchain, use the Docker builder instead.
+
+== Build Configuration
+
+Build settings are stored in `.config` at the project root. The file is created
+the first time SCons runs, and command-line variables override persisted values.
 
 Example contents:
 
@@ -72,417 +132,91 @@ BuildArch = 'i686'
 ImageFs = 'fat32'
 BuildType = 'full'
 ImageSize = '250m'
-toolchain = '../os_toolchain'
 ImageName = 'valeciumos'
 ImageFormat = 'img'
 KernelName = 'valeciumx'
+BootSystem = 'grub'
+BootType = 'bios'
+DiskPartitionMap = 'mbr'
 ----
 
-=== Step 1: Install Dependencies
-
-Install all build dependencies (compilers, libraries, tools):
-
-[source,bash]
-----
-cd ~/Programming/valecium
-scons deps
-----
-
-This automatically:
-
-* Detects your architecture and OS
-* Downloads and builds required dependencies
-* Installs QEMU and debugging tools
-
-=== Step 2: Building the Toolchain
-
-Once dependencies are installed via `scons deps`, you can build the cross-compiler toolchain:
-
-[source,bash]
-----
-scons toolchain
-----
-
-This builds the cross-compiler for your target architecture based on the `BuildArch` variable in `.config` or if you explicitly set it via arguments. The toolchain build requires dependencies to be installed first. The path that the toolchain will install to is the directory the `toolchain` variable points to (You may need root privillages if you would like to install it system wide to locations like `/opt/cross`).
-
-=== Step 3: Build
-
-Once dependencies are installed and toolchain is built, build normally (make sure that you set the toolchain path to the acctual toolchain path):
-
-[source,bash]
-----
-scons                    # Build with default settings (debug mode)
-----
-
-This builds:
-
-* Kernel executable
-* Userspace libraries and utilities
-* Bootable disk image
-
-Build artifacts are placed in the `build/` directory.
-
-=== Step 4: Run or Debug
-
-[source,bash]
-----
-scons run                # Boot in QEMU
-# or
-scons debug              # Start debugging session
-----
-
-=== Building for Multiple Architectures
-
-To build for multiple target architectures, build the toolchain for each architecture:
-
-[source,bash]
-----
-# Build toolchain for i686
-scons BuildArch=i686 toolchain
-
-# Build toolchain for x86_64
-scons BuildArch=x86_64 toolchain
-
-# Build toolchain for ARM64
-scons BuildArch=aarch64 toolchain
-
-# Now you can switch between architectures:
-scons BuildArch=i686 BuildType=kernel      # i686 kernel
-scons BuildArch=x86_64 BuildType=kernel       # x86_64 kernel
-scons BuildArch=aarch64 BuildType=kernel   # ARM64 kernel
-----
-
-Each architecture's cross-compiler is stored separately, so switching architectures is as simple as changing the `BuildArch` variable.
-[source, python]
-----
-ImageFormat = 'img'
-KernelName = 'valeciumx'
-----
-
-You can edit `.config` directly to persist settings, or use command-line arguments (command-line takes precedence):
-
-[source,bash]
-----
-scons BuildConfig=release      # Use release for this build only (still uses .config defaults for other vars)
-scons BuildArch=x86_64            # Use x86_64 for this build only
-----
-
-== Build Configuration
-
-=== Configuration Variables
-
-Pass variables to `scons` to customize the build. Common options:
+Common variables:
 
 [width="100%",cols="30%,30%,40%",options="header"]
 |===
 | Variable | Values | Default
 | `BuildConfig` | `debug`, `release` | `debug`
 | `BuildArch` | `i686`, `x86_64`, `aarch64` | `i686`
+| `BuildType` | `full`, `kernel`, `usr`, `image`, `bootloader` | `full`
 | `ImageFs` | `fat12`, `fat16`, `fat32`, `ext2` | `fat32`
-| `ImageSize` | Size with k/m/g suffix | `250m`
-| `BuildType` | `full`, `kernel`, `usr`, `image` | `full`
+| `ImageSize` | Size with `k`, `m`, or `g` suffix | `250m`
 | `ImageFormat` | `img`, `iso` | `img`
+| `ImageName` | Base image name | `valeciumos`
+| `KernelName` | Kernel executable base name | `valeciumx`
+| `BootSystem` | `grub`, `system` | `grub`
 | `BootType` | `bios`, `efi` | `bios`
 | `DiskPartitionMap` | `mbr`, `gpt` | `mbr`
-| `ImageName` | Base name (no extension) | `valeciumos`
 |===
 
-=== Examples
+Examples:
 
 [source,bash]
 ----
-# Build for release with optimizations
 scons BuildConfig=release
-
-# Build for x86_64 architecture
-scons BuildArch=x86_64 BuildConfig=release
-
-# Build only the kernel (skip userspace)
-scons BuildType=kernel
-
-# Build only the disk image
-scons BuildType=image
-
-# Specify output image name and filesystem
-scons ImageName=vk-debug ImageFs=ext2
-
-# Large image (512 MB)
-scons ImageSize=512m
-
-# ISO format instead of hard disk
-scons ImageFormat=iso
-
-# EFI image with GPT partition table (x86_64 example)
+scons BuildArch=i686 BuildType=kernel
+scons BuildArch=i686 BuildType=usr
+scons BuildArch=i686 BuildType=image ImageFormat=iso
+scons ImageName=vk-debug ImageFs=ext2 ImageSize=512m
 scons BuildArch=x86_64 BootType=efi DiskPartitionMap=gpt
-----
-
-=== Build Modes
-
-**Debug mode** (default):
-
-* Includes debug symbols
-* No optimizations
-* Larger binaries
-* Better for development and debugging
-
-[source,bash]
-----
-scons BuildConfig=debug
-----
-
-**Release mode**:
-
-* Optimized for performance
-* Smaller binaries
-* No debug information
-* Better for production/testing
-
-[source,bash]
-----
-scons BuildConfig=release
 ----
 
 == Build Targets
 
-=== Full Build
+`BuildType=full` builds kernel, userspace, bootloader components when needed,
+and an image. This is the default when no target type is specified.
 
-Build kernel, userspace, and disk image (default):
+`BuildType=kernel` builds only the kernel executable.
 
-[source,bash]
-----
-scons BuildType=full
-# or simply: scons
-----
+`BuildType=usr` builds userspace libraries and applications.
 
-=== Kernel Only
+`BuildType=image` stages the sysroot, kernel, userspace files, boot files, and
+generates an `.img` or `.iso` image from already-built inputs.
 
-[source,bash]
-----
-scons BuildType=kernel
-----
+`BuildType=bootloader` builds only project bootloader components when the
+selected boot system requires them.
 
-Output: `build/kernel/valeciumx` (ELF executable with debug symbols)
+== Running and Debugging
 
-=== Userspace Only
+SCons builds artifacts only. It does not provide `run` or `debug` targets.
 
-[source,bash]
-----
-scons BuildType=usr
-----
-
-Builds system libraries and utilities without the kernel.
-
-=== Image Only
+For manual QEMU or GDB sessions, use the helper scripts directly after building
+an image:
 
 [source,bash]
 ----
-scons BuildType=image
+python3 scripts/base/qemu.py cdrom build/i686_debug/valeciumos-<version>_debug_i686.iso -a i686
+python3 scripts/base/gdb.py cdrom build/i686_debug/valeciumos-<version>_debug_i686.iso build/i686_debug/kernel/valeciumx-<version> -a i686
 ----
 
-Generates bootable disk image from pre-built kernel and userspace.
+Adjust paths to match the files produced in your `build/` directory.
 
-== Running and Testing
+== Documentation Builds
 
-=== Boot in QEMU
-
-Launch Valecium OS in the QEMU emulator:
+Generate HTML documentation:
 
 [source,bash]
 ----
-scons run
+make -C Documentation html
 ----
 
-This starts a QEMU virtual machine with:
-* 32 MB of RAM (configurable)
-* Disk image if available
-* Display output
-
-=== Boot with Custom Settings
-
-[source,bash]
-----
-# Increase memory to 64 MB
-scons run -- --memory=64M
-
-# Use specific output image
-scons run -- --image=build/valeciumos.img
-----
-
-=== Debugging with GDB
-
-Start a debug session with kernel symbols:
-
-[source,bash]
-----
-scons debug
-----
-
-This:
-
-* Starts QEMU in debug mode
-* Waits for GDB connection
-* Loads kernel symbols in GDB
-* Allows breakpoints, stepping, and inspection
-
-From another terminal, you can set breakpoints and step through code:
-
-[source,bash]
-----
-# Inside GDB
-(gdb) break CPU_Initialize
-(gdb) continue
-(gdb) step
-(gdb) print variable_name
-----
-
-== Incremental Builds
-
-SCons caches build results, so subsequent builds only recompile changed files.
-
-=== macOS Toolchain Issues
-
-macOS support for automated toolchain building is limited. If `scons toolchain` fails:
-
-**Option 1: Use Homebrew (easiest, i686 only)**
-
-[source,bash]
-----
-brew install gmp mpc mpfr
-
-# include --with-gmp=... --with-mpc=... in your configure command for autoconf to find dependencies
-----
-
-**Option 2: Use Docker (recommended for reliable builds)**
-
-[source,bash]
-----
-docker run -it -v $(pwd):/valecium ubuntu:22.04 bash
-# Inside container:
-apt-get update && apt-get install -y scons python3
-cd /valecium
-scons deps && scons toolchain && scons build
-----
-
-**Option 3: Use a Linux VM (VirtualBox, Parallels)**
-
-Running Valecium OS builds on Linux is more reliable. Consider setting up a development VM.
-
-**Option 4: Manual toolchain installation (advanced)**
-
-Build from source following GNU toolchain documentation, then configure `.config`:
-
-[source,ini]
-----
-toolchain = '/path/to/custom/toolchain'
-----
-
-=== Cleaning Build Artifacts
-
-Remove all build artifacts:
-
-[source,bash]
-----
-scons -c              # Clean build directory
-----
-
-== Environment Variables
-
-You can also set build options via environment variables (lower precedence than command-line):
-
-[source,bash]
-----
-export VALECIUM_ARCH=i686
-export VALECIUM_CONFIG=release
-scons
-----
-
-== Advanced Topics
-
-=== Custom Toolchain Path
-
-If your cross-compiler is in a non-standard location:
-
-[source,bash]
-----
-scons toolchain=/opt/cross/
-----
-
-=== Verbose Build Output
-
-See detailed compiler commands:
-
-[source,bash]
-----
-scons --verbose
-----
-
-=== Parallel Builds
-
-Speed up compilation using multiple CPU cores:
-
-[source,bash]
-----
-scons -j4                   # Use 4 parallel jobs
-scons -j$(nproc)            # Use all available cores
-----
-
-=== Build for Multiple Architectures
-
-Build and test across architectures:
-
-[source,bash]
-----
-for arch in i686 x86_64 aarch64; do
-  scons BuildArch=$arch BuildConfig=release BuildType=kernel
-done
-----
+Other documentation targets are available from `Documentation/Makefile`.
 
 == Build System Structure
 
 The SCons build system consists of:
 
-* `SConstruct` — Top-level build configuration
-* `kernel/SConscript` — Kernel build rules
-* `usr/SConscript` — Userspace build rules
-* `image/SConscript` — Disk image generation
-* `scripts/scons/` — Helper modules (toolchain, arch detection, disk utilities)
-
-See the kernel configuration files for details on architecture-specific settings.
-
-== Building Documentation
-
-Generate documentation in multiple formats (PDF, HTML, man pages, info pages):
-
-[source,bash]
-----
-cd Documents
-make pdf                 # Generate PDF documents
-make html                # Generate HTML documents
-make man                 # Generate man pages
-make info                # Generate info pages
-make all                 # Generate all formats
-make clean               # Remove all generated docs
-----
-
-Documentation is built using Pandoc and output to:
-
-* `build/pdf/` — PDF documents
-* `build/html/` — HTML documents
-* `build/man/` — Man pages
-* `build/info/` — Info pages
-
-All documentation files use AsciiDoc format (`.ad` files) and are processed through pandoc.
-
-== Revision History
-
-=== v1.0
-
-Initial comprehensive building guide with SCons quickstart, configuration options, running/debugging, and troubleshooting
-
-=== v1.1
-
-Added configuration file (`.config`) explanation, refined deps vs toolchain distinction, added macOS support warnings and Docker/VM alternatives
-
-=== v1.2
-
-Clarified toolchain built based on 'arch' variable, added multiple architecture build instructions, added documentation building section
+* `SConstruct` - top-level build configuration
+* `kernel/SConscript` - kernel build rules
+* `usr/SConscript` - userspace build rules
+* `image/SConscript` - image generation rules
+* `scripts/scons/` - helper modules for architecture, bootloader, and disk image logic
