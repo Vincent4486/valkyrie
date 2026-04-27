@@ -11,56 +11,52 @@ This repository contains:
 - A kernel with architecture-specific and architecture-agnostic layers
 - Filesystem, memory, process, and syscall subsystems
 - Small userspace components (`libmath`, `sh`)
-- Build tooling around SCons, QEMU, and a managed cross-toolchain
+- Build tooling around SCons and the ValeciumOS Docker builder
 
 ## Documentation
 
-Primary source docs live in [`Documents/`](Documents/).
+Primary source docs live in [`Documentation/`](Documentation/).
 
-- Project index: [`Documents/index.ad`](Documents/index.ad)
-- Build guide: [`Documents/building.ad`](Documents/building.ad)
-- Development guide and coding conventions: [`Documents/devel.ad`](Documents/devel.ad)
-- Implementation roadmap: [`Documents/roadmap.ad`](Documents/roadmap.ad)
+- Project index: [`Documentation/index.ad`](Documentation/index.ad)
+- Build guide: [`Documentation/building.ad`](Documentation/building.ad)
+- Development guide and coding conventions: [`Documentation/devel.ad`](Documentation/devel.ad)
+- Implementation roadmap: [`Documentation/roadmap.ad`](Documentation/roadmap.ad)
 
 Published docs are available at [docs.vyang.org/valecium](https://docs.vyang.org/valecium/).
 
 ## Quick Start
 
-### 1. Install host prerequisites
-
-You need Python 3 and SCons.
-
-Ubuntu example:
+### 1. Pull the builder image
 
 ```bash
-sudo apt install python3 scons
+docker pull vincent4486/valeciumos-builder:i686
 ```
 
-### 2. Install dependencies
+### 2. Build
 
 ```bash
-scons deps
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686
 ```
 
-### 3. Build
+### 3. Build specific artifacts
 
 ```bash
-scons
-```
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=kernel
 
-### 4. Run or debug
-
-```bash
-scons run
-# or
-scons debug
+docker run --rm -v "$PWD:/build" -w /build \
+  vincent4486/valeciumos-builder:i686 \
+  scons -Q BuildArch=i686 BuildType=image ImageFormat=iso
 ```
 
 Notes:
 
 - Build settings are persisted in `.config` at repository root (auto-created on first run).
-- Toolchain setup is handled by the build flow (`--ensure`) and is also available explicitly via `scons toolchain`.
-- On macOS, image-building support is limited (notably due to `parted` availability). See [`Documents/building.ad`](Documents/building.ad).
+- Host builds are possible when the required cross-toolchain and image tools are already installed, but Docker is the supported reproducible path.
+- QEMU and GDB helpers live under `scripts/base/` for manual use; SCons does not provide `run` or `debug` targets.
 
 ## Repository Guide
 
@@ -71,7 +67,7 @@ Top-level directories and what they contain:
 - [`usr/`](usr/) - userspace components and libraries
 - [`image/`](image/) - disk image assembly logic and root image content
 - [`scripts/`](scripts/) - helper scripts for dependencies, toolchain, QEMU, GDB, formatting
-- [`Documents/`](Documents/) - AsciiDoc source for project documentation
+- [`Documentation/`](Documentation/) - AsciiDoc source for project documentation
 
 Important build files:
 
@@ -104,18 +100,18 @@ scons ImageFormat=iso
 scons BootType=efi DiskPartitionMap=gpt BuildArch=x86_64
 ```
 
-For full build and platform notes, read [`Documents/building.ad`](Documents/building.ad).
+For full build and platform notes, read [`Documentation/building.ad`](Documentation/building.ad).
 
 ## Development and Contributing
 
-Start with [`Documents/devel.ad`](Documents/devel.ad), which covers:
+Start with [`Documentation/devel.ad`](Documentation/devel.ad), which covers:
 
 - Build/development workflow
 - Git and patch submission expectations
 - Coding style, naming, and commenting conventions
 - Architecture separation and HAL strategy (no platform-specific assembly in common code)
 
-If you plan a larger feature, check [`Documents/roadmap.ad`](Documents/roadmap.ad) to align with current priorities.
+If you plan a larger feature, check [`Documentation/roadmap.ad`](Documentation/roadmap.ad) to align with current priorities.
 
 ## Project Status
 
@@ -126,7 +122,7 @@ Valecium OS is actively developed. Roadmap highlights include:
 - Filesystem and device capability growth
 - Longer-term advanced features (networking, extended process model)
 
-Track current progress in [`Documents/roadmap.ad`](Documents/roadmap.ad).
+Track current progress in [`Documentation/roadmap.ad`](Documentation/roadmap.ad).
 
 ## Licensing
 
