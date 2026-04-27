@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 from SCons.Environment import Environment
+from SCons.Script import Exit
 from SCons.Variables import EnumVariable, Variables
 
 from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
@@ -36,16 +37,8 @@ def GetGitHash() -> str:
         return ''
 
 
-def ResolveTools(Arch: str):
-    Prefixes = [f'{Arch}-linux-musl-', f'{Arch}-elf-', '']
-
-    Selected = ''
-    for Prefix in Prefixes:
-        Gcc = f'{Prefix}gcc' if Prefix else 'gcc'
-        if shutil.which(Gcc):
-            Selected = Prefix
-            break
-
+def ResolveTools(Arch: str, ArchitectureConfig: dict):
+    Prefix = ArchitectureConfig['ToolchainPrefix']
     Bases = {
         'AS': 'as',
         'AR': 'ar',
@@ -57,24 +50,35 @@ def ResolveTools(Arch: str):
 
     Tools = {}
     Paths = {}
+    Missing = []
 
     for Key, Base in Bases.items():
-        Preferred = f'{Selected}{Base}' if Selected else Base
-        PreferredPath = shutil.which(Preferred)
-        if PreferredPath:
-            Tools[Key] = Preferred
-            Paths[Key] = PreferredPath
-            continue
+        Tool = f'{Prefix}{Base}'
+        ToolPath = shutil.which(Tool)
+        Tools[Key] = Tool
+        Paths[Key] = ToolPath if ToolPath else '<not found>'
+        if not ToolPath:
+            Missing.append(Tool)
 
-        FallbackPath = shutil.which(Base)
-        if FallbackPath:
-            Tools[Key] = Base
-            Paths[Key] = FallbackPath
-        else:
-            Tools[Key] = Preferred
-            Paths[Key] = '<not found>'
+    if Missing:
+        HostGcc = shutil.which('gcc')
+        print(f"Error: missing cross-toolchain for BuildArch={Arch}.")
+        print(
+            f"Expected {ArchitectureConfig['TargetTriple']} tools with "
+            f"prefix `{Prefix}` on PATH."
+        )
+        if HostGcc:
+            print(f"Refusing to use host compiler `gcc` at {HostGcc}.")
+        MissingUnique = list(dict.fromkeys(Missing))
+        print("Missing tools: " + ', '.join(MissingUnique))
+        print(
+            "Use `docker run --rm -v \"$PWD:/build\" -w /build "
+            "vincent4486/valeciumos-builder:i686 scons ...`, or put the "
+            "matching cross-toolchain on PATH."
+        )
+        Exit(1)
 
-    return Tools, Paths, Selected
+    return Tools, Paths, Prefix
 
 
 ConfigPath = Path('.config')
@@ -196,7 +200,7 @@ def CreateTargetEnvironment(HostEnv):
     Arch = HostEnv['BuildArch']
     ArchitectureConfig = GetArchConfig(Arch)
 
-    Tools, ToolPaths, Prefix = ResolveTools(Arch)
+    Tools, ToolPaths, Prefix = ResolveTools(Arch, ArchitectureConfig)
 
     Desc = Prefix if Prefix else 'unprefixed host tools'
     print(f"Using build tool prefix for {Arch}: {Desc}")
