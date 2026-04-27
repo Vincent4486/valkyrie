@@ -15,7 +15,6 @@
 #include <hal/video.h>
 #include <mem/mm_kernel.h>
 #include <std/stdio.h>
-#include <std/string.h>
 #include <stdint.h>
 #include <sys/cmdline.h>
 #include <sys/elf.h>
@@ -28,9 +27,38 @@ extern int Init_MountRoot(void);
 extern void interact();
 static void __attribute__((unused, noreturn)) fallback(void);
 
-extern uint8_t __bss_start;
-extern uint8_t __end;
+extern uint8_t __bss_start[];
+extern uint8_t __end[];
 extern void _init();
+
+static void clear_memory(void *base, uintptr_t size)
+{
+   volatile uint8_t *ptr = (volatile uint8_t *)base;
+   while (size > 0)
+   {
+      *ptr = 0;
+      ptr++;
+      size--;
+   }
+}
+
+static void copy_memory(void *dest, const void *src, uintptr_t size)
+{
+   uint8_t *dest_ptr = (uint8_t *)dest;
+   const uint8_t *src_ptr = (const uint8_t *)src;
+   while (size > 0)
+   {
+      *dest_ptr = *src_ptr;
+      dest_ptr++;
+      src_ptr++;
+      size--;
+   }
+}
+
+static void clear_bss(void)
+{
+   clear_memory(__bss_start, (uintptr_t)(__end - __bss_start));
+}
 
 void hold(int sec)
 {
@@ -62,17 +90,14 @@ void hold(int sec)
 void __attribute__((noreturn)) start(BOOT_Info *boot)
 {
    BOOT_Info boot_snapshot;
+   clear_memory(&boot_snapshot, sizeof(boot_snapshot));
    if (boot)
    {
-      boot_snapshot = *boot;
-   }
-   else
-   {
-      memset(&boot_snapshot, 0, sizeof(boot_snapshot));
+      copy_memory(&boot_snapshot, boot, sizeof(boot_snapshot));
    }
 
-   memset(&__bss_start, 0, (&__end) - (&__bss_start));
-   memset(g_SysInfo, 0, sizeof(SYS_Info));
+   clear_bss();
+   clear_memory(g_SysInfo, sizeof(SYS_Info));
 
    g_SysInfo->boot = boot_snapshot;
 
