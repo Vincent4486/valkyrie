@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+import shutil
 import subprocess
 import textwrap
 
@@ -150,6 +151,71 @@ def RunCommand(Arguments: list, InputText: str = None):
         input=InputText,
         text=(InputText is not None),
     )
+
+
+def DockerBuilderHint() -> str:
+    return (
+        'Use the Docker builder image instead: '
+        'docker run --rm -v "$PWD:/build" -w /build '
+        'vincent4486/valeciumos-builder:i686 scons ...'
+    )
+
+
+def RequireExecutable(Name: str, Purpose: str):
+    if shutil.which(Name):
+        return
+    raise RuntimeError(
+        f'Missing required image build tool `{Name}` for {Purpose}. '
+        f'{DockerBuilderHint()}'
+    )
+
+
+def RequirePath(Path: str, Purpose: str):
+    if os.path.exists(Path):
+        return
+    raise RuntimeError(
+        f'Missing required image build path `{Path}` for {Purpose}. '
+        f'{DockerBuilderHint()}'
+    )
+
+
+def PreflightImageTools(
+    OutputFormat: str,
+    Filesystem: str,
+    BootSystem: str,
+    BootType: str,
+    Architecture: str,
+):
+    if OutputFormat == 'iso':
+        if BootSystem == 'grub':
+            RequireExecutable('xorriso', 'GRUB ISO creation')
+            RequireExecutable('grub-mkrescue', 'GRUB ISO creation')
+        return
+
+    if OutputFormat != 'img':
+        return
+
+    FilesystemConfig = GetFilesystemConfig(Filesystem)
+    RequireExecutable('guestfish', 'raw disk image partitioning and file injection')
+    RequireExecutable(
+        FilesystemConfig['MakeFilesystemCommand'],
+        f'{Filesystem} partition formatting',
+    )
+
+    if BootSystem != 'grub':
+        return
+
+    GrubTarget = GetGrubTarget(BootType, Architecture)
+    GrubPath = os.path.join('/usr/lib/grub', GrubTarget)
+
+    RequireExecutable('grub-mkimage', 'GRUB disk image bootloader creation')
+    RequirePath(GrubPath, f'GRUB target {GrubTarget}')
+
+    if BootType == 'bios':
+        RequirePath(
+            os.path.join(GrubPath, 'boot.img'),
+            f'GRUB BIOS target {GrubTarget}',
+        )
 
 
 def FormatPartitionImage(PartitionPath: str, Filesystem: str, VolumeLabelName: str = VolumeLabel):
