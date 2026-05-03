@@ -115,8 +115,8 @@ boot_drive:
 	.byte 0
 
 stage2_patch_signature:
-	.ascii "VLSP"
-
+  .ascii "VLSP"
+  
 stage2_start_lba:
 	.long 0
 

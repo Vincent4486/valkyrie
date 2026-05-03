@@ -11,6 +11,21 @@ Stage1PatchSignature = b'VLSP'
 GptSignature = b'EFI PART'
 BiosBootPartitionGuid = uuid.UUID('21686148-6449-6E6F-744E-656564454649')
 
+AllowedBootSetups = (
+    ('aarch64', 'gpt', 'grub', 'efi'),
+    ('aarch64', 'gpt', 'system', 'efi'),
+    ('x86_64', 'gpt', 'grub', 'bios'),
+    ('x86_64', 'gpt', 'grub', 'efi'),
+    ('x86_64', 'gpt', 'system', 'bios'),
+    ('x86_64', 'gpt', 'system', 'efi'),
+    ('x86_64', 'mbr', 'grub', 'bios'),
+    ('x86_64', 'mbr', 'system', 'bios'),
+    ('i686', 'gpt', 'grub', 'bios'),
+    ('i686', 'gpt', 'system', 'bios'),
+    ('i686', 'mbr', 'grub', 'bios'),
+    ('i686', 'mbr', 'system', 'bios'),
+)
+
 
 BootloaderProfiles = {
     'bios': {
@@ -41,6 +56,29 @@ def GetSupportedBootTypes() -> list:
 
 def GetSupportedBootSystems() -> list:
     return list(BootSystemProfiles.keys())
+
+
+def ValidateBootSetup(
+    Architecture: str,
+    PartitionMap: str,
+    BootSystem: str,
+    BootType: str,
+) -> None:
+    Config = (
+        Architecture.lower(),
+        PartitionMap.lower(),
+        BootSystem.lower(),
+        BootType.lower(),
+    )
+    if Config not in AllowedBootSetups:
+        raise ValueError(
+            f"Unsupported boot setup: "
+            f"Architecture={Architecture}, "
+            f"PartitionMap={PartitionMap}, "
+            f"BootSystem={BootSystem}, "
+            f"BootType={BootType}. "
+            f"Allowed configurations defined in Documentation/bootloader/allowed-boot-setups.csv"
+        )
 
 
 def ShouldBuildSystemBootloader(BootSystem: str) -> bool:
