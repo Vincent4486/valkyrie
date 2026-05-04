@@ -7,5 +7,4 @@ Import('Sources')
 
 
 Sources += [
-    File('print.c'),
 ]

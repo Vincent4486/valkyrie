@@ -6,18 +6,16 @@ import os
 from SCons.Environment import Environment
 
 AllowedBootSetups = (
-    ('aarch64', 'gpt', 'efi', 'iso', 'system'),
-    ('aarch64', 'gpt', 'efi', 'iso', 'grub'),
-    ('x86_64', 'gpt', 'bios', 'iso', 'system'),
-    ('x86_64', 'gpt', 'bios', 'iso', 'grub'),
-    ('x86_64', 'gpt', 'efi', 'iso', 'system'),
-    ('x86_64', 'gpt', 'efi', 'iso', 'grub'),
-    ('x86_64', 'mbr', 'bios', 'iso', 'system'),
-    ('x86_64', 'mbr', 'bios', 'iso', 'grub'),
-    ('i686', 'gpt', 'bios', 'iso', 'system'),
-    ('i686', 'gpt', 'bios', 'iso', 'grub'),
-    ('i686', 'mbr', 'bios', 'iso', 'system'),
-    ('i686', 'mbr', 'bios', 'iso', 'grub'),
+    # ISO is the only supported image format, so the boot setup is defined by
+    # (architecture, boot type, bootloader).
+    ('aarch64', 'efi', 'system'),
+    ('aarch64', 'efi', 'grub'),
+    ('x86_64', 'bios', 'system'),
+    ('x86_64', 'bios', 'grub'),
+    ('x86_64', 'efi', 'system'),
+    ('x86_64', 'efi', 'grub'),
+    ('i686', 'bios', 'system'),
+    ('i686', 'bios', 'grub'),
 )
 
 
@@ -41,25 +39,19 @@ def GetSupportedBootTypes() -> list:
 
 def ValidateBootSetup(
     Architecture: str,
-    PartitionMap: str,
     BootType: str,
-    ImageFormat: str,
     Bootloader: str
 ) -> None:
     Config = (
         Architecture.lower(),
-        PartitionMap.lower(),
         BootType.lower(),
-        ImageFormat.lower(),
         Bootloader.lower()
     )
     if Config not in AllowedBootSetups:
         raise ValueError(
             f"Unsupported boot setup: "
             f"Architecture={Architecture}, "
-            f"PartitionMap={PartitionMap}, "
             f"BootType={BootType}, "
-            f"ImageFormat={ImageFormat}, "
             f"Bootloader={Bootloader}. "
         )
 

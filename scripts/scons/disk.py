@@ -7,6 +7,7 @@ import textwrap
 
 from scripts.scons.bootloader import (
     PrepareElToritoBootImage,
+    ValidateBootSetup,
 )
 
 VolumeLabel = 'VALECIUM'
@@ -26,6 +27,7 @@ def CreateBootableIso(
     StagingDirectory: str,
     OutputIso: str,
     VolumeLabelName: str = VolumeLabel,
+    Architecture: str = 'i686',
     BootType: str = 'bios',
     BootSystem: str = 'grub',
     BootloaderComponents: dict = None,
@@ -36,6 +38,13 @@ def CreateBootableIso(
     and Stage2, the system bootloader is embedded via El Torito "no emulation"
     boot using ``xorriso`` directly.  Otherwise ``grub-mkrescue`` is used.
     """
+
+    ValidateBootSetup(
+        Architecture=Architecture,
+        BootType=BootType,
+        Bootloader=BootSystem,
+    )
+
     UseSystemBootloader = (
         BootSystem == 'system'
         and BootloaderComponents

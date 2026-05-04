@@ -130,6 +130,7 @@ def BuildDisk(
         Stage,
         ImagePath,
         Volume,
+        Architecture=Architecture,
         BootType=BootType,
         BootSystem=BootSystem,
         BootloaderComponents=BootloaderComponents,
