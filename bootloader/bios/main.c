@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include "video/video.h"
-#include "video/valecium_logo_128_q16.h"
+#include "video/logo.h"
 
 /* Multiboot2 tag types */
 #define MBI_TAG_END          0
@@ -34,13 +34,6 @@ struct mbi_tag_framebuffer
 
 #define BOOT_LOGO_SCALE 5
 
-static uint8_t boot_logo_get_index(int x, int y)
-{
-   uint32_t i = (uint32_t)y * (uint32_t)VALECIUM_LOGO_W + (uint32_t)x;
-   uint8_t b = g_ValeciumLogo_Data4bpp[i >> 1];
-   return (i & 1u) ? (b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
-}
-
 static void draw_boot_logo(int origin_x)
 {
    uint32_t palette[VALECIUM_LOGO_PALETTE_SIZE];
@@ -50,7 +43,6 @@ static void draw_boot_logo(int origin_x)
    int scale;
    int origin_y;
    int x, y, sx, sy;
-   uint32_t black;
 
    if (!VBE_HasInfo() || origin_x < 0)
       return;
@@ -62,9 +54,6 @@ static void draw_boot_logo(int origin_x)
       uint8_t b = g_ValeciumLogo_PaletteRGB[i * 3u + 2u];
       palette[i] = VBE_PackRGB(r, g, b);
    }
-
-   black = VBE_PackRGB(0x00, 0x00, 0x00);
-   VBE_ClearScreen(black);
 
    scale = BOOT_LOGO_SCALE;
    screen_w = VBE_GetWidth();
@@ -88,7 +77,9 @@ static void draw_boot_logo(int origin_x)
    {
       for (x = 0; x < VALECIUM_LOGO_W; x++)
       {
-         uint8_t idx = boot_logo_get_index(x, y);
+         uint32_t i = (uint32_t)y * (uint32_t)VALECIUM_LOGO_W + (uint32_t)x;
+         uint8_t b = g_ValeciumLogo_Data4bpp[i >> 1];
+         uint8_t idx = (i & 1u) ? (b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
          uint32_t color = palette[idx & 0x0Fu];
 
          for (sy = 0; sy < scale; sy++)
@@ -271,6 +262,6 @@ int main(uint32_t mbi_addr, uint8_t availableOutputs, uint8_t bootDrive)
    print_memory_map(ptr);
    print_boot_drive_number(bootDrive);
    if (preferedOutput == OUTPUT_VBE)
-      draw_boot_logo(16);
+      draw_boot_logo(VBE_GetWidth() - 720);
    return 0;
 }
