@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from SCons.Script import Command, Dir, File, Return
-
+import os
+import subprocess
 
 Import('Sources')
 Import('CoreSources')
@@ -11,10 +12,16 @@ FontScript = File('genfont.sh')
 FontTarget = Command(target='font_gen.c', source=FontScript,
                      action=f'bash {FontScript.srcnode().abspath} $TARGET')[0]
 
-# Generate logo_gen.h from the PNG via genlogo.py.
-LogoScript = File('genlogo.py')
-LogoTarget = Command(target='logo_gen.h', source=LogoScript,
-                     action=f'python3 {LogoScript.srcnode().abspath} $TARGET')[0]
+# =============================================================================
+# Generated Source Files
+# =============================================================================
+
+GenfontPath = os.path.join('genfont.sh')
+if os.path.exists(GenfontPath):
+    GenfontC = os.path.join('font_gen.c')
+    
+    if not os.path.exists(GenfontC):
+        subprocess.run(['bash', GenfontPath, GenfontC], check=True)
 
 Sources += [
     FontTarget,
