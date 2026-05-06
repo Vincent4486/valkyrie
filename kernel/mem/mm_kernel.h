@@ -198,10 +198,10 @@ int Stack_SelfTest(void);
 /* Architecture page size (4 KiB) */
 #define PAGE_SIZE 0x1000u
 
-extern uint8_t __kernel_image_start;
+extern uint8_t __kernel_image_start[];
 
 /* Linker-defined kernel image start; avoids raw fixed literals in C code. */
-#define MEMORY_KERNEL_ADDR ((void *)&__kernel_image_start)
+#define MEMORY_KERNEL_ADDR ((void *)__kernel_image_start)
 
 /* Library registry entries (storage owned by kmod.c in kernel memory). */
 #define LIB_NAME_MAX 32

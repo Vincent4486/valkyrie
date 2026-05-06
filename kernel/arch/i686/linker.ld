@@ -22,6 +22,8 @@ PHDRS
 /* Default kernel load address (override with --defsym=KERNEL_LOAD_ADDR=...) */
 KERNEL_LOAD_ADDR = DEFINED(KERNEL_LOAD_ADDR) ? KERNEL_LOAD_ADDR : 0x00100000;
 phys = KERNEL_LOAD_ADDR;
+BOOTSTRAP_STACK_BOTTOM = 0x00080000;
+BOOTSTRAP_STACK_TOP = 0x00090000;
 
 /* Allow undefined symbols - they will be resolved at runtime by dylib loader */
 /* This lets kernel code call library functions without explicit EXTERN declarations */
@@ -68,7 +70,10 @@ SECTIONS
     
     .rel.plt            : { _kernel_rel_plt_start = .; *(.rel.plt) _kernel_rel_plt_end = .; }
     
-    .bss                : ALIGN(1024) { __bss_start = .;        *(.bss .bss.*)     }
+    .bss                : ALIGN(4096) { __bss_start = .;        *(.bss .bss.*)     }
     
     __end = .;
+
+    ASSERT(__end <= BOOTSTRAP_STACK_BOTTOM || __bss_start >= BOOTSTRAP_STACK_TOP,
+           "kernel BSS overlaps the reserved bootstrap stack")
 }

@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-extern uint8_t __end; /* linker-provided end of kernel image */
+extern uint8_t __end[]; /* linker-provided end of kernel image */
 
 /* Simple bump allocator state */
 static uintptr_t heap_start = 0;
@@ -118,7 +118,7 @@ static uintptr_t align_up(uintptr_t v, size_t align)
 void Heap_Initialize(void)
 {
    /* place heap just after the kernel image end symbol */
-   heap_start = align_up((uintptr_t)&__end, 8);
+   heap_start = align_up((uintptr_t)__end, 8);
 
    /* Set heap to a reasonable size - 64 MiB should be plenty for a kernel */
    const uintptr_t heap_size = 64 * 1024 * 1024u; // 64 MiB

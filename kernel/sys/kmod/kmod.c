@@ -212,6 +212,8 @@ void KMOD_ClearGlobalSymtab(void)
 // Relocation Application
 // ============================================================================
 
+#define KERNEL_RELOCATION_WINDOW_BYTES 0x01000000u
+
 // Apply relocations to a loaded library or to the kernel
 // Returns 0 on success, -1 on unresolved symbols
 static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
@@ -237,11 +239,10 @@ static int apply_relocations(uint32_t base, Elf32_Rel *rel_table,
 
       /* Verify target falls within expected area for this base. This avoids
        * writing to clearly invalid low addresses when the relocation entry
-       * already contains an absolute virtual address. We allow a large
-       * permitted range (1 MiB..+16 MiB) relative to base to be tolerant.
+       * already contains an absolute virtual address.
        */
       uint32_t allowed_low = base;
-      uint32_t allowed_high = base + 0x0100000; /* 1 MiB window */
+      uint32_t allowed_high = base + KERNEL_RELOCATION_WINDOW_BYTES;
       if (r_offset < allowed_low || r_offset > allowed_high)
       {
          logfmt(LOG_ERROR,
@@ -355,9 +356,9 @@ int KMOD_ApplyKernelRelocations(void)
    extern char _kernel_rel_plt_end[];
    extern char _kernel_dynsym_start[];
    extern char _kernel_dynstr_start[];
-   extern uint8_t __kernel_image_start;
+   extern uint8_t __kernel_image_start[];
 
-   uint32_t kernel_base = (uint32_t)(uintptr_t)&__kernel_image_start;
+   uint32_t kernel_base = (uint32_t)(uintptr_t)__kernel_image_start;
 
    // Apply .rel.dyn relocations
    {

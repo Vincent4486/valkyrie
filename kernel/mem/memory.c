@@ -10,8 +10,8 @@
 #include <stdint.h>
 #include <sys/sys.h>
 
-extern uint8_t __kernel_image_start;
-extern uint8_t __end;
+extern uint8_t __kernel_image_start[];
+extern uint8_t __end[];
 
 /* Runtime-controlled memory debug flag. Set non-zero to make the handler
  * call `i686_Panic()` when a memory safety fault is detected. Default is 0.
@@ -192,8 +192,8 @@ void MEM_Initialize(void)
    /* Populate memory info in SYS_Info */
    g_SysInfo->memory.total_memory = total_memory;
    g_SysInfo->memory.page_size = HAL_ARCH_PAGE_SIZE;
-   g_SysInfo->memory.kernel_start = (uint32_t)(uintptr_t)&__kernel_image_start;
-   g_SysInfo->memory.kernel_end = (uint32_t)(uintptr_t)&__end;
+   g_SysInfo->memory.kernel_start = (uint32_t)(uintptr_t)__kernel_image_start;
+   g_SysInfo->memory.kernel_end = (uint32_t)(uintptr_t)__end;
    g_SysInfo->memory.user_start = (uint32_t)HAL_ARCH_CODE_START;
    g_SysInfo->memory.user_end = (uint32_t)HAL_ARCH_SPACE_END;
    g_SysInfo->memory.kernel_stack_size = 65536; /* 64KB kernel stack */
