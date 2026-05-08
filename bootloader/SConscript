@@ -24,7 +24,7 @@ TargetEnvironment: Environment
 # Environment Setup
 # =============================================================================
 
-MainBootloaderEnv = TargetEnvironment.Clone()
+MainEnvironment = TargetEnvironment.Clone()
 
 SourcePath = Dir('#bootloader').abspath
 Architecture = TargetEnvironment['BuildArch']
@@ -35,7 +35,7 @@ ArchitectureConfig = GetArchConfig(Architecture)
 BootloaderBuildConfig = GetBootloaderBuildConfig(BootType, Architecture)
 
 ConfigureBootloaderEnvironment(
-    MainBootloaderEnv,
+    MainEnvironment,
     SourcePath,
     ArchitecturePath,
     ArchitectureConfig,
@@ -72,8 +72,8 @@ BootloaderComponents = {
 }
 
 if BootType == 'bios':
-    BootBin = MainBootloaderEnv.File('boot.bin')
-    CoreBin = MainBootloaderEnv.File('core.bin')
+    BootBin = MainEnvironment.File('boot.bin')
+    CoreBin = MainEnvironment.File('core.bin')
     BootloaderComponents['Stage1'] = BootBin
     BootloaderComponents['Stage2'] = CoreBin
     SConscript(
@@ -91,7 +91,7 @@ if BootType == 'bios':
         ],
     )
 elif BootType == 'efi':
-    EfiBin = MainBootloaderEnv.File('boot.efi')
+    EfiBin = MainEnvironment.File('boot.efi')
     BootloaderComponents['EfiBinary'] = EfiBin
     SConscript(
         'efi/SConscript',
@@ -111,13 +111,14 @@ else:
 
 TargetEnvironment['BootloaderComponents'] = BootloaderComponents
 
-Objects = MainBootloaderEnv.Object(Sources)
+MainEnvironment.Append(OBJPREFIX='main_')
+Objects = MainEnvironment.Object(Sources)
 
 
 # =============================================================================
 # Build Target
 # =============================================================================
 
-Bootloader = MainBootloaderEnv.Library(BootloaderBuildConfig['OutputName'], Objects)
+Bootloader = MainEnvironment.Library(BootloaderBuildConfig['OutputName'], Objects)
 
 Export('Bootloader')

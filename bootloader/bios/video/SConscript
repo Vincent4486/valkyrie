@@ -11,7 +11,7 @@ VideoPath = os.path.join(SourcePath, 'bios', 'video')
 GenfontC = os.path.join(VideoPath, 'font_gen.c')
 
 Sources += [
-    GenfontC,
+    File('font_gen.c'),
     File('serial.c'),
     File('vbe.c'),
     File('vga_text.c'),
@@ -20,7 +20,7 @@ Sources += [
 ]
 
 CoreSources += [
-    GenfontC,
+    File('font_gen.c'),
     File('serial.c'),
     File('vbe.c'),
     File('vga_text.c'),

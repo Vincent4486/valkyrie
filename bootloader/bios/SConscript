@@ -37,54 +37,55 @@ else:
 
 BootLinkerScript = TargetEnvironment.File(f'{Architecture}/boot.ld').srcnode()
 CoreLinkerScript = TargetEnvironment.File(f'{Architecture}/core.ld').srcnode()
-BootEnv = TargetEnvironment.Clone()
-CoreEnv = TargetEnvironment.Clone()
+BootEnvironment = TargetEnvironment.Clone()
+CoreEnvironment = TargetEnvironment.Clone()
 
 ConfigureBootloaderEnvironment(
-    BootEnv,
+    BootEnvironment,
     SourcePath,
     ArchitecturePath,
     ArchitectureConfig,
     BootloaderBuildConfig,
 )
 ConfigureBootloaderEnvironment(
-    CoreEnv,
+    CoreEnvironment,
     SourcePath,
     ArchitecturePath,
     ArchitectureConfig,
     BootloaderBuildConfig,
 )
 
-BootEnv.AppendUnique(LINKFLAGS=[
+BootEnvironment.AppendUnique(LINKFLAGS=[
     '-nostdlib',
     '-Wl,-N',
     f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
     f'-Wl,-T,{BootLinkerScript.path}',
     '-Wl,--oformat,binary',
 ])
-CoreEnv.AppendUnique(LINKFLAGS=[
+CoreEnvironment.AppendUnique(LINKFLAGS=[
     '-nostdlib',
     '-Wl,-N',
     f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
     f'-Wl,-T,{CoreLinkerScript.path}',
     '-Wl,--oformat,binary',
 ])
-CoreEnv.Append(LIBS=['gcc'])
+CoreEnvironment.Append(LIBS=['gcc'])
 
-BootSectorObject = BootEnv.Object(BootSector)
-CoreObjects = CoreEnv.Object(CoreSources)
+BootSectorObject = BootEnvironment.Object(BootSector)
+CoreEnvironment.Append(OBJPREFIX='core_')
+CoreObjects = CoreEnvironment.Object(CoreSources)
 
-BootSectorBinary = BootEnv.Program(
+BootSectorBinary = BootEnvironment.Program(
     BootBin,
     BootSectorObject,
 )
 
-CoreBinary = CoreEnv.Program(
+CoreBinary = CoreEnvironment.Program(
     CoreBin,
     CoreObjects,
 )
 
-BootEnv.AddPostAction(
+BootEnvironment.AddPostAction(
     BootSectorBinary,
     lambda target, source, env: (
         (_ for _ in ()).throw(
@@ -97,7 +98,7 @@ BootEnv.AddPostAction(
     ),
 )
 
-BootEnv.Depends(BootSectorBinary, BootLinkerScript)
-CoreEnv.Depends(CoreBinary, CoreLinkerScript)
+BootEnvironment.Depends(BootSectorBinary, BootLinkerScript)
+CoreEnvironment.Depends(CoreBinary, CoreLinkerScript)
 
 Export('BootSectorBinary', 'CoreBinary')
