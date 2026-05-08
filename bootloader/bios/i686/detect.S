@@ -34,8 +34,8 @@
 .equ VBE_MBI_DI,    (VBE_SCRATCH + 8)
 .equ VBE_REQ_WIDTH, (VBE_SCRATCH + 10)
 .equ VBE_REQ_HEIGHT, (VBE_SCRATCH + 12)
-.equ VBE_REQ_WIDTH_VAL, 1920
-.equ VBE_REQ_HEIGHT_VAL, 1080
+.equ VBE_REQ_WIDTH_VAL, 800
+.equ VBE_REQ_HEIGHT_VAL, 600
 
 /* ------------------------------------------------------------------ */
 /*  detect_hardware                                                    */

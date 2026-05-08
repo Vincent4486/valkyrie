@@ -1,0 +1,268 @@
+= core.bin Filesystem Driver Installation Process
+
+:toc: left
+:icons: font
+:sectlinks:
+
+See also: link:index.html[Main Boot Page], link:bios-boot.html[BIOS Boot Process]
+
+== Motivation
+
+Stage2 (`core.bin`) needs to read a filesystem to locate and load stage3 from the
+boot media.  The filesystem on the boot media (FAT32, ISO 9660, etc.) is not known
+until install time, and the *cross-linker* (e.g. `i686-linux-musl-ld`) may not be
+available on the machine that performs the install.
+
+The solution is install-time composition: the cross toolchain pre-builds a set of
+standalone filesystem driver blobs, and a simple Python script patches the chosen
+driver's function addresses into `core.bin` -- no linker required.
+
+== Overview
+
+```
+ Build-time (cross-toolchain)            Install-time (Python only)
+ ┌──────────────────────────────┐       ┌──────────────────────────┐
+ │ core.S + detect.S + main.c   │       │ core_common.bin          │
+ │  ↓ link at 0x7E00            │       │ fs_fat32.bin             │
+ │  → core_common.bin           │──────→│  ↓ python bundle.py      │
+ │                              │       │  → core.bin (combined)   │
+ │ fat.c + fat.h                │       └──────────────────────────┘
+ │  ↓ link at 0x9000            │
+ │  → fs_fat32.bin              │
+ │                              │
+ │ iso9660.c + iso9660.h        │
+ │  ↓ link at 0x9000            │
+ │  → fs_iso9660.bin            │
+ └──────────────────────────────┘
+```
+
+== Data Structures
+
+=== Patch Table (in core_common.bin)
+
+A fixed-location table in a dedicated `.patch` section whose offset is
+determined at link time:
+
+[source,c]
+----
+#define PATCH_MAGIC 0x54504C56  /* "VLPT" */
+
+struct patch_table {
+    uint32_t magic;      // "VLPT" — enables the installer to find it
+    uint32_t fs_init;    // ← patched by installer with driver's init addr
+    uint32_t fs_open;    // ← patched by installer with driver's open addr
+    uint32_t fs_read;    // ← patched by installer with driver's read addr
+    uint32_t fs_close;   // ← patched by installer with driver's close addr
+};
+----
+
+The linker script places it such that `patch_table` is at a known offset from
+the base of `core_common.bin`:
+
+[source,ld]
+----
+SECTIONS
+{
+    . = 0x7E00;
+    .entry : AT(0) { *(.entry*) }
+    .text  : { *(.text*) *(.rodata*) *(.data*) }
+    .patch : { *(.patch*) }
+    .bss (NOLOAD) : { *(.bss*) }
+}
+----
+
+=== Export Table (in fs_*.bin)
+
+Each FS driver blob has an export table at its very first bytes, emitted from
+a dedicated `.exports` section:
+
+[source,c]
+----
+#define DRIVER_MAGIC 0x54414656  /* "VFAT" for FAT, "VI52" for ISO, etc. */
+
+struct driver_exports {
+    uint32_t magic;      // identifies the FS type
+    uint32_t init;       // absolute address of fs_init  (resolved by linker)
+    uint32_t open;       // absolute address of fs_open  (resolved by linker)
+    uint32_t read;       // absolute address of fs_read  (resolved by linker)
+    uint32_t close;      // absolute address of fs_close (resolved by linker)
+    /* — slots filled by core_common at runtime — */
+    uint32_t read_sector;// core_common writes its INT 13h helper addr here
+    uint32_t putc;       // core_common writes its debug output addr here
+};
+----
+
+The FS driver linker script links at a fixed address (e.g. `0x9000`) and
+places `.exports` first:
+
+[source,ld]
+----
+SECTIONS
+{
+    . = 0x9000;
+    .exports : AT(0) { *(.exports*) }
+    .text    : { *(.text*) *(.rodata*) *(.data*) }
+    .bss (NOLOAD) : { *(.bss*) }
+}
+----
+
+NOTE: All addresses within the FS driver blob are resolved by its own link
+step.  The export table values are integers embedded in the flat binary —
+core_common reads them as data, not as relocations.
+
+== Install-Time Composition
+
+The Python utility `bundle_core.py` performs these steps:
+
+1. Read `core_common.bin` into a `bytearray`.
+2. Scan for the patch magic `"VLPT"` to locate the patch table.
+3. Read the chosen FS driver blob (e.g. `fs_fat32.bin`).
+4. Read the driver's export table from offset 0.
+5. Validate both magics.
+6. Copy the driver's function addresses (`init`, `open`, `read`, `close`) into
+   core_common's patch table slots.
+7. Append the driver blob after core_common (the addresses already match since
+   both were linked independently for the final layout).
+
+[source,python]
+----
+import struct
+import sys
+
+PATCH_MAGIC = 0x54504C56
+
+def bundle(core_path, driver_path, output_path):
+    core = bytearray(open(core_path, 'rb').read())
+    drv  = bytearray(open(driver_path, 'rb').read())
+
+    drv_magic = struct.unpack_from('<I', drv, 0)[0]
+    print(f"Driver magic: 0x{drv_magic:08X}")
+
+    off = core.find(struct.pack('<I', PATCH_MAGIC))
+    if off == -1:
+        print("Error: patch table not found in core", file=sys.stderr)
+        sys.exit(1)
+
+    for i in range(4):
+        slot = struct.unpack_from('<I', drv, 4 + i*4)[0]
+        struct.pack_into('<I', core, off + 4 + i*4, slot)
+
+    open(output_path, 'wb').write(core + drv)
+----
+
+Usage:
+
+[source,bash]
+----
+# FAT32 boot media
+python bundle_core.py core_common.bin fs_fat32.bin core.bin
+
+# ISO 9660 boot media
+python bundle_core.py core_common.bin fs_iso9660.bin core.bin
+----
+
+The resulting `core.bin` is a valid flat binary that can be written to the
+boot media exactly like the current `core.bin`.
+
+== Runtime Flow
+
+[source]
+----
+                    REAL MODE
+core.S entry (0x7E00)
+  │
+  ├── detect_hardware()          — build MBI (same as today)
+  │
+  ├── main()                     — NEW: minimal FS loading
+  │     │
+  │     ├── Find patch table at known offset (or via magic scan)
+  │     │
+  │     ├── Read driver export table (at the address stored in patch)
+  │     │     └── Validate driver magic
+  │     │
+  │     ├── Backfill callbacks into driver's export table:
+  │     │     drv->read_sector = &int13_read_sector
+  │     │     drv->putc        = &bios_putc
+  │     │
+  │     ├── drv->init()         — one-time driver init
+  │     ├── drv->open("/boot/stage3.bin")
+  │     ├── drv->read(...)      — load into memory (e.g. 0x100000)
+  │     │     │
+  │     │     └── (inside read: calls back core_common's read_sector
+  │     │          which issues INT 13h)
+  │     │
+  │     └── drv->close()
+  │
+  ├── Switch to protected mode   (A20, GDT, CR0)
+  │
+  └── Jump to stage3 at 0x100000
+                           ──
+                          PROTECTED MODE
+----
+
+The callback pattern is a clean bidirectional contract:
+
+* **core_common** provides the real-mode BIOS services (INT 13h for disk I/O,
+  INT 10h for debug output).
+* **Driver** provides filesystem logic (BPB parsing, directory traversal,
+  cluster chain walking).
+* Neither side needs to know the other's internals — only the shared struct
+  layout.
+
+== Pre-Built Artifacts
+
+[width="100%",cols="3,1,4"]
+|===
+| Artifact | Link Address | Description
+
+| `core_common.bin`
+| `0x7E00`
+| Minimal stage2: real-mode detection, disk I/O, protected-mode switch,
+  patch table placeholder.
+
+| `fs_fat32.bin`
+| `0x9000`
+| Read-only FAT32 driver: parse BPB, traverse directories, read cluster
+  chains.
+
+| `fs_iso9660.bin`
+| `0x9000`
+| Read-only ISO 9660 driver: parse PVD, navigate directory records, read
+  extents.
+|===
+
+All FS drivers are linked at the same address (`0x9000`) since only one is
+ever included in a given `core.bin`.
+
+== Constraints
+
+* The FS driver runs in **real mode** (or at least has access to real-mode
+  services), because `read_sector` ultimately issues BIOS INT 13h.
+* `core_common` must not exceed the space between `0x7E00` and `0x9000`
+  (~4 KB). If it grows, bump the driver link address.
+* The driver blob must be smaller than the gap between `0x9000` and the stack
+  at `0x9FC00` (roughly 28 KB).
+
+== Alternatives Considered
+
+=== Partial linking at install time
+Using the cross-linker at install time to link `core_common.o` + `fs_fat.o`
+into `core.bin`.  Rejected because the cross-linker is not guaranteed to be
+available on the install machine.
+
+=== Runtime loading from disk sectors
+Storing the FS driver in raw sectors adjacent to stage2 and loading it at
+runtime (like stage1 loads stage2).  Rejected because it adds boot media
+layout complexity and the driver fits comfortably inside core.bin.
+
+=== Shared-library style ELF
+Using a relocatable ELF object for the driver and having core_common parse
+ELF at runtime.  Rejected because there is no OS loader — core_common would
+need to implement ELF loading and relocations, adding significant complexity
+for no benefit over the static patch approach.
+
+== Revision History
+
+=== v1.0
+
+Initial documentation of the install-time FS driver composition mechanism.
