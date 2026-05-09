@@ -5,8 +5,7 @@ repos:
         name: Valecium Formatter
         entry: python3 scripts/base/format.py
         language: system
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
     -   id: scons-dry-run
         name: SCons Syntax Check
         entry: scons -n -Q
