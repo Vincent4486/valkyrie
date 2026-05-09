@@ -51,8 +51,7 @@ static void MD5_Transform(uint32_t state[4], const uint8_t block[64])
    MD5_Decode32(x, block, 64);
 
 #define MD5_STEP(f, a_, b_, c_, d_, xk, s, ti)                                 \
-   do                                                                          \
-   {                                                                           \
+   do {                                                                        \
       (a_) += f((b_), (c_), (d_)) + (xk) + (ti);                               \
       (a_) = MD5_ROTL((a_), (s));                                              \
       (a_) += (b_);                                                            \

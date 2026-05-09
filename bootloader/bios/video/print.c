@@ -43,8 +43,7 @@ static void put_unsigned(unsigned long long val, unsigned radix,
 
    if (radix < 2 || radix > 16) return;
 
-   do
-   {
+   do {
       buf[pos++] = digits[val % radix];
       val /= radix;
    } while (val > 0 && pos < (int)sizeof(buf));
