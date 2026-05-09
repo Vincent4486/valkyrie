@@ -189,20 +189,6 @@ def CreateElTorito(
     FileSystemType: str,
     CoreFsBinaries: list = None,
 ) -> str:
-    """Create a combined El Torito boot image from stage1, stage2, and corefs.
-
-    Concatenates stage1 (padded to a full 512-byte sector), stage2, and the
-    filesystem module to produce a flat binary suitable for El Torito
-    "no emulation" boot. The resulting image is placed alongside the stage1
-    file as ``<stage1_name>-eltorito.bin``.
-
-    The El Torito Boot Info Table (patched by xorriso at ISO creation time) will
-    occupy bytes 8--31 of the first sector, so stage1 must not place critical
-    code or data in that region.
-
-    Returns:
-        Absolute path to the generated El Torito boot image.
-    """
     if not os.path.exists(Stage1Path):
         raise FileNotFoundError(f"Stage1 bootloader file does not exist: {Stage1Path}")
     if not os.path.exists(Stage2Path):
