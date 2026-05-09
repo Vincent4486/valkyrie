@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "video/logo_gen.h"
+// #include <"video/logo_gen.h">
 #include "video/video.h"
 #include <stdint.h>
 
@@ -14,12 +14,11 @@ int preferedOutput = OUTPUT_VGATEXT;
 
 struct fs_operations
 {
-   uint32_t magic;
    uint32_t fs_init;
    uint32_t fs_open;
    uint32_t fs_read;
    uint32_t fs_close;
-}
+};
 
 struct mbi_tag_framebuffer
 {
@@ -41,69 +40,69 @@ struct mbi_tag_framebuffer
    uint8_t rgb_reserved[2];
 };
 
-static void draw_boot_logo(void)
-{
-   uint32_t palette[VALECIUM_LOGO_PALETTE_SIZE];
-   uint32_t screen_w;
-   uint32_t screen_h;
-   uint32_t i;
-   uint32_t target_w;
-   uint32_t target_h;
-   int origin_x, origin_y;
-   int x, y;
+// static void draw_boot_logo(void)
+// {
+//    uint32_t palette[VALECIUM_LOGO_PALETTE_SIZE];
+//    uint32_t screen_w;
+//    uint32_t screen_h;
+//    uint32_t i;
+//    uint32_t target_w;
+//    uint32_t target_h;
+//    int origin_x, origin_y;
+//    int x, y;
 
-   if (!VBE_HasInfo()) return;
+//    if (!VBE_HasInfo()) return;
 
-   for (i = 0; i < VALECIUM_LOGO_PALETTE_SIZE; i++)
-   {
-      uint8_t r = g_ValeciumLogo_PaletteRGB[i * 3u + 0u];
-      uint8_t g = g_ValeciumLogo_PaletteRGB[i * 3u + 1u];
-      uint8_t b = g_ValeciumLogo_PaletteRGB[i * 3u + 2u];
-      palette[i] = VBE_PackRGB(r, g, b);
-   }
+//    for (i = 0; i < VALECIUM_LOGO_PALETTE_SIZE; i++)
+//    {
+//       uint8_t r = g_ValeciumLogo_PaletteRGB[i * 3u + 0u];
+//       uint8_t g = g_ValeciumLogo_PaletteRGB[i * 3u + 1u];
+//       uint8_t b = g_ValeciumLogo_PaletteRGB[i * 3u + 2u];
+//       palette[i] = VBE_PackRGB(r, g, b);
+//    }
 
-   screen_w = VBE_GetWidth();
-   screen_h = VBE_GetHeight();
+//    screen_w = VBE_GetWidth();
+//    screen_h = VBE_GetHeight();
 
-   target_h = (screen_h * 6u) / 10u;
-   if (target_h < 1u) target_h = 1u;
-   target_w =
-       (uint32_t)(((uint64_t)VALECIUM_LOGO_W * target_h) / VALECIUM_LOGO_H);
-   if (target_w < 1u) target_w = 1u;
+//    target_h = (screen_h * 6u) / 10u;
+//    if (target_h < 1u) target_h = 1u;
+//    target_w =
+//        (uint32_t)(((uint64_t)VALECIUM_LOGO_W * target_h) / VALECIUM_LOGO_H);
+//    if (target_w < 1u) target_w = 1u;
 
-   origin_x = ((int)screen_w - (int)target_w) / 2;
-   origin_y = ((int)screen_h - (int)target_h) / 2;
+//    origin_x = ((int)screen_w - (int)target_w) / 2;
+//    origin_y = ((int)screen_h - (int)target_h) / 2;
 
-   for (y = 0; y < (int)target_h; y++)
-   {
-      int dest_y = origin_y + y;
-      uint32_t src_y;
+//    for (y = 0; y < (int)target_h; y++)
+//    {
+//       int dest_y = origin_y + y;
+//       uint32_t src_y;
 
-      if (dest_y < 0 || dest_y >= (int)screen_h) continue;
+//       if (dest_y < 0 || dest_y >= (int)screen_h) continue;
 
-      src_y = (uint32_t)(((uint64_t)y * VALECIUM_LOGO_H) / target_h);
+//       src_y = (uint32_t)(((uint64_t)y * VALECIUM_LOGO_H) / target_h);
 
-      for (x = 0; x < (int)target_w; x++)
-      {
-         int dest_x = origin_x + x;
-         uint32_t src_x;
-         uint32_t src_i;
-         uint8_t b;
-         uint8_t idx;
-         uint32_t color;
+//       for (x = 0; x < (int)target_w; x++)
+//       {
+//          int dest_x = origin_x + x;
+//          uint32_t src_x;
+//          uint32_t src_i;
+//          uint8_t b;
+//          uint8_t idx;
+//          uint32_t color;
 
-         if (dest_x < 0 || dest_x >= (int)screen_w) continue;
+//          if (dest_x < 0 || dest_x >= (int)screen_w) continue;
 
-         src_x = (uint32_t)(((uint64_t)x * VALECIUM_LOGO_W) / target_w);
-         src_i = src_y * (uint32_t)VALECIUM_LOGO_W + src_x;
-         b = g_ValeciumLogo_Data4bpp[src_i >> 1];
-         idx = (src_i & 1u) ? (b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
-         color = palette[idx & 0x0Fu];
+//          src_x = (uint32_t)(((uint64_t)x * VALECIUM_LOGO_W) / target_w);
+//          src_i = src_y * (uint32_t)VALECIUM_LOGO_W + src_x;
+//          b = g_ValeciumLogo_Data4bpp[src_i >> 1];
+//          idx = (src_i & 1u) ? (b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
+//          color = palette[idx & 0x0Fu];
 
-         VBE_PutPixel(color, dest_x, dest_y);
-      }
-   }
-}
+//          VBE_PutPixel(color, dest_x, dest_y);
+//       }
+//    }
+// }
 
 static void init_framebuffer_info(uint8_t *ptr)
 {
@@ -227,9 +226,15 @@ void print_boot_drive_number(int bootDrive)
    puts(".\n");
 }
 
-/* Walk the Multiboot2 Boot Information structure at @mbi_addr
- * and print the memory map entries. */
-int main(uint32_t mbi_addr, uint8_t availableOutputs, uint8_t bootDrive)
+void print_corefs_memory_address(uint32_t address)
+{
+   puts("Corefs Module location: ");
+   putx(address);
+   puts(".\n");
+}
+
+int main(uint32_t mbi_addr, uint32_t corefs_addr, uint8_t availableOutputs,
+         uint8_t bootDrive)
 {
    uint8_t *ptr =
        (uint8_t *)(uintptr_t)mbi_addr + 8; /* skip total_size + reserved */
@@ -270,9 +275,26 @@ int main(uint32_t mbi_addr, uint8_t availableOutputs, uint8_t bootDrive)
    puts("Valecium Bootloader loaded.\n");
 
    print_available_outputs(availableOutputs);
-   print_memory_map(ptr);
+   //   print_memory_map(ptr);
    print_boot_drive_number(bootDrive);
-   if (preferedOutput == OUTPUT_VBE) draw_boot_logo();
+   //   if (preferedOutput == OUTPUT_VBE) draw_boot_logo();
+   print_corefs_memory_address(corefs_addr);
 
-   struct fs_operations return 0;
+   {
+      struct fs_operations *fs = (struct fs_operations *)corefs_addr;
+      puts("CoreFS init: ");
+      puti((int)((uint32_t (*)())fs->fs_init)());
+      putc('\n');
+      puts("CoreFS open: ");
+      puti((int)((uint32_t (*)())fs->fs_open)());
+      putc('\n');
+      puts("CoreFS read: ");
+      puti((int)((uint32_t (*)())fs->fs_read)());
+      putc('\n');
+      puts("CoreFS close: ");
+      puti((int)((uint32_t (*)())fs->fs_close)());
+      putc('\n');
+   }
+
+   return 0;
 }

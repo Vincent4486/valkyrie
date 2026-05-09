@@ -69,9 +69,10 @@ protected_mode_entry:
 	pushl	%eax
 	movzbl	available_outputs, %eax /* Pass output bitmask to C */
 	pushl	%eax
+	pushl	corefs_start_address    /* Pass corefs load address to C */
 	pushl	$MBI_BASE
 	call	main
-	addl	$12, %esp               /* 3 args × 4 bytes */
+	addl	$16, %esp               /* 4 args × 4 bytes */
 
 hang:
 	hlt

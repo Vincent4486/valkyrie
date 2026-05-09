@@ -146,6 +146,7 @@ if BootType == "bios" and CoreFsSources:
     )
     CoreFsEnvironment.Append(OBJPREFIX="corefs_")
     CoreFsEnvironment.Append(LIBS=["gcc"])
+    CoreFsEnvironment.Append(CPPDEFINES=["COREFS"])
 
     DiskObjects = CoreFsEnvironment.Object(CoreFsDiskSource)
 
