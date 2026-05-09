@@ -17,7 +17,7 @@ from scripts.scons.bootloader import (
 )
 
 
-Import('TargetEnvironment')
+Import("TargetEnvironment")
 TargetEnvironment: Environment
 
 # =============================================================================
@@ -26,9 +26,9 @@ TargetEnvironment: Environment
 
 MainEnvironment = TargetEnvironment.Clone()
 
-SourcePath = Dir('#bootloader').abspath
-Architecture = TargetEnvironment['BuildArch']
-BootType = TargetEnvironment['BootType']
+SourcePath = Dir("#bootloader").abspath
+Architecture = TargetEnvironment["BuildArch"]
+BootType = TargetEnvironment["BootType"]
 ArchitecturePath = os.path.join(SourcePath, BootType, Architecture)
 
 ArchitectureConfig = GetArchConfig(Architecture)
@@ -46,16 +46,16 @@ ConfigureBootloaderEnvironment(
 # Generated Source Files
 # =============================================================================
 
-if BootType == 'bios':
-    VideoPath = os.path.join(SourcePath, 'bios', 'video')
+if BootType == "bios":
+    VideoPath = os.path.join(SourcePath, "bios", "video")
 
-    MkfontPath = os.path.join(VideoPath, 'mkfont.py')
-    FontGenC = os.path.join(VideoPath, 'font_gen.c')
+    MkfontPath = os.path.join(VideoPath, "mkfont.py")
+    FontGenC = os.path.join(VideoPath, "font_gen.c")
     if os.path.exists(MkfontPath) and not os.path.exists(FontGenC):
         subprocess.run([sys.executable, MkfontPath, FontGenC], check=True)
 
-    MklogoPath = os.path.join(VideoPath, 'mklogo.py')
-    LogoGenH = os.path.join(VideoPath, 'logo_gen.h')
+    MklogoPath = os.path.join(VideoPath, "mklogo.py")
+    LogoGenH = os.path.join(VideoPath, "logo_gen.h")
     if os.path.exists(MklogoPath) and not os.path.exists(LogoGenH):
         subprocess.run([sys.executable, MklogoPath, LogoGenH], check=True)
 
@@ -65,68 +65,66 @@ if BootType == 'bios':
 
 Sources = []
 CoreFsSources = []
-SConscript('common/SConscript', exports=['Sources', 'CoreFsSources'])
+SConscript("common/SConscript", exports=["Sources", "CoreFsSources"])
 
 BootloaderComponents = {
-    'BootType': BootType,
-    'Architecture': Architecture,
+    "BootType": BootType,
+    "Architecture": Architecture,
 }
 
-if BootType == 'bios':
-    BootBin = MainEnvironment.File('boot.bin')
-    CoreBin = MainEnvironment.File('core.bin')
-    BootloaderComponents['Stage1'] = BootBin
-    BootloaderComponents['Stage2'] = CoreBin
+if BootType == "bios":
+    BootBin = MainEnvironment.File("boot.bin")
+    CoreBin = MainEnvironment.File("core.bin")
+    BootloaderComponents["Stage1"] = BootBin
+    BootloaderComponents["Stage2"] = CoreBin
     SConscript(
-        'bios/SConscript',
+        "bios/SConscript",
         exports=[
-            'TargetEnvironment',
-            'SourcePath',
-            'ArchitecturePath',
-            'ArchitectureConfig',
-            'BootloaderBuildConfig',
-            'Sources',
-            'Architecture',
-            'BootBin',
-            'CoreBin',
+            "TargetEnvironment",
+            "SourcePath",
+            "ArchitecturePath",
+            "ArchitectureConfig",
+            "BootloaderBuildConfig",
+            "Sources",
+            "Architecture",
+            "BootBin",
+            "CoreBin",
         ],
     )
-elif BootType == 'efi':
-    EfiBin = MainEnvironment.File('boot.efi')
-    BootloaderComponents['EfiBinary'] = EfiBin
+elif BootType == "efi":
+    EfiBin = MainEnvironment.File("boot.efi")
+    BootloaderComponents["EfiBinary"] = EfiBin
     SConscript(
-        'efi/SConscript',
+        "efi/SConscript",
         exports=[
-            'TargetEnvironment',
-            'SourcePath',
-            'ArchitecturePath',
-            'ArchitectureConfig',
-            'BootloaderBuildConfig',
-            'Sources',
-            'Architecture',
-            'EfiBin',
+            "TargetEnvironment",
+            "SourcePath",
+            "ArchitecturePath",
+            "ArchitectureConfig",
+            "BootloaderBuildConfig",
+            "Sources",
+            "Architecture",
+            "EfiBin",
         ],
     )
 else:
-    raise RuntimeError(f'Unsupported boot type: {BootType}')
+    raise RuntimeError(f"Unsupported boot type: {BootType}")
 
 # =============================================================================
 # Core Filesystem Modules
 # =============================================================================
 
 CoreFs = []
-if BootType == 'bios' and CoreFsSources:
+if BootType == "bios" and CoreFsSources:
     LinkModeByArchitecture = {
-        'i686': 'elf_i386',
-        'x86_64': 'elf_x86_64',
+        "i686": "elf_i386",
+        "x86_64": "elf_x86_64",
     }
 
     CoreFsLinkerScript = TargetEnvironment.File(
-        f'{BootType}/{Architecture}/corefs.ld'
+        f"{BootType}/{Architecture}/corefs.ld"
     ).srcnode()
-    CoreFsDiskSource = TargetEnvironment.File(
-        f'{BootType}/{Architecture}/disk.S'
-    )
+    CoreFsDiskSource = TargetEnvironment.File(f"{BootType}/{Architecture}/disk.S")
 
     CoreFsEnvironment = TargetEnvironment.Clone()
     ConfigureBootloaderEnvironment(
@@ -137,15 +135,17 @@ if BootType == 'bios' and CoreFsSources:
         BootloaderBuildConfig,
     )
 
-    CoreFsEnvironment.AppendUnique(LINKFLAGS=[
-        '-nostdlib',
-        '-Wl,-N',
-        f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
-        f'-Wl,-T,{CoreFsLinkerScript.path}',
-        '-Wl,--oformat,binary',
-    ])
-    CoreFsEnvironment.Append(OBJPREFIX='corefs_')
-    CoreFsEnvironment.Append(LIBS=['gcc'])
+    CoreFsEnvironment.AppendUnique(
+        LINKFLAGS=[
+            "-nostdlib",
+            "-Wl,-N",
+            f"-Wl,-m,{LinkModeByArchitecture[Architecture]}",
+            f"-Wl,-T,{CoreFsLinkerScript.path}",
+            "-Wl,--oformat,binary",
+        ]
+    )
+    CoreFsEnvironment.Append(OBJPREFIX="corefs_")
+    CoreFsEnvironment.Append(LIBS=["gcc"])
 
     DiskObjects = CoreFsEnvironment.Object(CoreFsDiskSource)
 
@@ -153,15 +153,15 @@ if BootType == 'bios' and CoreFsSources:
         FsName = os.path.splitext(FsSource.name)[0]
         FsObjects = CoreFsEnvironment.Object(FsSource)
         FsBinary = CoreFsEnvironment.Program(
-            MainEnvironment.File(f'corefs_{FsName}.bin'),
+            MainEnvironment.File(f"corefs_{FsName}.bin"),
             DiskObjects + FsObjects,
         )
         CoreFsEnvironment.Depends(FsBinary, CoreFsLinkerScript)
         CoreFs.append(FsBinary)
 
-TargetEnvironment['BootloaderComponents'] = BootloaderComponents
+TargetEnvironment["BootloaderComponents"] = BootloaderComponents
 
-MainEnvironment.Append(OBJPREFIX='main_')
+MainEnvironment.Append(OBJPREFIX="main_")
 Objects = MainEnvironment.Object(Sources)
 
 
@@ -169,8 +169,8 @@ Objects = MainEnvironment.Object(Sources)
 # Build Target
 # =============================================================================
 
-Bootloader = MainEnvironment.Library(BootloaderBuildConfig['OutputName'], Objects)
-BootloaderComponents['Main'] = Bootloader
-BootloaderComponents['CoreFs'] = CoreFs
+Bootloader = MainEnvironment.Library(BootloaderBuildConfig["OutputName"], Objects)
+BootloaderComponents["Main"] = Bootloader
+BootloaderComponents["CoreFs"] = CoreFs
 
-Export('Bootloader')
+Export("Bootloader")

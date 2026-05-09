@@ -7,23 +7,30 @@ from SCons.Script import Dir, Export
 
 from scripts.scons.utility import GlobSources
 
-Import('UsermodeEnv')
+Import("UsermodeEnv")
 
 Env = UsermodeEnv.Clone()
 
-Srcpath = Dir('#usr/selftest').abspath
+Srcpath = Dir("#usr/selftest").abspath
 
 Env.Append(
     CPATH=[Srcpath],
     CPPPATH=[Srcpath],
-    CCFLAGS=['-ffreestanding', '-fno-builtin', '-fno-pie', '-fno-stack-protector'],
-    LINKFLAGS=['-nostdlib', '-nostartfiles', '-nodefaultlibs', '-static', '-Wl,-e,_start', '-no-pie'],
+    CCFLAGS=["-ffreestanding", "-fno-builtin", "-fno-pie", "-fno-stack-protector"],
+    LINKFLAGS=[
+        "-nostdlib",
+        "-nostartfiles",
+        "-nodefaultlibs",
+        "-static",
+        "-Wl,-e,_start",
+        "-no-pie",
+    ],
 )
 
 Sources = GlobSources(Srcpath)
 Objects = Env.Object(Sources)
 
-SelftestExecutable = Env.Program('selftest', Objects)
+SelftestExecutable = Env.Program("selftest", Objects)
 
 SelftestModule = SelftestExecutable
-Export('SelftestModule')
+Export("SelftestModule")

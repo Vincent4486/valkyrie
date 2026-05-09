@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('Sources')
+
+Import("Sources")
 
 Sources += [
-    File('sigframe.c'),
-    File('sigreturn_asm.S'),
+    File("sigframe.c"),
+    File("sigreturn_asm.S"),
 ]

@@ -3,9 +3,9 @@
 from SCons.Script import File
 
 
-Import('Sources')
+Import("Sources")
 
 
 Sources += [
-    File('boot.S'),
+    File("boot.S"),
 ]

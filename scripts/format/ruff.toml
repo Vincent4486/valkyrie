@@ -1,5 +1,5 @@
 # 1. Global Settings (Top of file)
-target-version = "py314"
+target-version = "py312"
 line-length = 88
 indent-width = 4  # Set it here globally
 

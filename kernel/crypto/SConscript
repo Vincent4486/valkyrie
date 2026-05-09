@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('Sources')
+
+Import("Sources")
 
 Sources += [
-    File('crypto.c'),
-    File('md5.c'),
-    File('sha1.c'),
+    File("crypto.c"),
+    File("md5.c"),
+    File("sha1.c"),
 ]

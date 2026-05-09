@@ -7,31 +7,31 @@ import struct
 from SCons.Environment import Environment
 
 AllowedBootSetups = (
-    ('aarch64', 'efi', 'system'),
-    ('aarch64', 'efi', 'grub'),
-    ('x86_64', 'bios', 'system'),
-    ('x86_64', 'bios', 'grub'),
-    ('x86_64', 'efi', 'system'),
-    ('x86_64', 'efi', 'grub'),
-    ('i686', 'bios', 'system'),
-    ('i686', 'bios', 'grub'),
+    ("aarch64", "efi", "system"),
+    ("aarch64", "efi", "grub"),
+    ("x86_64", "bios", "system"),
+    ("x86_64", "bios", "grub"),
+    ("x86_64", "efi", "system"),
+    ("x86_64", "efi", "grub"),
+    ("i686", "bios", "system"),
+    ("i686", "bios", "grub"),
 )
 
 
 BootloaderProfiles = {
-    'bios': {
-        'SupportedArchitectures': ['i686', 'x86_64'],
-        'CompilerFlags': ['-DBOOTLOADER_BIOS=1'],
-        'AssemblerFlags': ['-DBOOTLOADER_BIOS=1'],
+    "bios": {
+        "SupportedArchitectures": ["i686", "x86_64"],
+        "CompilerFlags": ["-DBOOTLOADER_BIOS=1"],
+        "AssemblerFlags": ["-DBOOTLOADER_BIOS=1"],
     },
-    'efi': {
-        'SupportedArchitectures': ['x86_64', 'aarch64'],
-        'CompilerFlags': ['-DBOOTLOADER_EFI=1'],
-        'AssemblerFlags': ['-DBOOTLOADER_EFI=1'],
+    "efi": {
+        "SupportedArchitectures": ["x86_64", "aarch64"],
+        "CompilerFlags": ["-DBOOTLOADER_EFI=1"],
+        "AssemblerFlags": ["-DBOOTLOADER_EFI=1"],
     },
 }
 
-CoreFsPatchSignature = b'VLSF'
+CoreFsPatchSignature = b"VLSF"
 CoreFsPatchOffset = 4
 ElToritoLoadAddress = 0x7C00
 CoreFsLoadAddress = 0x57E00
@@ -41,16 +41,8 @@ def GetSupportedBootTypes() -> list:
     return list(BootloaderProfiles.keys())
 
 
-def ValidateBootSetup(
-    Architecture: str,
-    BootType: str,
-    Bootloader: str
-) -> None:
-    Config = (
-        Architecture.lower(),
-        BootType.lower(),
-        Bootloader.lower()
-    )
+def ValidateBootSetup(Architecture: str, BootType: str, Bootloader: str) -> None:
+    Config = (Architecture.lower(), BootType.lower(), Bootloader.lower())
     if Config not in AllowedBootSetups:
         raise ValueError(
             f"Unsupported boot setup: "
@@ -67,16 +59,16 @@ def GetBootloaderBuildConfig(BootType: str, Architecture: str) -> dict:
         )
 
     config = copy.deepcopy(BootloaderProfiles[BootType])
-    supported_architectures = config.get('SupportedArchitectures', [])
+    supported_architectures = config.get("SupportedArchitectures", [])
     if supported_architectures and Architecture not in supported_architectures:
         raise ValueError(
             f"Unsupported architecture {Architecture} for boot type {BootType}. "
             f"Supported: {supported_architectures}"
         )
 
-    config['BootType'] = BootType
-    config['Architecture'] = Architecture
-    config['OutputName'] = f'bootloader-{BootType}-{Architecture}'
+    config["BootType"] = BootType
+    config["Architecture"] = Architecture
+    config["OutputName"] = f"bootloader-{BootType}-{Architecture}"
 
     return config
 
@@ -89,32 +81,35 @@ def ConfigureBootloaderEnvironment(
     bootloader_config: dict,
 ):
     env.Append(
-        ASFLAGS=architecture_config.get('AssemblyFlags', []),
-        CCFLAGS=architecture_config.get('CompilerFlags', []),
-        LINKFLAGS=architecture_config.get('LinkerFlags', []),
+        ASFLAGS=architecture_config.get("AssemblyFlags", []),
+        CCFLAGS=architecture_config.get("CompilerFlags", []),
+        LINKFLAGS=architecture_config.get("LinkerFlags", []),
     )
 
     env.Append(
         CCFLAGS=[
-            '-ffreestanding',
-            '-fno-stack-protector',
-            '-fno-builtin',
-            '-Wall',
-            '-Wextra',
+            "-ffreestanding",
+            "-fno-stack-protector",
+            "-fno-builtin",
+            "-Wall",
+            "-Wextra",
         ],
-        CPATH=[source_path, os.path.join(source_path, 'common'), '#include'],
-        CPPPATH=[source_path, os.path.join(source_path, 'common'), '#include'],
+        CPATH=[source_path, os.path.join(source_path, "common"), "#include"],
+        CPPPATH=[source_path, os.path.join(source_path, "common"), "#include"],
         ASFLAGS=[
-            '-I', source_path,
-            '-I', os.path.join(source_path, 'common'),
-            '-I', architecture_path,
-            '-g',
-            '-Wa,--noexecstack',
+            "-I",
+            source_path,
+            "-I",
+            os.path.join(source_path, "common"),
+            "-I",
+            architecture_path,
+            "-g",
+            "-Wa,--noexecstack",
         ],
     )
 
-    env.Append(CCFLAGS=bootloader_config.get('CompilerFlags', []))
-    env.Append(ASFLAGS=bootloader_config.get('AssemblerFlags', []))
+    env.Append(CCFLAGS=bootloader_config.get("CompilerFlags", []))
+    env.Append(ASFLAGS=bootloader_config.get("AssemblerFlags", []))
 
 
 def PatchBinaryValue(
@@ -125,16 +120,18 @@ def PatchBinaryValue(
     ValueOffset: int = 4,
 ) -> None:
     if not isinstance(Signature, (bytes, bytearray)):
-        raise TypeError('Signature must be bytes')
+        raise TypeError("Signature must be bytes")
 
-    with open(BinaryPath, 'rb') as FileHandle:
+    with open(BinaryPath, "rb") as FileHandle:
         Data = bytearray(FileHandle.read())
 
     SignatureOffset = Data.find(Signature)
     if SignatureOffset == -1:
         raise ValueError(f"Signature {Signature!r} not found in {BinaryPath}")
     if Data.find(Signature, SignatureOffset + 1) != -1:
-        raise ValueError(f"Signature {Signature!r} appears multiple times in {BinaryPath}")
+        raise ValueError(
+            f"Signature {Signature!r} appears multiple times in {BinaryPath}"
+        )
 
     ValueSize = struct.calcsize(ValueFormat)
     PatchOffset = SignatureOffset + ValueOffset
@@ -143,7 +140,7 @@ def PatchBinaryValue(
 
     struct.pack_into(ValueFormat, Data, PatchOffset, Value)
 
-    with open(BinaryPath, 'wb') as FileHandle:
+    with open(BinaryPath, "wb") as FileHandle:
         FileHandle.write(Data)
 
 
@@ -155,7 +152,7 @@ def PatchCoreFsStartAddress(
         BinaryPath=CorePath,
         Signature=CoreFsPatchSignature,
         Value=StartAddress,
-        ValueFormat='<I',
+        ValueFormat="<I",
         ValueOffset=CoreFsPatchOffset,
     )
 
@@ -165,10 +162,10 @@ def ResolveCoreFsBinaryPath(
     CoreFsBinaries: list,
     Stage2Path: str,
 ) -> str:
-    TargetName = f'corefs_{FileSystemType}.bin'
+    TargetName = f"corefs_{FileSystemType}.bin"
 
     for Node in CoreFsBinaries or []:
-        NodePath = Node.get_abspath() if hasattr(Node, 'get_abspath') else str(Node)
+        NodePath = Node.get_abspath() if hasattr(Node, "get_abspath") else str(Node)
         if os.path.basename(NodePath) == TargetName:
             return NodePath
 
@@ -192,12 +189,12 @@ def CreateElTorito(
     if not os.path.exists(Stage2Path):
         raise FileNotFoundError(f"Stage2 bootloader file does not exist: {Stage2Path}")
 
-    with open(Stage1Path, 'rb') as Stage1File:
+    with open(Stage1Path, "rb") as Stage1File:
         Stage1Data = Stage1File.read()
 
     PatchCoreFsStartAddress(Stage2Path, CoreFsLoadAddress)
 
-    with open(Stage2Path, 'rb') as Stage2File:
+    with open(Stage2Path, "rb") as Stage2File:
         Stage2Data = Stage2File.read()
 
     CoreFsPath = ResolveCoreFsBinaryPath(
@@ -205,13 +202,13 @@ def CreateElTorito(
         CoreFsBinaries=CoreFsBinaries,
         Stage2Path=Stage2Path,
     )
-    with open(CoreFsPath, 'rb') as CoreFsFile:
+    with open(CoreFsPath, "rb") as CoreFsFile:
         CoreFsData = CoreFsFile.read()
 
     # Pad stage1 to a full 512-byte sector so the Boot Info Table (bytes 8-31)
     # has a well-defined home and stage2 begins on a sector boundary.
     if len(Stage1Data) < 512:
-        Stage1Data = Stage1Data + b'\x00' * (512 - len(Stage1Data))
+        Stage1Data = Stage1Data + b"\x00" * (512 - len(Stage1Data))
 
     if CoreFsLoadAddress <= ElToritoLoadAddress:
         raise ValueError(
@@ -226,15 +223,15 @@ def CreateElTorito(
         )
 
     if corefs_start < corefs_offset:
-        Stage2Data = Stage2Data + b'\x00' * (corefs_offset - corefs_start)
+        Stage2Data = Stage2Data + b"\x00" * (corefs_offset - corefs_start)
 
     Combined = Stage1Data + Stage2Data + CoreFsData
 
     OutputPath = os.path.join(
         os.path.dirname(Stage1Path),
-        os.path.basename(Stage1Path).replace('.bin', '-eltorito.bin'),
+        os.path.basename(Stage1Path).replace(".bin", "-eltorito.bin"),
     )
-    with open(OutputPath, 'wb') as OutputFile:
+    with open(OutputPath, "wb") as OutputFile:
         OutputFile.write(Combined)
 
     return os.path.abspath(OutputPath)

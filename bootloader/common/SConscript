@@ -3,7 +3,7 @@
 from SCons.Script import File
 
 
-Import('Sources')
-Import('CoreFsSources')
+Import("Sources")
+Import("CoreFsSources")
 
-SConscript('fs/SConscript', exports=['Sources', 'CoreFsSources'])
+SConscript("fs/SConscript", exports=["Sources", "CoreFsSources"])

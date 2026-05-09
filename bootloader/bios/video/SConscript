@@ -3,27 +3,27 @@
 from SCons.Script import Dir, File
 import os
 
-Import('Sources')
-Import('CoreSources')
+Import("Sources")
+Import("CoreSources")
 
-SourcePath = Dir('#bootloader').abspath
-VideoPath = os.path.join(SourcePath, 'bios', 'video')
-GenfontC = os.path.join(VideoPath, 'font_gen.c')
+SourcePath = Dir("#bootloader").abspath
+VideoPath = os.path.join(SourcePath, "bios", "video")
+GenfontC = os.path.join(VideoPath, "font_gen.c")
 
 Sources += [
-    File('font_gen.c'),
-    File('serial.c'),
-    File('vbe.c'),
-    File('vga_text.c'),
-    File('vga.c'),
-    File('print.c'),
+    File("font_gen.c"),
+    File("serial.c"),
+    File("vbe.c"),
+    File("vga_text.c"),
+    File("vga.c"),
+    File("print.c"),
 ]
 
 CoreSources += [
-    File('font_gen.c'),
-    File('serial.c'),
-    File('vbe.c'),
-    File('vga_text.c'),
-    File('vga.c'),
-    File('print.c'),
+    File("font_gen.c"),
+    File("serial.c"),
+    File("vbe.c"),
+    File("vga_text.c"),
+    File("vga.c"),
+    File("print.c"),
 ]

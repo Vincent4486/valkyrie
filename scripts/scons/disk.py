@@ -10,7 +10,7 @@ from scripts.scons.bootloader import (
     ValidateBootSetup,
 )
 
-VolumeLabel = 'VALECIUM'
+VolumeLabel = "VALECIUM"
 
 
 def RunCommand(Arguments: list, InputText: str = None, **kwargs):
@@ -27,9 +27,9 @@ def CreateBootableIso(
     StagingDirectory: str,
     OutputIso: str,
     VolumeLabelName: str = VolumeLabel,
-    Architecture: str = 'i686',
-    BootType: str = 'bios',
-    BootSystem: str = 'grub',
+    Architecture: str = "i686",
+    BootType: str = "bios",
+    BootSystem: str = "grub",
     BootloaderComponents: dict = None,
 ):
     """Create a bootable ISO 9660 image.
@@ -46,57 +46,78 @@ def CreateBootableIso(
     )
 
     UseSystemBootloader = (
-        BootSystem == 'system'
+        BootSystem == "system"
         and BootloaderComponents
-        and BootloaderComponents.get('Stage1')
-        and BootloaderComponents.get('Stage2')
+        and BootloaderComponents.get("Stage1")
+        and BootloaderComponents.get("Stage2")
     )
 
     if not UseSystemBootloader:
         print("   GRUB-MKRESCUE")
         RunCommand(
-            ['grub-mkrescue', 
-            '-o', OutputIso, 
-            StagingDirectory, 
-            '--', 
-            '-volid', VolumeLabelName])
+            [
+                "grub-mkrescue",
+                "-o",
+                OutputIso,
+                StagingDirectory,
+                "--",
+                "-volid",
+                VolumeLabelName,
+            ]
+        )
         return
 
-    Stage1Path = str(BootloaderComponents['Stage1'])
-    Stage2Path = str(BootloaderComponents['Stage2'])
+    Stage1Path = str(BootloaderComponents["Stage1"])
+    Stage2Path = str(BootloaderComponents["Stage2"])
 
     ElToritoPath = CreateElTorito(
         Stage1Path,
         Stage2Path,
-        FileSystemType='iso9660',
-        CoreFsBinaries=BootloaderComponents.get('CoreFsBinaries') if BootloaderComponents else None,
+        FileSystemType="iso9660",
+        CoreFsBinaries=BootloaderComponents.get("CoreFsBinaries")
+        if BootloaderComponents
+        else None,
     )
     LoadSectors = (os.path.getsize(ElToritoPath) + 511) // 512
 
-    print(f"   XORRISO (El Torito: {os.path.basename(ElToritoPath)}, {LoadSectors} sectors)")
+    print(
+        f"   XORRISO (El Torito: {os.path.basename(ElToritoPath)}, {LoadSectors} sectors)"
+    )
 
-    BootImageInStage = os.path.join(StagingDirectory, 'boot', os.path.basename(ElToritoPath))
+    BootImageInStage = os.path.join(
+        StagingDirectory, "boot", os.path.basename(ElToritoPath)
+    )
     os.makedirs(os.path.dirname(BootImageInStage), exist_ok=True)
     shutil.copy2(ElToritoPath, BootImageInStage)
 
-    RunCommand([
-        'xorriso', '-as', 'mkisofs',
-        '-o', OutputIso,
-        '-b', os.path.relpath(BootImageInStage, StagingDirectory),
-        '-no-emul-boot',
-        '-boot-load-size', str(LoadSectors),
-        '-boot-info-table',
-        '-volid', VolumeLabelName,
-        StagingDirectory,
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    RunCommand(
+        [
+            "xorriso",
+            "-as",
+            "mkisofs",
+            "-o",
+            OutputIso,
+            "-b",
+            os.path.relpath(BootImageInStage, StagingDirectory),
+            "-no-emul-boot",
+            "-boot-load-size",
+            str(LoadSectors),
+            "-boot-info-table",
+            "-volid",
+            VolumeLabelName,
+            StagingDirectory,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def BuildGrubConfigContent(
-    Config: str = 'release',
-    KernelName: str = 'valeciumx',
+    Config: str = "release",
+    KernelName: str = "valeciumx",
     VolumeLabelName: str = VolumeLabel,
 ) -> str:
-    Timeout = '0' if Config == 'debug' else '10'
+    Timeout = "0" if Config == "debug" else "10"
 
     return textwrap.dedent(f"""\
 # Set a variable to prevent recursion loops
@@ -126,13 +147,13 @@ fi
 
 def GenerateGrubConfig(
     GrubDirectory: str,
-    Config: str = 'release',
-    KernelName: str = 'valeciumx',
+    Config: str = "release",
+    KernelName: str = "valeciumx",
     VolumeLabelName: str = VolumeLabel,
 ) -> str:
     os.makedirs(GrubDirectory, exist_ok=True)
-    ConfigPath = os.path.join(GrubDirectory, 'grub.cfg')
+    ConfigPath = os.path.join(GrubDirectory, "grub.cfg")
     Content = BuildGrubConfigContent(Config, KernelName, VolumeLabelName)
-    with open(ConfigPath, 'w', encoding='utf-8') as FileHandle:
+    with open(ConfigPath, "w", encoding="utf-8") as FileHandle:
         FileHandle.write(Content)
     return ConfigPath

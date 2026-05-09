@@ -351,7 +351,7 @@ int VFS_Delete(const char *path)
       return VFS_ENOTSUP;
    }
 
-   int result = part->fs->ops->delete (part, relative);
+   int result = part->fs->ops->delete(part, relative);
    free(relative);
    return result;
 }

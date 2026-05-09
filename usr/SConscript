@@ -13,7 +13,7 @@ from SCons.Script import Export
 
 from scripts.scons.arch import GetArchConfig
 
-Import('TargetEnvironment')
+Import("TargetEnvironment")
 TargetEnvironment: Environment
 
 
@@ -21,45 +21,45 @@ TargetEnvironment: Environment
 # Usermode Environment Setup
 # =============================================================================
 
-Architecture = TargetEnvironment['BuildArch']
+Architecture = TargetEnvironment["BuildArch"]
 ArchitectureConfig = GetArchConfig(Architecture)
 
 UsermodeEnv = TargetEnvironment.Clone()
 UsermodeEnv.Append(
-    CPPDEFINES=['_POSIX_C_SOURCE=200809L'],  # POSIX.1-2008
+    CPPDEFINES=["_POSIX_C_SOURCE=200809L"],  # POSIX.1-2008
 )
 
 UsermodeEnv.Append(
-    ASFLAGS=ArchitectureConfig.get('AssemblyFlags', []),
-    CCFLAGS=ArchitectureConfig.get('CompilerFlags', []),
-    LINKFLAGS=ArchitectureConfig.get('LinkerFlags', []),
+    ASFLAGS=ArchitectureConfig.get("AssemblyFlags", []),
+    CCFLAGS=ArchitectureConfig.get("CompilerFlags", []),
+    LINKFLAGS=ArchitectureConfig.get("LinkerFlags", []),
 )
 
-UsermodeEnv['SHLIBPREFIX'] = 'lib'
-UsermodeEnv['SHLIBSUFFIX'] = '.so'
+UsermodeEnv["SHLIBPREFIX"] = "lib"
+UsermodeEnv["SHLIBSUFFIX"] = ".so"
 
-Export('UsermodeEnv')
+Export("UsermodeEnv")
 
 
 # =============================================================================
 # Build Sub-projects
 # =============================================================================
 
-SConscript('libmath/SConscript', variant_dir='libmath_build', duplicate=0)
-SConscript('sh/SConscript', variant_dir='sh_build', duplicate=0)
-SConscript('selftest/SConscript', variant_dir='selftest_build', duplicate=0)
+SConscript("libmath/SConscript", variant_dir="libmath_build", duplicate=0)
+SConscript("sh/SConscript", variant_dir="sh_build", duplicate=0)
+SConscript("selftest/SConscript", variant_dir="selftest_build", duplicate=0)
 
 
 # =============================================================================
 # Export Build Products
 # =============================================================================
 
-Import('LibmathModule')
-Import('ShModule')
-Import('SelftestModule')
+Import("LibmathModule")
+Import("ShModule")
+Import("SelftestModule")
 
 UserLibraries = [LibmathModule]
 UserApplications = [ShModule, SelftestModule]
 
-Export('UserLibraries')
-Export('UserApplications')
+Export("UserLibraries")
+Export("UserApplications")

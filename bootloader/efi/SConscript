@@ -4,14 +4,14 @@ from SCons.Script import SConscript
 from scripts.scons.bootloader import ConfigureBootloaderEnvironment
 
 
-Import('TargetEnvironment')
-Import('SourcePath')
-Import('ArchitecturePath')
-Import('ArchitectureConfig')
-Import('BootloaderBuildConfig')
-Import('Architecture')
-Import('Sources')
-Import('EfiBin')
+Import("TargetEnvironment")
+Import("SourcePath")
+Import("ArchitecturePath")
+Import("ArchitectureConfig")
+Import("BootloaderBuildConfig")
+Import("Architecture")
+Import("Sources")
+Import("EfiBin")
 
 
 EfiEnv = TargetEnvironment.Clone()
@@ -24,16 +24,16 @@ ConfigureBootloaderEnvironment(
 )
 
 
-if Architecture == 'i686':
-    SConscript('i686/SConscript', exports='Sources')
-elif Architecture == 'x86_64':
-    SConscript('x86_64/SConscript', exports='Sources')
-elif Architecture == 'aarch64':
-    SConscript('aarch64/SConscript', exports='Sources')
+if Architecture == "i686":
+    SConscript("i686/SConscript", exports="Sources")
+elif Architecture == "x86_64":
+    SConscript("x86_64/SConscript", exports="Sources")
+elif Architecture == "aarch64":
+    SConscript("aarch64/SConscript", exports="Sources")
 else:
-    raise RuntimeError(f'Unsupported EFI architecture: {Architecture}')
+    raise RuntimeError(f"Unsupported EFI architecture: {Architecture}")
 
 EfiObjects = EfiEnv.Object(Sources)
 EfiBinary = EfiEnv.Program(EfiBin, EfiObjects)
 
-Export('EfiBinary')
+Export("EfiBinary")

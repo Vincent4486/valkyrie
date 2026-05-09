@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include <stdint.h>
-#include "video/video.h"
 #include "video/logo_gen.h"
+#include "video/video.h"
+#include <stdint.h>
 
 /* Multiboot2 tag types */
-#define MBI_TAG_END          0
-#define MBI_TAG_MMAP         6
-#define MBI_TAG_FRAMEBUFFER  8
+#define MBI_TAG_END 0
+#define MBI_TAG_MMAP 6
+#define MBI_TAG_FRAMEBUFFER 8
 
 int g_PrimaryOutputSystem = 0;
 int preferedOutput = OUTPUT_VGATEXT;
@@ -20,16 +20,16 @@ struct mbi_tag_framebuffer
    uint32_t framebuffer_pitch;
    uint32_t framebuffer_width;
    uint32_t framebuffer_height;
-   uint8_t  framebuffer_bpp;
-   uint8_t  framebuffer_type;
+   uint8_t framebuffer_bpp;
+   uint8_t framebuffer_type;
    uint16_t reserved;
-   uint8_t  red_field_position;
-   uint8_t  red_mask_size;
-   uint8_t  green_field_position;
-   uint8_t  green_mask_size;
-   uint8_t  blue_field_position;
-   uint8_t  blue_mask_size;
-   uint8_t  rgb_reserved[2];
+   uint8_t red_field_position;
+   uint8_t red_mask_size;
+   uint8_t green_field_position;
+   uint8_t green_mask_size;
+   uint8_t blue_field_position;
+   uint8_t blue_mask_size;
+   uint8_t rgb_reserved[2];
 };
 
 static void draw_boot_logo(void)
@@ -43,8 +43,7 @@ static void draw_boot_logo(void)
    int origin_x, origin_y;
    int x, y;
 
-   if (!VBE_HasInfo())
-      return;
+   if (!VBE_HasInfo()) return;
 
    for (i = 0; i < VALECIUM_LOGO_PALETTE_SIZE; i++)
    {
@@ -58,11 +57,10 @@ static void draw_boot_logo(void)
    screen_h = VBE_GetHeight();
 
    target_h = (screen_h * 6u) / 10u;
-   if (target_h < 1u)
-      target_h = 1u;
-   target_w = (uint32_t)(((uint64_t)VALECIUM_LOGO_W * target_h) / VALECIUM_LOGO_H);
-   if (target_w < 1u)
-      target_w = 1u;
+   if (target_h < 1u) target_h = 1u;
+   target_w =
+       (uint32_t)(((uint64_t)VALECIUM_LOGO_W * target_h) / VALECIUM_LOGO_H);
+   if (target_w < 1u) target_w = 1u;
 
    origin_x = ((int)screen_w - (int)target_w) / 2;
    origin_y = ((int)screen_h - (int)target_h) / 2;
@@ -72,8 +70,7 @@ static void draw_boot_logo(void)
       int dest_y = origin_y + y;
       uint32_t src_y;
 
-      if (dest_y < 0 || dest_y >= (int)screen_h)
-         continue;
+      if (dest_y < 0 || dest_y >= (int)screen_h) continue;
 
       src_y = (uint32_t)(((uint64_t)y * VALECIUM_LOGO_H) / target_h);
 
@@ -86,8 +83,7 @@ static void draw_boot_logo(void)
          uint8_t idx;
          uint32_t color;
 
-         if (dest_x < 0 || dest_x >= (int)screen_w)
-            continue;
+         if (dest_x < 0 || dest_x >= (int)screen_w) continue;
 
          src_x = (uint32_t)(((uint64_t)x * VALECIUM_LOGO_W) / target_w);
          src_i = src_y * (uint32_t)VALECIUM_LOGO_W + src_x;
@@ -107,12 +103,13 @@ static void init_framebuffer_info(uint8_t *ptr)
       uint32_t type = *(uint32_t *)ptr;
       uint32_t size = *(uint32_t *)(ptr + 4);
 
-      if (type == MBI_TAG_END)
-         break;
+      if (type == MBI_TAG_END) break;
 
-      if (type == MBI_TAG_FRAMEBUFFER && size >= sizeof(struct mbi_tag_framebuffer))
+      if (type == MBI_TAG_FRAMEBUFFER &&
+          size >= sizeof(struct mbi_tag_framebuffer))
       {
-         const struct mbi_tag_framebuffer *tag = (const struct mbi_tag_framebuffer *)ptr;
+         const struct mbi_tag_framebuffer *tag =
+             (const struct mbi_tag_framebuffer *)ptr;
          if (tag->framebuffer_type == 1)
          {
             VBE_Info info;
@@ -145,8 +142,7 @@ void print_memory_map(uint8_t *ptr)
       uint32_t type = *(uint32_t *)ptr;
       uint32_t size = *(uint32_t *)(ptr + 4);
 
-      if (type == MBI_TAG_END)
-         break;
+      if (type == MBI_TAG_END) break;
 
       if (type == MBI_TAG_MMAP)
       {
@@ -159,8 +155,8 @@ void print_memory_map(uint8_t *ptr)
 
          for (i = 0; i < count; i++)
          {
-            uint64_t base  = *(uint64_t *)entry;
-            uint64_t len   = *(uint64_t *)(entry + 8);
+            uint64_t base = *(uint64_t *)entry;
+            uint64_t len = *(uint64_t *)(entry + 8);
             uint32_t type2 = *(uint32_t *)(entry + 16);
 
             puts("  base=");
@@ -192,14 +188,10 @@ void print_available_outputs(uint8_t availableOutputs)
 {
    puts("Available outputs:\n");
 
-   if (availableOutputs & (1 << OUTPUT_VBE))
-      puts("  VBE\n");
-   if (availableOutputs & (1 << OUTPUT_VGA))
-      puts("  VGA graphics\n");
-   if (availableOutputs & (1 << OUTPUT_VGATEXT))
-      puts("  VGA text\n");
-   if (availableOutputs & (1 << OUTPUT_SERIAL))
-      puts("  Serial (COM1)\n");
+   if (availableOutputs & (1 << OUTPUT_VBE)) puts("  VBE\n");
+   if (availableOutputs & (1 << OUTPUT_VGA)) puts("  VGA graphics\n");
+   if (availableOutputs & (1 << OUTPUT_VGATEXT)) puts("  VGA text\n");
+   if (availableOutputs & (1 << OUTPUT_SERIAL)) puts("  Serial (COM1)\n");
 
    putc('\n');
 }
@@ -220,7 +212,7 @@ void print_boot_drive_number(int bootDrive)
    puts("0x");
    putx(bootDrive);
    puts(".\n");
-   
+
    puts("  Booted from a ");
    puts(driveType);
    puts(".\n");
@@ -230,23 +222,24 @@ void print_boot_drive_number(int bootDrive)
  * and print the memory map entries. */
 int main(uint32_t mbi_addr, uint8_t availableOutputs, uint8_t bootDrive)
 {
-   uint8_t *ptr = (uint8_t *)(uintptr_t)mbi_addr + 8;  /* skip total_size + reserved */
+   uint8_t *ptr =
+       (uint8_t *)(uintptr_t)mbi_addr + 8; /* skip total_size + reserved */
 
    /* Determine preferred output — highest available wins.
       Priority (ascending): serial → VGA text → VGA graphics → VBE. */
    init_framebuffer_info(ptr);
 
-   preferedOutput = OUTPUT_SERIAL;                          /* fallback  */
+   preferedOutput = OUTPUT_SERIAL; /* fallback  */
    if (availableOutputs & (1 << OUTPUT_VGATEXT))
       preferedOutput = OUTPUT_VGATEXT;
-   if (availableOutputs & (1 << OUTPUT_VGA))
-      preferedOutput = OUTPUT_VGA;
+   if (availableOutputs & (1 << OUTPUT_VGA)) preferedOutput = OUTPUT_VGA;
    if ((availableOutputs & (1 << OUTPUT_VBE)) && VBE_HasInfo())
       preferedOutput = OUTPUT_VBE;
 
    /* Initialise ONLY the chosen output system.
       VGA/VBE switch the hardware to graphics mode, which destroys text-mode
-      output — so they must NOT be initialised unless they are the final pick. */
+      output — so they must NOT be initialised unless they are the final pick.
+    */
    switch (preferedOutput)
    {
    case OUTPUT_SERIAL:
@@ -270,7 +263,6 @@ int main(uint32_t mbi_addr, uint8_t availableOutputs, uint8_t bootDrive)
    print_available_outputs(availableOutputs);
    print_memory_map(ptr);
    print_boot_drive_number(bootDrive);
-   if (preferedOutput == OUTPUT_VBE)
-      draw_boot_logo();
+   if (preferedOutput == OUTPUT_VBE) draw_boot_logo();
    return 0;
 }

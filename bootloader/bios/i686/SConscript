@@ -3,19 +3,19 @@
 from SCons.Script import File, Return
 
 
-Import('Sources')
-Import('CoreSources')
+Import("Sources")
+Import("CoreSources")
 
 
 Sources += [
-    File('i686.S'),
+    File("i686.S"),
 ]
 
 CoreSources += [
-    File('i686.S'),
-    File('core.S'),
-    File('detect.S'),
+    File("i686.S"),
+    File("core.S"),
+    File("detect.S"),
 ]
 
-BootSector = File('boot.S')
-Return('BootSector')
+BootSector = File("boot.S")
+Return("BootSector")

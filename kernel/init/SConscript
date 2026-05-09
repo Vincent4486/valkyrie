@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('Sources')
+
+Import("Sources")
 
 Sources += [
-    File('interact.c'),
-    File('main.c'),
-    File('mount.c'),
+    File("interact.c"),
+    File("main.c"),
+    File("mount.c"),
 ]

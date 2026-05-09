@@ -3,14 +3,14 @@
 from SCons.Script import File, Return
 
 
-Import('Sources')
-Import('CoreSources')
+Import("Sources")
+Import("CoreSources")
 
 
 CoreSources += [
-	File('core.S'),
+    File("core.S"),
 ]
 
 
-BootSector = File('boot.S')
-Return('BootSector')
+BootSector = File("boot.S")
+Return("BootSector")

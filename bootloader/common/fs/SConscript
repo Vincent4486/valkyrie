@@ -3,16 +3,16 @@
 from SCons.Script import File
 
 
-Import('Sources')
-Import('CoreFsSources')
+Import("Sources")
+Import("CoreFsSources")
 
 Sources += [
-    File('fat.c'),
-    File('ext2.c'),
-    File('iso9660.c'),
+    File("fat.c"),
+    File("ext2.c"),
+    File("iso9660.c"),
 ]
 CoreFsSources += [
-    File('fat.c'),
-    File('ext2.c'),
-    File('iso9660.c'),
+    File("fat.c"),
+    File("ext2.c"),
+    File("iso9660.c"),
 ]

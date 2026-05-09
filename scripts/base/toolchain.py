@@ -19,7 +19,9 @@ import urllib.request
 from pathlib import Path
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 
@@ -29,21 +31,22 @@ from scripts.scons.arch import GetArchConfig, GetSupportedArchitectures
 # =============================================================================
 
 VERSIONS = {
-    'binutils': '2.45',
-    'gcc': '15.2.0',
-    'musl': '1.2.6',
+    "binutils": "2.45",
+    "gcc": "15.2.0",
+    "musl": "1.2.6",
 }
 
 URLS = {
-    'binutils': 'https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz',
-    'gcc': 'https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz',
-    'musl': 'https://musl.libc.org/releases/musl-{version}.tar.gz',
+    "binutils": "https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz",
+    "gcc": "https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz",
+    "musl": "https://musl.libc.org/releases/musl-{version}.tar.gz",
 }
 
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def get_cpu_count() -> int:
     """Get number of CPUs for parallel builds."""
@@ -55,28 +58,29 @@ def detect_os() -> str:
     return platform.system()
 
 
-def run_command(cmd: list, env: dict = None, cwd: str = None, 
-                check: bool = True) -> subprocess.CompletedProcess:
+def run_command(
+    cmd: list, env: dict = None, cwd: str = None, check: bool = True
+) -> subprocess.CompletedProcess:
     """Run a command with logging."""
     print(f"  $ {' '.join(cmd)}")
     merged_env = os.environ.copy()
     if env:
         merged_env.update(env)
-    
+
     return subprocess.run(cmd, env=merged_env, cwd=cwd, check=check)
 
 
 def download_file(url: str, dest: str):
     """Download a file with progress indicator."""
     print(f"Downloading: {url}")
-    
+
     def progress_hook(block_num, block_size, total_size):
         downloaded = block_num * block_size
         if total_size > 0:
             percent = min(100, downloaded * 100 // total_size)
-            bar = '=' * (percent // 2) + ' ' * (50 - percent // 2)
-            print(f"\r  [{bar}] {percent}%", end='', flush=True)
-    
+            bar = "=" * (percent // 2) + " " * (50 - percent // 2)
+            print(f"\r  [{bar}] {percent}%", end="", flush=True)
+
     urllib.request.urlretrieve(url, dest, progress_hook)
     print()  # Newline after progress
 
@@ -88,16 +92,14 @@ def extract_archive(archive: str, dest_dir: str):
         tar.extractall(dest_dir)
 
 
-
-
-
 # =============================================================================
 # Build Classes
 # =============================================================================
 
+
 class ToolchainBuilder:
     """Builds a complete cross-compilation toolchain."""
-    
+
     def __init__(self, prefix: str, target: str, jobs: int = None):
         """
         Args:
@@ -108,56 +110,56 @@ class ToolchainBuilder:
         self.prefix = Path(prefix).resolve()
         self.target = target
         self.jobs = jobs or get_cpu_count()
-        
+
         # Derived paths
-        self.bin_dir = self.prefix / 'bin'
-        self.sysroot = self.prefix / self.target / 'sysroot'
-        
+        self.bin_dir = self.prefix / "bin"
+        self.sysroot = self.prefix / self.target / "sysroot"
+
         # Source/build directories
-        self.srcpath = self.prefix / 'src'
-        self.build_dir = self.prefix / 'build'
-        
+        self.srcpath = self.prefix / "src"
+        self.build_dir = self.prefix / "build"
+
         # Environment for builds
         self.build_env = {
-            'PATH': f"{self.bin_dir}:{os.environ.get('PATH', '')}",
+            "PATH": f"{self.bin_dir}:{os.environ.get('PATH', '')}",
         }
-    
+
     def setup_directories(self):
         """Create necessary directories."""
         self.prefix.mkdir(parents=True, exist_ok=True)
         self.srcpath.mkdir(exist_ok=True)
         self.build_dir.mkdir(exist_ok=True)
         self.sysroot.mkdir(parents=True, exist_ok=True)
-        (self.sysroot / 'usr').mkdir(exist_ok=True)
-    
+        (self.sysroot / "usr").mkdir(exist_ok=True)
+
     def download_sources(self):
         """Download all source tarballs."""
         for pkg, version in VERSIONS.items():
             url = URLS[pkg].format(version=version)
-            filename = url.split('/')[-1]
+            filename = url.split("/")[-1]
             dest = self.srcpath / filename
-            
+
             if dest.exists():
                 print(f"Already downloaded: {filename}")
                 continue
-            
+
             download_file(url, str(dest))
-    
+
     def extract_sources(self):
         """Extract all source tarballs."""
         for pkg, version in VERSIONS.items():
             url = URLS[pkg].format(version=version)
-            filename = url.split('/')[-1]
+            filename = url.split("/")[-1]
             archive = self.srcpath / filename
-            
+
             # Determine extracted directory name
             src_name = f"{pkg}-{version}"
-            
+
             src_path = self.srcpath / src_name
             if src_path.exists():
                 print(f"Already extracted: {src_name}")
                 continue
-            
+
             try:
                 extract_archive(str(archive), str(self.srcpath))
             except (EOFError, Exception) as e:
@@ -166,97 +168,97 @@ class ToolchainBuilder:
                 print(f"Removing corrupted archive: {archive}")
                 archive.unlink()
                 raise
-    
+
     def _get_configure_opts(self, pkg: str) -> list:
         """Get platform-specific configure options."""
         return []
-    
+
     def build_binutils(self):
         """Build and install binutils."""
         print("\n" + "=" * 60)
         print("Building binutils")
         print("=" * 60)
-        
-        version = VERSIONS['binutils']
+
+        version = VERSIONS["binutils"]
         src_path = self.srcpath / f"binutils-{version}"
         build_path = self.build_dir / f"binutils-{self.target}"
-        
+
         if (self.bin_dir / f"{self.target}-as").exists():
             print("binutils already installed, skipping...")
             return
-        
+
         build_path.mkdir(exist_ok=True)
-        
+
         # Clean environment for configure
         clean_env = {
-            'CFLAGS': '',
-            'ASMFLAGS': '',
-            'CC': '',
-            'CXX': '',
-            'LD': '',
-            'ASM': '',
-            'LINKFLAGS': '',
-            'LIBS': '',
+            "CFLAGS": "",
+            "ASMFLAGS": "",
+            "CC": "",
+            "CXX": "",
+            "LD": "",
+            "ASM": "",
+            "LINKFLAGS": "",
+            "LIBS": "",
         }
-        
+
         configure_opts = [
             f"--prefix={self.prefix}",
             f"--target={self.target}",
-            '--disable-nls',
-            '--disable-werror',
-        ] + self._get_configure_opts('binutils')
-        
+            "--disable-nls",
+            "--disable-werror",
+        ] + self._get_configure_opts("binutils")
+
         run_command(
-            [str(src_path / 'configure')] + configure_opts,
+            [str(src_path / "configure")] + configure_opts,
             env={**self.build_env, **clean_env},
             cwd=str(build_path),
         )
-        
-        run_command(['make', f'-j{self.jobs}'], cwd=str(build_path))
-        run_command(['make', 'install'], cwd=str(build_path))
-    
+
+        run_command(["make", f"-j{self.jobs}"], cwd=str(build_path))
+        run_command(["make", "install"], cwd=str(build_path))
+
     def build_gcc_stage1(self):
         """Build GCC stage 1 (C only, no libc)."""
         print("\n" + "=" * 60)
         print("Building GCC Stage 1")
         print("=" * 60)
-        
-        version = VERSIONS['gcc']
+
+        version = VERSIONS["gcc"]
         src_path = self.srcpath / f"gcc-{version}"
         build_path = self.build_dir / f"gcc-stage1-{self.target}"
-        
+
         if (self.bin_dir / f"{self.target}-gcc").exists():
             print("GCC stage 1 already installed, skipping...")
             return
-        
+
         build_path.mkdir(exist_ok=True)
-        
+
         configure_opts = [
             f"--prefix={self.prefix}",
             f"--target={self.target}",
-            '--disable-nls',
-            '--enable-languages=c',
-            '--without-headers',
-            '--disable-threads',
-            '--disable-isl',
-            '--disable-shared',
-            '--with-newlib',
+            "--disable-nls",
+            "--enable-languages=c",
+            "--without-headers",
+            "--disable-threads",
+            "--disable-isl",
+            "--disable-shared",
+            "--with-newlib",
             f"--with-sysroot={self.sysroot}",
-            '--with-native-system-header-dir=/usr/include',
-        ] + self._get_configure_opts('gcc')
-        
+            "--with-native-system-header-dir=/usr/include",
+        ] + self._get_configure_opts("gcc")
+
         run_command(
-            [str(src_path / 'configure')] + configure_opts,
+            [str(src_path / "configure")] + configure_opts,
             env=self.build_env,
             cwd=str(build_path),
         )
-        
+
         run_command(
-            ['make', f'-j{self.jobs}', 'all-gcc', 'all-target-libgcc'],
+            ["make", f"-j{self.jobs}", "all-gcc", "all-target-libgcc"],
             cwd=str(build_path),
         )
         run_command(
-            ['make', 'install-gcc', 'install-target-libgcc'],
+            ["make", "install-gcc", "install-target-libgcc"],
             cwd=str(build_path),
         )
 
@@ -266,10 +268,10 @@ class ToolchainBuilder:
         print("Building musl")
         print("=" * 60)
 
-        version = VERSIONS['musl']
+        version = VERSIONS["musl"]
         src_path = self.srcpath / f"musl-{version}"
         build_path = self.build_dir / f"musl-{self.target}"
-        libc_archive = self.sysroot / 'usr' / 'lib' / 'libc.so'
+        libc_archive = self.sysroot / "usr" / "lib" / "libc.so"
 
         if libc_archive.exists():
             print("musl already installed in sysroot, skipping...")
@@ -279,28 +281,28 @@ class ToolchainBuilder:
 
         cross_env = {
             **self.build_env,
-            'CC': f'{self.target}-gcc',
-            'AR': f'{self.target}-ar',
-            'RANLIB': f'{self.target}-ranlib',
+            "CC": f"{self.target}-gcc",
+            "AR": f"{self.target}-ar",
+            "RANLIB": f"{self.target}-ranlib",
         }
 
         configure_opts = [
-            '--prefix=/usr',
-            '--syslibdir=/lib',
-            f'--host={self.target}',
-            '--enable-static',
-            '--enable-shared',
+            "--prefix=/usr",
+            "--syslibdir=/lib",
+            f"--host={self.target}",
+            "--enable-static",
+            "--enable-shared",
         ]
 
         run_command(
-            [str(src_path / 'configure')] + configure_opts,
+            [str(src_path / "configure")] + configure_opts,
             env=cross_env,
             cwd=str(build_path),
         )
 
-        run_command(['make', f'-j{self.jobs}'], env=cross_env, cwd=str(build_path))
+        run_command(["make", f"-j{self.jobs}"], env=cross_env, cwd=str(build_path))
         run_command(
-            ['make', 'install', f'DESTDIR={self.sysroot}'],
+            ["make", "install", f"DESTDIR={self.sysroot}"],
             env=cross_env,
             cwd=str(build_path),
         )
@@ -311,7 +313,7 @@ class ToolchainBuilder:
         print("Building GCC Stage 2")
         print("=" * 60)
 
-        version = VERSIONS['gcc']
+        version = VERSIONS["gcc"]
         src_path = self.srcpath / f"gcc-{version}"
         build_path = self.build_dir / f"gcc-stage2-{self.target}"
 
@@ -320,27 +322,27 @@ class ToolchainBuilder:
         configure_opts = [
             f"--prefix={self.prefix}",
             f"--target={self.target}",
-            '--disable-nls',
-            '--enable-languages=c',
-            '--disable-libsanitizer',
-            '--enable-shared',
+            "--disable-nls",
+            "--enable-languages=c",
+            "--disable-libsanitizer",
+            "--enable-shared",
             f"--with-sysroot={self.sysroot}",
-            '--with-native-system-header-dir=/usr/include',
-        ] + self._get_configure_opts('gcc')
+            "--with-native-system-header-dir=/usr/include",
+        ] + self._get_configure_opts("gcc")
 
         run_command(
-            [str(src_path / 'configure')] + configure_opts,
+            [str(src_path / "configure")] + configure_opts,
             env=self.build_env,
             cwd=str(build_path),
         )
 
-        run_command(['make', f'-j{self.jobs}'], cwd=str(build_path))
-        run_command(['make', 'install'], cwd=str(build_path))
+        run_command(["make", f"-j{self.jobs}"], cwd=str(build_path))
+        run_command(["make", "install"], cwd=str(build_path))
 
     def get_runtime_sysroot(self) -> Path:
         """Return the sysroot whose contents should be copied into image root."""
         return self.sysroot
-    
+
     def build_all(self):
         """Build the complete toolchain."""
         print(f"Building toolchain for {self.target}")
@@ -352,34 +354,34 @@ class ToolchainBuilder:
             print("Toolchain sysroot already installed, skipping bootstrap...")
             print(f"  Sysroot: {self.sysroot}")
             return
-        
+
         self.setup_directories()
         self.download_sources()
         self.extract_sources()
-        
+
         self.build_binutils()
         self.build_gcc_stage1()
         self.build_musl()
         self.build_gcc_stage2()
-        
+
         print("\n" + "=" * 60)
         print("Toolchain build complete!")
         print("=" * 60)
-        print(f"\nAdd to PATH: export PATH=\"{self.bin_dir}:$PATH\"")
+        print(f'\nAdd to PATH: export PATH="{self.bin_dir}:$PATH"')
         print(f"Runtime sysroot: {self.get_runtime_sysroot()}")
         print("Copy this sysroot content into image root during OS image assembly.")
-        
+
         # Clean up build and source directories
         print("\nCleaning up build and source directories...")
         self.clean_all()
-    
+
     def clean(self):
         """Remove build directories (keep sources)."""
         print("Cleaning build directories...")
         if self.build_dir.exists():
             shutil.rmtree(self.build_dir)
             print(f"Removed: {self.build_dir}")
-    
+
     def clean_all(self):
         """Remove all build artifacts and sources."""
         print("Cleaning everything...")
@@ -387,17 +389,17 @@ class ToolchainBuilder:
             if path.exists():
                 shutil.rmtree(path)
                 print(f"Removed: {path}")
-    
+
     def is_installed(self) -> bool:
         """Check if cross toolchain and sysroot runtime are already installed.
-        
+
         Returns:
             True if key toolchain components and musl sysroot archive are found.
         """
         required_tools = [
             self.bin_dir / f"{self.target}-as",
             self.bin_dir / f"{self.target}-gcc",
-            self.sysroot / 'usr' / 'lib' / 'libc.so',
+            self.sysroot / "usr" / "lib" / "libc.so",
         ]
         return all(path.exists() for path in required_tools)
 
@@ -406,11 +408,12 @@ class ToolchainBuilder:
 # Main Entry Point
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Build cross-compilation toolchain for Valecium OS',
+        description="Build cross-compilation toolchain for Valecium OS",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
+        epilog="""
 Examples:
   %(prog)s toolchain/                    # Build for default target (i686-linux-musl)
   %(prog)s toolchain/ -a x86_64             # Build for x86_64
@@ -420,48 +423,70 @@ Examples:
     %(prog)s toolchain/ --ensure           # Ensure installed (skip/build)
   %(prog)s toolchain/ --clean            # Remove build files
   %(prog)s toolchain/ --clean-all        # Remove everything
-''',
+""",
     )
-    
-    parser.add_argument('prefix',
-                        help='Toolchain installation prefix')
-    parser.add_argument('-a', '--arch', choices=GetSupportedArchitectures(),
-                        help='Target architecture (uses predefined target triple)')
-    parser.add_argument('-t', '--target',
-                        help='Custom target triple (overrides --arch)')
-    parser.add_argument('-j', '--jobs', type=int, default=get_cpu_count(),
-                        help=f'Parallel jobs (default: {get_cpu_count()})')
-    parser.add_argument('--clean', action='store_true',
-                        help='Remove build directories')
-    parser.add_argument('--clean-all', action='store_true',
-                        help='Remove all build artifacts and sources')
-    parser.add_argument('--binutils-only', action='store_true',
-                        help='Build only binutils')
-    parser.add_argument('--gcc-stage1-only', action='store_true',
-                        help='Build only GCC stage 1')
-    parser.add_argument('--check', action='store_true',
-                        help='Check toolchain: exit if installed, build if missing')
-    parser.add_argument('--check-only', action='store_true',
-                        help='Only check if toolchain is installed (exit 0/1)')
-    parser.add_argument('--ensure', action='store_true',
-                        help='Ensure toolchain is installed (skip if present, build if missing)')
-    
+
+    parser.add_argument("prefix", help="Toolchain installation prefix")
+    parser.add_argument(
+        "-a",
+        "--arch",
+        choices=GetSupportedArchitectures(),
+        help="Target architecture (uses predefined target triple)",
+    )
+    parser.add_argument(
+        "-t", "--target", help="Custom target triple (overrides --arch)"
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=get_cpu_count(),
+        help=f"Parallel jobs (default: {get_cpu_count()})",
+    )
+    parser.add_argument("--clean", action="store_true", help="Remove build directories")
+    parser.add_argument(
+        "--clean-all",
+        action="store_true",
+        help="Remove all build artifacts and sources",
+    )
+    parser.add_argument(
+        "--binutils-only", action="store_true", help="Build only binutils"
+    )
+    parser.add_argument(
+        "--gcc-stage1-only", action="store_true", help="Build only GCC stage 1"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check toolchain: exit if installed, build if missing",
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Only check if toolchain is installed (exit 0/1)",
+    )
+    parser.add_argument(
+        "--ensure",
+        action="store_true",
+        help="Ensure toolchain is installed (skip if present, build if missing)",
+    )
+
     args = parser.parse_args()
-    
+
     # Determine target triple
     if args.target:
         target = args.target
     elif args.arch:
-        target = GetArchConfig(args.arch)['TargetTriple']
+        target = GetArchConfig(args.arch)["TargetTriple"]
     else:
-        target = GetArchConfig('i686')['TargetTriple']
-    
+        target = GetArchConfig("i686")["TargetTriple"]
+
     builder = ToolchainBuilder(
         prefix=args.prefix,
         target=target,
         jobs=args.jobs,
     )
-    
+
     try:
         if args.clean_all:
             builder.clean_all()
@@ -498,13 +523,12 @@ Examples:
         else:
             builder.build_all()
     except subprocess.CalledProcessError as e:
-        print(f"\nError: Command failed with exit code {e.returncode}", 
-              file=sys.stderr)
+        print(f"\nError: Command failed with exit code {e.returncode}", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
         print("\nBuild interrupted.")
         sys.exit(130)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

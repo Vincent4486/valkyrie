@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import SConscript
-Import('Sources')
 
-SConscript('boot/SConscript', exports='Sources')
-SConscript('cpu/SConscript', exports='Sources')
-SConscript('drivers/SConscript', exports='Sources')
-SConscript('io/SConscript', exports='Sources')
-SConscript('mem/SConscript', exports='Sources')
-SConscript('signal/SConscript', exports='Sources')
-SConscript('syscall/SConscript', exports='Sources')
-SConscript('video/SConscript', exports='Sources')
+Import("Sources")
+
+SConscript("boot/SConscript", exports="Sources")
+SConscript("cpu/SConscript", exports="Sources")
+SConscript("drivers/SConscript", exports="Sources")
+SConscript("io/SConscript", exports="Sources")
+SConscript("mem/SConscript", exports="Sources")
+SConscript("signal/SConscript", exports="Sources")
+SConscript("syscall/SConscript", exports="Sources")
+SConscript("video/SConscript", exports="Sources")

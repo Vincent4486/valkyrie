@@ -12,7 +12,7 @@ from SCons.Script import Dir, Export, SConscript
 from scripts.scons.arch import GetArchConfig
 
 
-Import('TargetEnvironment')
+Import("TargetEnvironment")
 TargetEnvironment: Environment
 
 # =============================================================================
@@ -21,44 +21,46 @@ TargetEnvironment: Environment
 
 Env = TargetEnvironment.Clone()
 
-SourcePath = Dir('#kernel').abspath
-Architecture = TargetEnvironment['BuildArch']
-ArchitecturePath = os.path.join(SourcePath, 'arch', Architecture)
-LinkerScript = os.path.join(ArchitecturePath, 'linker.ld')
+SourcePath = Dir("#kernel").abspath
+Architecture = TargetEnvironment["BuildArch"]
+ArchitecturePath = os.path.join(SourcePath, "arch", Architecture)
+LinkerScript = os.path.join(ArchitecturePath, "linker.ld")
 
 ArchitectureConfig = GetArchConfig(Architecture)
 Env.Append(
-    ASFLAGS=ArchitectureConfig.get('AssemblyFlags', []),
-    CCFLAGS=ArchitectureConfig.get('CompilerFlags', []),
-    LINKFLAGS=ArchitectureConfig.get('LinkerFlags', []),
+    ASFLAGS=ArchitectureConfig.get("AssemblyFlags", []),
+    CCFLAGS=ArchitectureConfig.get("CompilerFlags", []),
+    LINKFLAGS=ArchitectureConfig.get("LinkerFlags", []),
 )
 
 Env.Append(
     CCFLAGS=[
-        '-ffreestanding',       # No hosted environment
-        '-nostdlib',            # No standard library (kernel-only)
-        '-fno-stack-protector', # No stack protection (requires libc)
-        '-fno-builtin',         # Don't use compiler builtin replacements for libc functions
-        '-Wall',
-        '-Wextra',
+        "-ffreestanding",  # No hosted environment
+        "-nostdlib",  # No standard library (kernel-only)
+        "-fno-stack-protector",  # No stack protection (requires libc)
+        "-fno-builtin",  # Don't use compiler builtin replacements for libc functions
+        "-Wall",
+        "-Wextra",
     ],
     LINKFLAGS=[
-        '-nostdlib',
-        '-Wl,-T', LinkerScript,
-        '-Wl,-Map=' + Env.File('kernel.map').path,
-        '-Wl,-z,relro,-z,now',   # Security: read-only relocations
-        '-Wl,-z,noexecstack',    # No executable stack
-        '-Wl,--as-needed',
-        '-Wl,--export-dynamic',
+        "-nostdlib",
+        "-Wl,-T",
+        LinkerScript,
+        "-Wl,-Map=" + Env.File("kernel.map").path,
+        "-Wl,-z,relro,-z,now",  # Security: read-only relocations
+        "-Wl,-z,noexecstack",  # No executable stack
+        "-Wl,--as-needed",
+        "-Wl,--export-dynamic",
     ],
-    CPATH=[SourcePath, '#include'],
-    CPPPATH=[SourcePath, '#include'],
+    CPATH=[SourcePath, "#include"],
+    CPPPATH=[SourcePath, "#include"],
     ASFLAGS=[
-        '-I', ArchitecturePath,
-        '-g',
-        '-Wa,--noexecstack',
+        "-I",
+        ArchitecturePath,
+        "-g",
+        "-Wa,--noexecstack",
     ],
-    LIBS=['gcc']
+    LIBS=["gcc"],
 )
 
 
@@ -68,10 +70,10 @@ Env.Append(
 
 import subprocess
 
-MkisrsPath = os.path.join(ArchitecturePath, 'cpu', 'mkisrs.py')
+MkisrsPath = os.path.join(ArchitecturePath, "cpu", "mkisrs.py")
 if os.path.exists(MkisrsPath):
-    IsrsGenC = os.path.join(ArchitecturePath, 'cpu', 'isrs_gen.c')
-    IsrsGenInc = os.path.join(ArchitecturePath, 'cpu', 'isrs_gen.inc')
+    IsrsGenC = os.path.join(ArchitecturePath, "cpu", "isrs_gen.c")
+    IsrsGenInc = os.path.join(ArchitecturePath, "cpu", "isrs_gen.inc")
 
     if not os.path.exists(IsrsGenC) or not os.path.exists(IsrsGenInc):
         subprocess.run([sys.executable, MkisrsPath, IsrsGenC, IsrsGenInc], check=True)
@@ -82,18 +84,18 @@ if os.path.exists(MkisrsPath):
 
 Sources = []
 
-SConscript('arch/SConscript', exports='Sources')
-SConscript('cpu/SConscript', exports='Sources')
-SConscript('crypto/SConscript', exports='Sources')
-SConscript('drivers/SConscript', exports='Sources')
-SConscript('fs/SConscript', exports='Sources')
-SConscript('hal/SConscript', exports='Sources')
-SConscript('init/SConscript', exports='Sources')
-SConscript('mem/SConscript', exports='Sources')
-SConscript('signal/SConscript', exports='Sources')
-SConscript('std/SConscript', exports='Sources')
-SConscript('sys/SConscript', exports='Sources')
-SConscript('syscall/SConscript', exports='Sources')
+SConscript("arch/SConscript", exports="Sources")
+SConscript("cpu/SConscript", exports="Sources")
+SConscript("crypto/SConscript", exports="Sources")
+SConscript("drivers/SConscript", exports="Sources")
+SConscript("fs/SConscript", exports="Sources")
+SConscript("hal/SConscript", exports="Sources")
+SConscript("init/SConscript", exports="Sources")
+SConscript("mem/SConscript", exports="Sources")
+SConscript("signal/SConscript", exports="Sources")
+SConscript("std/SConscript", exports="Sources")
+SConscript("sys/SConscript", exports="Sources")
+SConscript("syscall/SConscript", exports="Sources")
 
 Objects = Env.Object(Sources)
 
@@ -102,6 +104,6 @@ Objects = Env.Object(Sources)
 # Build Target
 # =============================================================================
 
-Kernel = Env.Program(Env['KernelOutputName'], Objects)
+Kernel = Env.Program(Env["KernelOutputName"], Objects)
 
-Export('Kernel')
+Export("Kernel")

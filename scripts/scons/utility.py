@@ -7,23 +7,25 @@ import os
 from SCons.Node.FS import Dir, File, Entry
 from SCons.Environment import Environment
 
+
 def ParseSize(size: str) -> int:
-    SizeMatch = re.match(r'([0-9\.]+)([kmg]?)', size, re.IGNORECASE)
+    SizeMatch = re.match(r"([0-9\.]+)([kmg]?)", size, re.IGNORECASE)
     if SizeMatch is None:
-        raise ValueError(f'Error: Invalid size {size}')
+        raise ValueError(f"Error: Invalid size {size}")
 
     Result = Decimal(SizeMatch.group(1))
     Multiplier = SizeMatch.group(2).lower()
 
-    Multipliers = {'k': 1024, 'm': 1024**2, 'g': 1024**3}
+    Multipliers = {"k": 1024, "m": 1024**2, "g": 1024**3}
     if Multiplier in Multipliers:
         Result *= Multipliers[Multiplier]
 
     return int(Result)
 
-def GlobRecursive(env: Environment, pattern: str, node: str = '.') -> list:
+
+def GlobRecursive(env: Environment, pattern: str, node: str = ".") -> list:
     Source = str(env.Dir(node).srcnode())
-    WorkingDirectory = str(env.Dir('.').srcnode())
+    WorkingDirectory = str(env.Dir(".").srcnode())
 
     DirectoryList = [Source]
     for Root, Directories, _ in os.walk(Source):
@@ -32,7 +34,9 @@ def GlobRecursive(env: Environment, pattern: str, node: str = '.') -> list:
 
     GlobResults = []
     for Directory in DirectoryList:
-        Matched = env.Glob(os.path.join(os.path.relpath(Directory, WorkingDirectory), pattern))
+        Matched = env.Glob(
+            os.path.join(os.path.relpath(Directory, WorkingDirectory), pattern)
+        )
         try:
             GlobResults.extend(list(Matched))
         except TypeError:
@@ -41,7 +45,7 @@ def GlobRecursive(env: Environment, pattern: str, node: str = '.') -> list:
     return GlobResults
 
 
-def GlobSources(srcpath: str, extensions: tuple = ('.c', '.cpp', '.S')) -> list:
+def GlobSources(srcpath: str, extensions: tuple = (".c", ".cpp", ".S")) -> list:
     Sources = []
     for Root, _Directories, Files in os.walk(srcpath):
         for FileName in Files:
@@ -69,19 +73,21 @@ def IsFileName(obj, name: str) -> bool:
 
 def RemoveSuffix(s: str, suffix: str) -> str:
     if s.endswith(suffix):
-        return s[:-len(suffix)]
+        return s[: -len(suffix)]
     return s
 
 
-def CreateBuildEnv(BaseEnvironment: Environment, srcpath: str, **KeywordArgs) -> Environment:
+def CreateBuildEnv(
+    BaseEnvironment: Environment, srcpath: str, **KeywordArgs
+) -> Environment:
     EnvironmentObject = BaseEnvironment.Clone()
-    
+
     EnvironmentObject.Append(
         CPATH=[srcpath],
         CPPPATH=[srcpath],
     )
-    
+
     if KeywordArgs:
         EnvironmentObject.Append(**KeywordArgs)
-    
+
     return EnvironmentObject

@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('Sources')
+
+Import("Sources")
 
 Sources += [
-    File('disk.c'),
-    File('mbr.c'),
-    File('partition.c'),
-    File('vbr.c'),
+    File("disk.c"),
+    File("mbr.c"),
+    File("partition.c"),
+    File("vbr.c"),
 ]

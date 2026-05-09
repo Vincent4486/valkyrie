@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from SCons.Script import File
-Import('Sources')
+
+Import("Sources")
 
 Sources += [
-    File('detect.S'),
-    File('entry.S'),
-    File('parser.c'),
+    File("detect.S"),
+    File("entry.S"),
+    File("parser.c"),
 ]

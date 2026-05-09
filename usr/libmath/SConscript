@@ -7,28 +7,28 @@ from SCons.Script import Dir, Export
 
 from scripts.scons.utility import GlobSources
 
-Import('UsermodeEnv')
+Import("UsermodeEnv")
 
 Env = UsermodeEnv.Clone()
 
-Srcpath = Dir('#usr/libmath').abspath
+Srcpath = Dir("#usr/libmath").abspath
 
 Env.Append(
-    CCFLAGS=['-fPIC'],
-    CFLAGS=['-fPIC'],
+    CCFLAGS=["-fPIC"],
+    CFLAGS=["-fPIC"],
     LINKFLAGS=[
-        '-shared',
-        '-Wl,-soname,libmath.so',
+        "-shared",
+        "-Wl,-soname,libmath.so",
     ],
     CPATH=[Srcpath],
     CPPPATH=[Srcpath],
-    ASFLAGS=['-I', Srcpath + '/', '-f', 'elf'],
+    ASFLAGS=["-I", Srcpath + "/", "-f", "elf"],
 )
 
 Sources = GlobSources(Srcpath)
 Objects = Env.SharedObject(Sources)
 
-LibmathLibrary = Env.SharedLibrary('math', Objects)
+LibmathLibrary = Env.SharedLibrary("math", Objects)
 
 LibmathModule = LibmathLibrary
-Export('LibmathModule')
+Export("LibmathModule")

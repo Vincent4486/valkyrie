@@ -39,7 +39,7 @@
 
 /* Attribute Controller address/data port and Palette Address Source bit */
 #define VGA_AC_ADDR 0x3C0 /* write index then data; read: index register    */
-#define VGA_AC_PAS 0x20 /* Palette Address Source – set to re-enable video */
+#define VGA_AC_PAS 0x20   /* Palette Address Source – set to re-enable video */
 
 /* CRTC register indices – horizontal */
 #define VGA_CRTC_HTOTAL 0x00  /* Horizontal Total                          */

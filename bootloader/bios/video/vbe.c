@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "video.h"
 #include "font.h"
+#include "video.h"
 #include <stddef.h>
 
 static int s_Initialized = 0;
@@ -12,16 +12,12 @@ static VBE_Info s_Info;
 
 void VBE_SetInfo(const VBE_Info *info)
 {
-   if (!info)
-      return;
+   if (!info) return;
    s_Info = *info;
    s_HasInfo = 1;
 }
 
-int VBE_HasInfo(void)
-{
-   return s_HasInfo;
-}
+int VBE_HasInfo(void) { return s_HasInfo; }
 
 static inline uint32_t pack_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -47,8 +43,8 @@ static inline void put_pixel(int x, int y, uint32_t pixel)
    uint32_t bytes_per_pixel;
    uint32_t offset;
 
-   if (x < 0 || y < 0 ||
-       (uint32_t)x >= s_Info.width || (uint32_t)y >= s_Info.height)
+   if (x < 0 || y < 0 || (uint32_t)x >= s_Info.width ||
+       (uint32_t)y >= s_Info.height)
       return;
 
    bytes_per_pixel = (s_Info.bpp + 7u) / 8u;
@@ -84,8 +80,7 @@ static void clear_screen(uint32_t pixel)
 {
    uint32_t x, y;
    for (y = 0; y < s_Info.height; y++)
-      for (x = 0; x < s_Info.width; x++)
-         put_pixel((int)x, (int)y, pixel);
+      for (x = 0; x < s_Info.width; x++) put_pixel((int)x, (int)y, pixel);
 }
 
 static void draw_glyph(uint8_t c, int x, int y, uint32_t fg)
@@ -93,8 +88,7 @@ static void draw_glyph(uint8_t c, int x, int y, uint32_t fg)
    const uint8_t *glyph;
    int row, col;
 
-   if (c < FONT_FIRST || c > FONT_LAST)
-      c = '?';
+   if (c < FONT_FIRST || c > FONT_LAST) c = '?';
    glyph = g_Font8x16[c - FONT_FIRST];
 
    for (row = 0; row < FONT_HEIGHT; row++)
@@ -102,8 +96,7 @@ static void draw_glyph(uint8_t c, int x, int y, uint32_t fg)
       uint8_t bits = glyph[row];
       for (col = 0; col < FONT_WIDTH; col++)
       {
-         if (bits & (0x80 >> col))
-            put_pixel(x + col, y + row, fg);
+         if (bits & (0x80 >> col)) put_pixel(x + col, y + row, fg);
       }
    }
 }
@@ -112,8 +105,7 @@ int VBE_Initialize(void)
 {
    uint32_t fg;
 
-   if (!s_HasInfo)
-      return ENODEV;
+   if (!s_HasInfo) return ENODEV;
 
    s_CursorX = 0;
    s_CursorY = 0;
@@ -129,8 +121,7 @@ int VBE_PutChar(char c, int x, int y, char color)
    uint32_t fg;
 
    (void)color;
-   if (!s_Initialized)
-      return ENODEV;
+   if (!s_Initialized) return ENODEV;
 
    if (x < 0 && y < 0)
    {
@@ -174,11 +165,10 @@ int VBE_PutChar(char c, int x, int y, char color)
 
 int VBE_PutPixel(uint32_t pixel, int x, int y)
 {
-   if (!s_Initialized)
-      return ENODEV;
+   if (!s_Initialized) return ENODEV;
 
-   if (x < 0 || y < 0 ||
-       (uint32_t)x >= s_Info.width || (uint32_t)y >= s_Info.height)
+   if (x < 0 || y < 0 || (uint32_t)x >= s_Info.width ||
+       (uint32_t)y >= s_Info.height)
       return EINVAL;
 
    put_pixel(x, y, pixel);
@@ -187,22 +177,12 @@ int VBE_PutPixel(uint32_t pixel, int x, int y)
 
 uint32_t VBE_PackRGB(uint8_t r, uint8_t g, uint8_t b)
 {
-   if (!s_HasInfo)
-      return 0;
+   if (!s_HasInfo) return 0;
    return pack_rgb(r, g, b);
 }
 
-uint32_t VBE_GetWidth(void)
-{
-   return s_HasInfo ? s_Info.width : 0;
-}
+uint32_t VBE_GetWidth(void) { return s_HasInfo ? s_Info.width : 0; }
 
-uint32_t VBE_GetHeight(void)
-{
-   return s_HasInfo ? s_Info.height : 0;
-}
+uint32_t VBE_GetHeight(void) { return s_HasInfo ? s_Info.height : 0; }
 
-void VBE_ClearScreen(uint32_t pixel)
-{
-   clear_screen(pixel);
-}
+void VBE_ClearScreen(uint32_t pixel) { clear_screen(pixel); }

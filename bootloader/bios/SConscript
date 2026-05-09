@@ -5,38 +5,38 @@ import os
 from SCons.Script import SConscript
 from scripts.scons.bootloader import ConfigureBootloaderEnvironment
 
-Import('TargetEnvironment')
-Import('SourcePath')
-Import('ArchitecturePath')
-Import('ArchitectureConfig')
-Import('BootloaderBuildConfig')
-Import('Architecture')
-Import('Sources')
-Import('BootBin')
-Import('CoreBin')
+Import("TargetEnvironment")
+Import("SourcePath")
+Import("ArchitecturePath")
+Import("ArchitectureConfig")
+Import("BootloaderBuildConfig")
+Import("Architecture")
+Import("Sources")
+Import("BootBin")
+Import("CoreBin")
 
 
 LinkModeByArchitecture = {
-    'i686': 'elf_i386',
-    'x86_64': 'elf_x86_64',
+    "i686": "elf_i386",
+    "x86_64": "elf_x86_64",
 }
 
 
 CoreSources = [
-    File('main.c'),
+    File("main.c"),
 ]
 
-SConscript('video/SConscript', exports=['Sources', 'CoreSources'])
+SConscript("video/SConscript", exports=["Sources", "CoreSources"])
 
-if Architecture == 'i686':
-    BootSector = SConscript('i686/SConscript', exports=['Sources', 'CoreSources'])
-elif Architecture == 'x86_64':
-    BootSector = SConscript('x86_64/SConscript', exports=['Sources', 'CoreSources'])
+if Architecture == "i686":
+    BootSector = SConscript("i686/SConscript", exports=["Sources", "CoreSources"])
+elif Architecture == "x86_64":
+    BootSector = SConscript("x86_64/SConscript", exports=["Sources", "CoreSources"])
 else:
-    raise RuntimeError(f'Unsupported BIOS architecture: {Architecture}')
+    raise RuntimeError(f"Unsupported BIOS architecture: {Architecture}")
 
-BootLinkerScript = TargetEnvironment.File(f'{Architecture}/boot.ld').srcnode()
-CoreLinkerScript = TargetEnvironment.File(f'{Architecture}/core.ld').srcnode()
+BootLinkerScript = TargetEnvironment.File(f"{Architecture}/boot.ld").srcnode()
+CoreLinkerScript = TargetEnvironment.File(f"{Architecture}/core.ld").srcnode()
 BootEnvironment = TargetEnvironment.Clone()
 CoreEnvironment = TargetEnvironment.Clone()
 
@@ -55,24 +55,28 @@ ConfigureBootloaderEnvironment(
     BootloaderBuildConfig,
 )
 
-BootEnvironment.AppendUnique(LINKFLAGS=[
-    '-nostdlib',
-    '-Wl,-N',
-    f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
-    f'-Wl,-T,{BootLinkerScript.path}',
-    '-Wl,--oformat,binary',
-])
-CoreEnvironment.AppendUnique(LINKFLAGS=[
-    '-nostdlib',
-    '-Wl,-N',
-    f'-Wl,-m,{LinkModeByArchitecture[Architecture]}',
-    f'-Wl,-T,{CoreLinkerScript.path}',
-    '-Wl,--oformat,binary',
-])
-CoreEnvironment.Append(LIBS=['gcc'])
+BootEnvironment.AppendUnique(
+    LINKFLAGS=[
+        "-nostdlib",
+        "-Wl,-N",
+        f"-Wl,-m,{LinkModeByArchitecture[Architecture]}",
+        f"-Wl,-T,{BootLinkerScript.path}",
+        "-Wl,--oformat,binary",
+    ]
+)
+CoreEnvironment.AppendUnique(
+    LINKFLAGS=[
+        "-nostdlib",
+        "-Wl,-N",
+        f"-Wl,-m,{LinkModeByArchitecture[Architecture]}",
+        f"-Wl,-T,{CoreLinkerScript.path}",
+        "-Wl,--oformat,binary",
+    ]
+)
+CoreEnvironment.Append(LIBS=["gcc"])
 
 BootSectorObject = BootEnvironment.Object(BootSector)
-CoreEnvironment.Append(OBJPREFIX='core_')
+CoreEnvironment.Append(OBJPREFIX="core_")
 CoreObjects = CoreEnvironment.Object(CoreSources)
 
 BootSectorBinary = BootEnvironment.Program(
@@ -90,7 +94,7 @@ BootEnvironment.AddPostAction(
     lambda target, source, env: (
         (_ for _ in ()).throw(
             RuntimeError(
-                f'BIOS boot sector exceeds 0x1be bytes: {boot_sector_size} bytes'
+                f"BIOS boot sector exceeds 0x1be bytes: {boot_sector_size} bytes"
             )
         )
         if (boot_sector_size := os.path.getsize(str(target[0]))) > 0x1BE
@@ -101,4 +105,4 @@ BootEnvironment.AddPostAction(
 BootEnvironment.Depends(BootSectorBinary, BootLinkerScript)
 CoreEnvironment.Depends(CoreBinary, CoreLinkerScript)
 
-Export('BootSectorBinary', 'CoreBinary')
+Export("BootSectorBinary", "CoreBinary")

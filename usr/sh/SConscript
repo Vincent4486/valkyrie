@@ -7,11 +7,11 @@ from SCons.Script import Dir, Export
 
 from scripts.scons.utility import GlobSources
 
-Import('UsermodeEnv')
+Import("UsermodeEnv")
 
 Env = UsermodeEnv.Clone()
 
-Srcpath = Dir('#usr/sh').abspath
+Srcpath = Dir("#usr/sh").abspath
 
 Env.Append(
     CPATH=[Srcpath],
@@ -21,7 +21,7 @@ Env.Append(
 Sources = GlobSources(Srcpath)
 Objects = Env.Object(Sources)
 
-ShExecutable = Env.Program('sh', Objects)
+ShExecutable = Env.Program("sh", Objects)
 
 ShModule = ShExecutable
-Export('ShModule')
+Export("ShModule")
