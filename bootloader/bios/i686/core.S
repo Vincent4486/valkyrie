@@ -108,6 +108,8 @@ corefs_patch_signature:
 	.ascii "VLSF"
 corefs_start_address:
 	.long 0
+corefs_partition_uuid:
+	.space 32
 
 	/* Multiboot2 Boot Information structure base (matches detect.S). */
 	.set MBI_BASE,     0x6000

@@ -33,6 +33,7 @@ BootloaderProfiles = {
 
 CoreFsPatchSignature = b"VLSF"
 CoreFsPatchOffset = 4
+CoreFsPartitionUuidOffset = 8
 ElToritoLoadAddress = 0x7C00
 CoreFsLoadAddress = 0x57E00
 
@@ -157,6 +158,21 @@ def PatchCoreFsStartAddress(
     )
 
 
+def PatchCoreFsPartitionUuid(
+    CorePath: str,
+    Uuid: bytes,
+) -> None:
+    if len(Uuid) != 32:
+        raise ValueError(f"Partition UUID must be exactly 32 bytes, got {len(Uuid)}")
+    PatchBinaryValue(
+        BinaryPath=CorePath,
+        Signature=CoreFsPatchSignature,
+        Value=Uuid,
+        ValueFormat="32s",
+        ValueOffset=CoreFsPartitionUuidOffset,
+    )
+
+
 def ResolveCoreFsBinaryPath(
     FileSystemType: str,
     CoreFsBinaries: list,
@@ -183,6 +199,7 @@ def CreateElTorito(
     Stage2Path: str,
     FileSystemType: str,
     CoreFsBinaries: list = None,
+    PartitionUuid: bytes = b"\x00" * 32,
 ) -> str:
     if not os.path.exists(Stage1Path):
         raise FileNotFoundError(f"Stage1 bootloader file does not exist: {Stage1Path}")
@@ -193,6 +210,7 @@ def CreateElTorito(
         Stage1Data = Stage1File.read()
 
     PatchCoreFsStartAddress(Stage2Path, CoreFsLoadAddress)
+    PatchCoreFsPartitionUuid(Stage2Path, PartitionUuid)
 
     with open(Stage2Path, "rb") as Stage2File:
         Stage2Data = Stage2File.read()
