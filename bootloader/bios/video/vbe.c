@@ -8,7 +8,7 @@ static int s_Initialized = 0;
 static int s_HasInfo = 0;
 static int s_CursorX = 0;
 static int s_CursorY = 0;
-static int s_TextScale = 5;
+static int s_TextScale = 2;
 static VBE_Info s_Info;
 
 void VBE_SetInfo(const VBE_Info *info)
