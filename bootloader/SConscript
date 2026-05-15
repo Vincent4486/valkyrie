@@ -46,7 +46,10 @@ ConfigureBootloaderEnvironment(
 
 Sources = []
 CoreFsSources = []
-SConscript("common/SConscript", exports=["Sources", "CoreFsSources"])
+CoreFsSharedSources = []
+SConscript(
+    "common/SConscript", exports=["Sources", "CoreFsSources", "CoreFsSharedSources"]
+)
 
 # =============================================================================
 # Bootloader Components
@@ -66,6 +69,7 @@ if BootType == "bios":
             "BootloaderBuildConfig",
             "Sources",
             "CoreFsSources",
+            "CoreFsSharedSources",
             "Architecture",
         ],
     )
@@ -79,6 +83,7 @@ elif BootType == "efi":
             "ArchitectureConfig",
             "BootloaderBuildConfig",
             "Sources",
+            "CoreFsSharedSources",
             "Architecture",
         ],
     )

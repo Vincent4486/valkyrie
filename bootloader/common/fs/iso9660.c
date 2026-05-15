@@ -2,6 +2,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Error codes (negative errno convention). */
+#define SUCCESS 0
+#define EINVAL (-22)
+#define ENODEV (-19)
+
 struct fs_operations
 {
    uint32_t FS_Initialize;
@@ -13,18 +18,18 @@ struct fs_operations
 extern int DISK_Read(uint8_t drive, uint16_t cylinder, uint8_t sector,
                      uint8_t head, uint8_t count, void *buffer);
 
-int FS_Initialize(const uint8_t *biosDriveList, uint32_t biosDriveListCount,
-                  const uint8_t *partitionUuid)
+int FS_Initialize(const uint8_t *biosDriveList, const uint8_t *partitionUuid,
+                  const uint8_t *partitionLabel)
 {
    (void)biosDriveList;
-   (void)biosDriveListCount;
    (void)partitionUuid;
+   (void)partitionLabel;
 
-   return 0;
+   return SUCCESS;
 }
-int FS_Open(void) { return 2; }
-int FS_Read(void) { return 3; }
-int FS_Close(void) { return 4; }
+int FS_Open(void) { return -ENODEV; }
+int FS_Read(void) { return -EINVAL; }
+int FS_Close(void) { return SUCCESS; }
 
 #ifdef COREFS
 

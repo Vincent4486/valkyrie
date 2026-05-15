@@ -70,7 +70,9 @@ def CreateBootableIso(
     Stage1Path = str(BootloaderComponents["Stage1"])
     Stage2Path = str(BootloaderComponents["Stage2"])
 
-    VolumeId = VolumeLabelName.encode("ascii", errors="replace").ljust(32, b" ")[:32]
+    PartitionLabelBytes = VolumeLabelName.encode("ascii", errors="replace").ljust(
+        32, b" "
+    )[:32]
     ElToritoPath = CreateElTorito(
         Stage1Path,
         Stage2Path,
@@ -78,7 +80,7 @@ def CreateBootableIso(
         CoreFsBinaries=BootloaderComponents.get("CoreFsBinaries")
         if BootloaderComponents
         else None,
-        PartitionUuid=VolumeId,
+        PartitionLabel=PartitionLabelBytes,
     )
     LoadSectors = (os.path.getsize(ElToritoPath) + 511) // 512
 

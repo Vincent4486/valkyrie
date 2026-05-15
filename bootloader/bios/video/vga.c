@@ -219,10 +219,20 @@ int VGA_PutChar(char c, int x, int y, char color)
    /* Scroll if cursor past the bottom of the screen. */
    if (s_CursorY + FONT_HEIGHT > VGA_HEIGHT)
    {
-      /* Simple scroll: clear and reset. */
-      clear_screen(0);
+      /* Move all pixel rows up by one line (FONT_HEIGHT rows). */
+      int scroll_pixels = FONT_HEIGHT;
+      int total_pixels = VGA_WIDTH * VGA_HEIGHT;
+      int copy_bytes = VGA_WIDTH * (VGA_HEIGHT - scroll_pixels);
+      int i;
+
+      for (i = 0; i < copy_bytes; i++)
+         VGA_FB[i] = VGA_FB[i + VGA_WIDTH * scroll_pixels];
+
+      /* Clear the newly exposed bottom rows. */
+      for (i = copy_bytes; i < total_pixels; i++) VGA_FB[i] = 0;
+
       s_CursorX = 0;
-      s_CursorY = 0;
+      s_CursorY = VGA_HEIGHT - scroll_pixels;
    }
 
    return SUCCESS;

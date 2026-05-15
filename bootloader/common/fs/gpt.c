@@ -1,0 +1,1 @@
+char *gpt = "THIS IS GPT";

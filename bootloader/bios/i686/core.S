@@ -79,6 +79,8 @@ protected_mode_entry:
 	movl	%eax, boot_params + 20
 	leal	corefs_partition_uuid, %eax
 	movl	%eax, boot_params + 24
+	leal	corefs_partition_label, %eax
+	movl	%eax, boot_params + 28
 
 	pushl	$boot_params
 	call	main
@@ -118,8 +120,10 @@ corefs_patch_signature:
 	.ascii "VLSF"
 corefs_start_address:
 	.long 0
-corefs_partition_uuid:
+corefs_partition_label:
 	.space 32
+corefs_partition_uuid:
+	.space 16
 
 	/* Multiboot2 Boot Information structure base (matches detect.S). */
 	.set MBI_BASE,     0x6000
@@ -134,6 +138,7 @@ boot_params:
 	.long 0 /* availableOutputs */
 	.long 0 /* bootDrive */
 	.long 0 /* biosDriveListAddr */
+	.long 0 /* corefsPartitionLabelAddr */
 	.long 0 /* biosDriveListCount */
 	.long 0 /* corefsPartitionUuidAddr */
 

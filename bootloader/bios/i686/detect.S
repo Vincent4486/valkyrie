@@ -38,8 +38,8 @@
 .equ VBE_MBI_DI,    (VBE_SCRATCH + 8)
 .equ VBE_REQ_WIDTH, (VBE_SCRATCH + 10)
 .equ VBE_REQ_HEIGHT, (VBE_SCRATCH + 12)
-.equ VBE_REQ_WIDTH_VAL, 800
-.equ VBE_REQ_HEIGHT_VAL, 600
+.equ VBE_REQ_WIDTH_VAL, 1920
+.equ VBE_REQ_HEIGHT_VAL, 1080
 
 /* ------------------------------------------------------------------ */
 /*  detect_hardware                                                    */
@@ -313,6 +313,9 @@ detect_hardware:
 	/* Store count as u32 for 32-bit code. */
 	movw	%cx, (BIOS_DRIVE_LIST_COUNT)
 	movw	$0, (BIOS_DRIVE_LIST_COUNT + 2)
+	/* Terminate list with 0x00 so FS_Initialize can iterate
+	   without a separate count. */
+	movb	$0, %es:(%si)
 	/* ============================================================ */
 	/*  Output System Availability Checks                            */
 	/*  Builds an 8-bit bitmask in AL:                                */

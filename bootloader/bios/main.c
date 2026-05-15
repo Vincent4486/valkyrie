@@ -49,6 +49,7 @@ typedef struct
    uint32_t biosDriveListAddr;
    uint32_t biosDriveListCount;
    uint32_t corefsPartitionUuidAddr;
+   uint32_t corefsPartitionLabelAddr;
 } BootParams;
 
 static void init_framebuffer_info(uint8_t *ptr)
@@ -136,6 +137,7 @@ void print_memory_map(uint8_t *ptr)
       ptr += size;
       ptr = (uint8_t *)(((uintptr_t)ptr + 7) & ~(uintptr_t)7);
    }
+   putc('\n');
 }
 
 /* Print which output systems are reported as available. */
@@ -170,7 +172,7 @@ void print_boot_drive_number(int bootDrive)
 
    puts("  Booted from a ");
    puts(driveType);
-   puts(".\n");
+   puts(".\n\n");
 }
 
 static void print_bios_drive_list(const uint8_t *driveList, uint32_t driveCount)
@@ -199,7 +201,26 @@ void print_corefs_memory_address(uint32_t address)
 {
    puts("Corefs Module location: ");
    putx(address);
-   puts(".\n");
+   puts(".\n\n");
+}
+
+static void print_stage3_fs_location(const BootParams *bootParams)
+{
+   puts("Partition label: \"");
+   puts((const char *)(uintptr_t)bootParams->corefsPartitionLabelAddr);
+   puts("\".\n");
+
+   puts("Partition UUID: ");
+   {
+      const uint8_t *uuid =
+          (const uint8_t *)bootParams->corefsPartitionUuidAddr;
+      for (int i = 0; i < 16; i++)
+      {
+         if (i == 4 || i == 6 || i == 8 || i == 10) putc('-');
+         putx(uuid[i]);
+      }
+   }
+   puts(".\n\n");
 }
 
 int main(const BootParams *bootParams)
@@ -244,13 +265,38 @@ int main(const BootParams *bootParams)
 
    g_PrimaryOutputSystem = availableOutputs;
 
-   puts("Valecium Bootloader loaded.\n");
-
    print_available_outputs(availableOutputs);
-   //   print_memory_map(ptr);
+   print_memory_map(ptr);
    print_boot_drive_number(bootDrive);
    print_bios_drive_list(biosDriveList, biosDriveListCount);
    print_corefs_memory_address(bootParams->corefsAddr);
+   print_stage3_fs_location(bootParams);
+
+   /* Call the corefs driver's initialization */
+   {
+      puts("Entering filesystem setup.\n");
+      struct fs_operations *fs_ops =
+          (struct fs_operations *)bootParams->corefsAddr;
+      const uint8_t *partitionUuid =
+          (const uint8_t *)(uintptr_t)bootParams->corefsPartitionUuidAddr;
+      const uint8_t *partitionLabel =
+          (const uint8_t *)(uintptr_t)bootParams->corefsPartitionLabelAddr;
+
+      typedef int (*fs_init_fn)(const uint8_t *, const uint8_t *,
+                                const uint8_t *);
+      fs_init_fn FS_Initialize = (fs_init_fn)fs_ops->FS_Initialize;
+      int rc = FS_Initialize(biosDriveList, partitionUuid, partitionLabel);
+      if (rc < 0)
+      {
+         puts("  FS_Initialize failed: ");
+         puti(rc);
+         puts(".\n");
+      }
+      else
+      {
+         puts("  FS initialized successful.");
+      }
+   }
 
    return 0;
 }

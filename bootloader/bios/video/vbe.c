@@ -8,6 +8,7 @@ static int s_Initialized = 0;
 static int s_HasInfo = 0;
 static int s_CursorX = 0;
 static int s_CursorY = 0;
+static int s_TextScale = 5;
 static VBE_Info s_Info;
 
 void VBE_SetInfo(const VBE_Info *info)
@@ -87,6 +88,7 @@ static void draw_glyph(uint8_t c, int x, int y, uint32_t fg)
 {
    const uint8_t *glyph;
    int row, col;
+   int scale = s_TextScale > 0 ? s_TextScale : 1;
 
    if (c < FONT_FIRST || c > FONT_LAST) c = '?';
    glyph = g_Font8x16[c - FONT_FIRST];
@@ -96,7 +98,14 @@ static void draw_glyph(uint8_t c, int x, int y, uint32_t fg)
       uint8_t bits = glyph[row];
       for (col = 0; col < FONT_WIDTH; col++)
       {
-         if (bits & (0x80 >> col)) put_pixel(x + col, y + row, fg);
+         if (bits & (0x80 >> col))
+         {
+            int px = x + col * scale;
+            int py = y + row * scale;
+            for (int dy = 0; dy < scale; dy++)
+               for (int dx = 0; dx < scale; dx++)
+                  put_pixel(px + dx, py + dy, fg);
+         }
       }
    }
 }
@@ -119,6 +128,9 @@ int VBE_Initialize(void)
 int VBE_PutChar(char c, int x, int y, char color)
 {
    uint32_t fg;
+   int scale = s_TextScale > 0 ? s_TextScale : 1;
+   int glyph_w = FONT_WIDTH * scale;
+   int glyph_h = FONT_HEIGHT * scale;
 
    (void)color;
    if (!s_Initialized) return ENODEV;
@@ -137,27 +149,41 @@ int VBE_PutChar(char c, int x, int y, char color)
    {
    case '\n':
       s_CursorX = 0;
-      s_CursorY += FONT_HEIGHT;
+      s_CursorY += glyph_h;
       break;
    case '\r':
       s_CursorX = 0;
       break;
    case '\t':
-      s_CursorX = (s_CursorX / (FONT_WIDTH * 4) + 1) * (FONT_WIDTH * 4);
+      s_CursorX = (s_CursorX / (glyph_w * 4) + 1) * (glyph_w * 4);
       break;
    default:
       fg = pack_rgb(0x00, 0xFF, 0x00);
       draw_glyph((uint8_t)c, x, y, fg);
-      s_CursorX = x + FONT_WIDTH;
+      s_CursorX = x + glyph_w;
       s_CursorY = y;
       break;
    }
 
-   if ((uint32_t)(s_CursorY + FONT_HEIGHT) > s_Info.height)
+   if ((uint32_t)(s_CursorY + glyph_h) > s_Info.height)
    {
-      clear_screen(pack_rgb(0, 0, 0));
+      /* Move all pixel rows up by one line (glyph_h rows). */
+      uint32_t scroll_pixels = (uint32_t)glyph_h;
+      uint32_t row_bytes = s_Info.pitch;
+      uint32_t copy_rows = s_Info.height - scroll_pixels;
+      uint32_t fb_bytes = s_Info.height * row_bytes;
+      uint32_t src_off = scroll_pixels * row_bytes;
+      uint32_t y;
+      uint8_t *fb = (uint8_t *)(uintptr_t)s_Info.framebuffer_addr;
+
+      for (y = 0; y < copy_rows * row_bytes; y++) fb[y] = fb[y + src_off];
+
+      /* Clear the newly exposed bottom rows. */
+      for (y = fb_bytes - scroll_pixels * row_bytes; y < fb_bytes; y++)
+         fb[y] = 0;
+
       s_CursorX = 0;
-      s_CursorY = 0;
+      s_CursorY = (int)(s_Info.height - scroll_pixels);
    }
 
    return SUCCESS;

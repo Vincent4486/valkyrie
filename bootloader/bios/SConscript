@@ -19,6 +19,7 @@ Import("BootloaderBuildConfig")
 Import("Architecture")
 Import("Sources")
 Import("CoreFsSources")
+Import("CoreFsSharedSources")
 
 
 LinkModeByArchitecture = {
@@ -166,13 +167,14 @@ if CoreFsSources:
     CoreFsEnvironment.Append(CPPDEFINES=["COREFS"])
 
     DiskObjects = CoreFsEnvironment.Object(CoreFsDiskSource)
+    SharedObjects = CoreFsEnvironment.Object(CoreFsSharedSources)
 
     for FsSource in CoreFsSources:
         FsName = os.path.splitext(FsSource.name)[0]
         FsObjects = CoreFsEnvironment.Object(FsSource)
         FsBinary = CoreFsEnvironment.Program(
             TargetEnvironment.File(f"corefs_{FsName}.bin"),
-            DiskObjects + FsObjects,
+            DiskObjects + SharedObjects + FsObjects,
         )
         CoreFsEnvironment.Depends(FsBinary, CoreFsLinkerScript)
         CoreFs.append(FsBinary)
