@@ -12,6 +12,7 @@
     .equ THUNK_BASE, 0x500
     .equ THUNK_PARAMS, 0x600
     .equ THUNK_STACK, 0x7c00
+    .equ DAP_ADDR, 0x7000
 
     .equ TP_IN_AX, 0x00
     .equ TP_IN_BX, 0x02
@@ -23,6 +24,7 @@
     .equ TP_OUT_CX, 0x0E
     .equ TP_OUT_DX, 0x10
     .equ TP_STATUS, 0x12
+    .equ TP_IN_SI,  0x14
 
     .balign 16
 disk_gdt:
@@ -132,16 +134,18 @@ thunk_rm:
     movw TP_IN_CX(%si), %cx
     movw TP_IN_DX(%si), %dx
     movw TP_IN_ES(%si), %es
+    movw %si, %di                 /* save param pointer in DI         */
+    movw TP_IN_SI(%si), %si       /* override SI for AH=42h DAP       */
 
     int $0x13
 
-    movw %ax, TP_OUT_AX(%si)
-    movw %bx, TP_OUT_BX(%si)
-    movw %cx, TP_OUT_CX(%si)
-    movw %dx, TP_OUT_DX(%si)
-    movb $0, TP_STATUS(%si)
+    movw %ax, TP_OUT_AX(%di)
+    movw %bx, TP_OUT_BX(%di)
+    movw %cx, TP_OUT_CX(%di)
+    movw %dx, TP_OUT_DX(%di)
+    movb $0, TP_STATUS(%di)
     jnc 1f
-    movb $1, TP_STATUS(%si)
+    movb $1, TP_STATUS(%di)
 1:
     cli
     movl %cr0, %eax
@@ -242,8 +246,102 @@ DISK_Reset:
     ret
 
 /* ================================================================== */
-/*  DISK_Read                                                          */
+/*  DISK_CheckExtendedRead                                             */
+/*  Check if INT 13h AH=42h is supported (return 1 if yes, 0 if no).   */
 /* ================================================================== */
+.globl DISK_CheckExtendedRead
+DISK_CheckExtendedRead:
+    .code32
+
+    pushl %ebp
+    movl %esp, %ebp
+
+    movb $0x41, %ah
+    movw $0x55aa, (THUNK_PARAMS + TP_IN_BX)
+    movb 8(%ebp), %dl
+    movb $0x00, %dh
+    movw %dx, (THUNK_PARAMS + TP_IN_DX)
+
+    call x86_Int13_Thunk
+
+    movzbl (THUNK_PARAMS + TP_STATUS), %eax
+    xorl %ecx, %ecx
+    cmpl $0, %eax
+    je check_extended_ok
+    movl $0, %eax
+    jmp check_extended_ret
+check_extended_ok:
+    movw (THUNK_PARAMS + TP_OUT_BX), %ax
+    cmpw $0xaa55, %ax
+    je check_extended_yes
+    movl $0, %eax
+    jmp check_extended_ret
+check_extended_yes:
+    movl $1, %eax
+check_extended_ret:
+
+    movl %ebp, %esp
+    popl %ebp
+    ret
+
+/* ================================================================== */
+/*  DISK_ReadLBA                                                      */
+/*  Uses INT 13h AH=42h (Extended Read with Disk Address Packet).    */
+/*  int DISK_ReadLBA(uint8_t drive, uint64_t lba,                    */
+/*                    uint16_t count, void *buffer);                  */
+/* ================================================================== */
+.globl DISK_ReadLBA
+DISK_ReadLBA:
+    .code32
+
+    pushl %ebp
+    movl %esp, %ebp
+    pushl %ebx
+
+    /* Clear the parameter struct. */
+    movl $0, (THUNK_PARAMS + TP_IN_AX)
+    movl $0, (THUNK_PARAMS + TP_IN_BX)
+    movl $0, (THUNK_PARAMS + TP_IN_CX)
+    movl $0, (THUNK_PARAMS + TP_IN_DX)
+    movl $0, (THUNK_PARAMS + TP_IN_ES)
+    movl $0, (THUNK_PARAMS + TP_IN_SI)
+
+    /* Build Disk Address Packet. */
+    movw $0x0010, (DAP_ADDR)
+
+    movw 20(%ebp), %ax                   /* count */
+    movw %ax, (DAP_ADDR + 2)
+
+    movl 24(%ebp), %eax                  /* buffer linear address */
+    movl %eax, %ebx
+    andl $0xF, %ebx                      /* offset */
+    shrl $4, %eax                        /* segment */
+    movw %bx, (DAP_ADDR + 4)
+    movw %ax, (DAP_ADDR + 6)
+
+    movl 12(%ebp), %eax                  /* lba low 32 bits */
+    movl %eax, (DAP_ADDR + 8)
+    movl 16(%ebp), %eax                  /* lba high 32 bits */
+    movl %eax, (DAP_ADDR + 12)
+
+    /* Set AH=0x42 (extended read), AL=0x00, DL=drive */
+    movb 8(%ebp), %dl
+    movb $0x42, %ah
+    movb $0x00, %al
+    movw %ax, (THUNK_PARAMS + TP_IN_AX)
+    movb %dl, (THUNK_PARAMS + TP_IN_DX)
+
+    /* Set SI to point to the DAP. */
+    movw $DAP_ADDR, (THUNK_PARAMS + TP_IN_SI)
+
+    call x86_Int13_Thunk
+
+    movzbl (THUNK_PARAMS + TP_STATUS), %eax
+
+    popl %ebx
+    movl %ebp, %esp
+    popl %ebp
+    ret
 .globl DISK_Read
 DISK_Read:
     .code32

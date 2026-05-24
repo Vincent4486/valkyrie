@@ -216,7 +216,6 @@ static void print_stage3_fs_location(const BootParams *bootParams)
           (const uint8_t *)bootParams->corefsPartitionUuidAddr;
       for (int i = 0; i < 16; i++)
       {
-         if (i == 4 || i == 6 || i == 8 || i == 10) putc('-');
          putx(uuid[i]);
       }
    }

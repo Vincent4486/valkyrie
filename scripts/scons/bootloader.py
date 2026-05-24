@@ -34,6 +34,7 @@ BootloaderProfiles = {
 CoreFsPatchSignature = b"VLSF"
 CoreFsPatchOffset = 4
 CoreFsPartitionLabelOffset = 8
+CoreFsPartitionUuidOffset = CoreFsPartitionLabelOffset + 32
 ElToritoLoadAddress = 0x7C00
 CoreFsLoadAddress = 0x57E00
 
@@ -170,6 +171,21 @@ def PatchCoreFsPartitionLabel(
         Value=Label,
         ValueFormat="32s",
         ValueOffset=CoreFsPartitionLabelOffset,
+    )
+
+
+def PatchCoreFsPartitionUuid(
+    CorePath: str,
+    Uuid: bytes,
+) -> None:
+    if len(Uuid) != 16:
+        raise ValueError(f"Partition UUID must be exactly 16 bytes, got {len(Uuid)}")
+    PatchBinaryValue(
+        BinaryPath=CorePath,
+        Signature=CoreFsPatchSignature,
+        Value=Uuid,
+        ValueFormat="16s",
+        ValueOffset=CoreFsPartitionUuidOffset,
     )
 
 

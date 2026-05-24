@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import struct
 import subprocess
 import textwrap
 
@@ -11,6 +12,71 @@ from scripts.scons.bootloader import (
 )
 
 VolumeLabel = "VALECIUM"
+IsoSectorSize = 2048
+IsoBootRecordLba = 17
+IsoPvdLba = 16
+IsoPvdLabelOffset = 0x28
+IsoPvdUuidOffset = 0x32D
+IsoBootCatalogLbaOffset = 0x47
+IsoBootCatalogInitialEntryOffset = 0x20
+IsoBootImageSectorCountOffset = 0x06
+IsoBootImageLbaOffset = 0x08
+CoreFsPatchSignature = b"VLSF"
+
+
+def ReadIsoPvdFields(IsoPath: str) -> tuple[bytes, bytes]:
+    pvd_offset = IsoPvdLba * IsoSectorSize
+    with open(IsoPath, "rb") as FileHandle:
+        FileHandle.seek(pvd_offset + IsoPvdLabelOffset)
+        label = FileHandle.read(32)
+        FileHandle.seek(pvd_offset + IsoPvdUuidOffset)
+        uuid = FileHandle.read(16)
+    if len(label) != 32:
+        raise ValueError("Partition label read failed")
+    if len(uuid) != 16:
+        raise ValueError("Partition UUID read failed")
+    return label, uuid
+
+
+def PatchIsoBootImageCoreFs(IsoPath: str, Label: bytes, Uuid: bytes) -> None:
+    if len(Label) != 32:
+        raise ValueError(f"Partition label must be 32 bytes, got {len(Label)}")
+    if len(Uuid) != 16:
+        raise ValueError(f"Partition UUID must be 16 bytes, got {len(Uuid)}")
+
+    with open(IsoPath, "rb") as FileHandle:
+        data = bytearray(FileHandle.read())
+
+    boot_record_off = IsoBootRecordLba * IsoSectorSize
+    boot_catalog_lba = struct.unpack_from(
+        "<I", data, boot_record_off + IsoBootCatalogLbaOffset
+    )[0]
+    boot_catalog_off = boot_catalog_lba * IsoSectorSize
+    initial_entry_off = boot_catalog_off + IsoBootCatalogInitialEntryOffset
+    boot_image_sectors = struct.unpack_from(
+        "<H", data, initial_entry_off + IsoBootImageSectorCountOffset
+    )[0]
+    boot_image_lba = struct.unpack_from(
+        "<I", data, initial_entry_off + IsoBootImageLbaOffset
+    )[0]
+
+    boot_image_off = boot_image_lba * IsoSectorSize
+    boot_image_size = boot_image_sectors * 512
+    search_end = boot_image_off + boot_image_size if boot_image_size else len(data)
+
+    sig_off = data.find(CoreFsPatchSignature, boot_image_off, search_end)
+    if sig_off == -1:
+        raise ValueError("CoreFS patch signature not found")
+    if data.find(CoreFsPatchSignature, sig_off + 1, search_end) != -1:
+        raise ValueError("CoreFS patch signature appears multiple times")
+
+    label_off = sig_off + 8
+    uuid_off = label_off + 32
+    data[label_off : label_off + 32] = Label
+    data[uuid_off : uuid_off + 16] = Uuid
+
+    with open(IsoPath, "wb") as FileHandle:
+        FileHandle.write(data)
 
 
 def RunCommand(Arguments: list, InputText: str = None, **kwargs):
@@ -114,6 +180,9 @@ def CreateBootableIso(
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+    PartitionLabel, PartitionUuid = ReadIsoPvdFields(OutputIso)
+    PatchIsoBootImageCoreFs(OutputIso, PartitionLabel, PartitionUuid)
 
 
 def BuildGrubConfigContent(
