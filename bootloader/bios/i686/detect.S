@@ -38,16 +38,16 @@
 .equ VBE_MBI_DI,    (VBE_SCRATCH + 8)
 .equ VBE_REQ_WIDTH, (VBE_SCRATCH + 10)
 .equ VBE_REQ_HEIGHT, (VBE_SCRATCH + 12)
-.equ VBE_REQ_WIDTH_VAL, 800
-.equ VBE_REQ_HEIGHT_VAL, 600
+.equ VBE_REQ_WIDTH_VAL, 1920
+.equ VBE_REQ_HEIGHT_VAL, 1080
 
 /* ------------------------------------------------------------------ */
 /*  Output Mode Enable/Disable Flags (edit to change)                 */
 /*  Set these to 1 to enable, 0 to disable                            */
 /* ------------------------------------------------------------------ */
 .equ ENABLE_VBE, 1                  /* Enable VBE detection             */
-.equ ENABLE_VGA_GFX, 1              /* Enable VGA graphics detection    */
-.equ ENABLE_VGA_TEXT, 1             /* Enable VGA text mode detection   */
+.equ ENABLE_VGA_GFX, 0              /* Enable VGA graphics detection    */
+.equ ENABLE_VGA_TEXT, 0             /* Enable VGA text mode detection   */
 .equ ENABLE_UART_SERIAL, 1          /* Enable UART serial detection     */
 
 /* ------------------------------------------------------------------ */

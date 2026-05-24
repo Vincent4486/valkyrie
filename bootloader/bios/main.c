@@ -294,7 +294,39 @@ int main(const BootParams *bootParams)
       }
       else
       {
-         puts("  FS initialized successful.");
+         puts("  FS initialized successful.\n");
+
+         typedef int (*fs_open_fn)(const char *);
+         typedef int (*fs_read_fn)(int, void *, int);
+         typedef int (*fs_close_fn)(int);
+
+         fs_open_fn FS_Open = (fs_open_fn)fs_ops->FS_Open;
+         fs_read_fn FS_Read = (fs_read_fn)fs_ops->FS_Read;
+         fs_close_fn FS_Close = (fs_close_fn)fs_ops->FS_Close;
+
+         {
+            int fd1 = FS_Open("/test");
+            int fd2 = FS_Open("/test/test.txt");
+            puts("  /test=");
+            puti(fd1);
+            puts("  /test/test.txt=");
+            puti(fd2);
+            putc('\n');
+            if (fd1 >= 0) FS_Close(fd1);
+            if (fd2 >= 0)
+            {
+               puts("  File contents:\n");
+               for (;;)
+               {
+                  char buf[129];
+                  int n = FS_Read(fd2, buf, sizeof(buf) - 1);
+                  if (n <= 0) break;
+                  buf[n] = '\0';
+                  puts(buf);
+               }
+               FS_Close(fd2);
+            }
+         }
       }
    }
 
