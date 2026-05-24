@@ -90,12 +90,6 @@ static int label_match(const uint8_t *isoLabel, const uint8_t *expected)
    return 1;
 }
 
-static int uuid_match(const uint8_t *isoUuid, const uint8_t *expected)
-{
-   /* Compare 16-byte timestamp, ignore timezone byte. */
-   return mem_eq(isoUuid, expected, UUID_SIZE);
-}
-
 static int check_partition(uint8_t drive, int partLba,
                            const uint8_t *expectedLabel,
                            const uint8_t *expectedUuid)
@@ -139,7 +133,8 @@ static int check_partition(uint8_t drive, int partLba,
             break;
          }
       }
-      if (uuid_nonzero && uuid_match(&buf[VOLUME_UUID_OFFSET], expectedUuid))
+      if (uuid_nonzero &&
+          mem_eq(&buf[VOLUME_UUID_OFFSET], expectedUuid, UUID_SIZE))
          return 1;
    }
 
