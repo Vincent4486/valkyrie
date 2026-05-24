@@ -42,6 +42,15 @@
 .equ VBE_REQ_HEIGHT_VAL, 600
 
 /* ------------------------------------------------------------------ */
+/*  Output Mode Enable/Disable Flags (edit to change)                 */
+/*  Set these to 1 to enable, 0 to disable                            */
+/* ------------------------------------------------------------------ */
+.equ ENABLE_VBE, 0                  /* Enable VBE detection             */
+.equ ENABLE_VGA_GFX, 1              /* Enable VGA graphics detection    */
+.equ ENABLE_VGA_TEXT, 1             /* Enable VGA text mode detection   */
+.equ ENABLE_UART_SERIAL, 1          /* Enable UART serial detection     */
+
+/* ------------------------------------------------------------------ */
 /*  detect_hardware                                                    */
 /* ------------------------------------------------------------------ */
 detect_hardware:
@@ -328,6 +337,7 @@ detect_hardware:
 	xorw	%cx, %cx                /* CX = bitmask accumulator     */
 
 	/* --- VBE (bit 0) via INT 0x10, AX = 0x4F00 ------------------ */
+.if ENABLE_VBE
 	movw	$0x4F00, %ax
 	movw	$VBE_INFO, %di          /* ES:DI → VBE info buffer       */
 	int	$0x10
@@ -489,6 +499,7 @@ detect_hardware:
 	addw	$40, %di
 	movw	%di, VBE_MBI_DI
 	orw	$0x01, %cx              /* Set bit 0 */
+.endif
 .Lout_vbe_no:
 	/* Restore MBI write pointer for subsequent tags. */
 	movw	VBE_MBI_DI, %di
@@ -496,21 +507,26 @@ detect_hardware:
 	movw	%ax, %es
 
 	/* --- VGA Graphics (bit 1) via INT 0x10, AX = 0x1A00 --------- */
+.if ENABLE_VGA_GFX
 	/* Get Display Combination Code — supported by VGA BIOSes. */
 	movw	$0x1A00, %ax
 	int	$0x10
 	cmpb	$0x1A, %al
 	jne	.Lout_vga_gfx_no
 	orw	$0x02, %cx              /* Set bit 1                     */
+.endif
 .Lout_vga_gfx_no:
 
 	/* --- VGA Text (bit 2) via INT 0x10, AH = 0x0F -------------- */
+.if ENABLE_VGA_TEXT
 	/* Get current video mode — confirms INT 0x10 text I/O works. */
 	movb	$0x0F, %ah
 	int	$0x10
 	orw	$0x04, %cx              /* Set bit 2 (always succeeds)   */
+.endif
 
 	/* --- UART Serial (bit 3) via COM1 scratch register --------- */
+.if ENABLE_UART_SERIAL
 	/* Probe the UART scratch register at COM1 + 7 = 0x3FF. */
 	movw	$0x3FF, %dx
 	inb	%dx, %al                /* Save original                 */
@@ -521,6 +537,7 @@ detect_hardware:
 	cmpb	$0xA5, %al
 	jne	.Lout_uart_no
 	orw	$0x08, %cx              /* Set bit 3                     */
+.endif
 .Lout_uart_no:
 	/* Restore scratch register to original value. */
 	movb	%ah, %al

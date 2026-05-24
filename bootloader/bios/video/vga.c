@@ -2,30 +2,42 @@
 
 #include "font.h"
 #include "video.h"
+
 #include <stddef.h>
+#include <stdint.h>
 
 /* ------------------------------------------------------------------ */
-/*  VGA Mode 0x13 constants                                            */
+/* VGA Mode 0x13 constants                                            */
 /* ------------------------------------------------------------------ */
 
 #define VGA_FB ((volatile uint8_t *)0xA0000)
+
 #define VGA_WIDTH 320
 #define VGA_HEIGHT 200
 
 /* VGA I/O ports */
 #define VGA_MISC_OUT 0x3C2
+
 #define VGA_SEQ_IDX 0x3C4
 #define VGA_SEQ_DATA 0x3C5
+
 #define VGA_CRTC_IDX 0x3D4
 #define VGA_CRTC_DATA 0x3D5
+
 #define VGA_GC_IDX 0x3CE
 #define VGA_GC_DATA 0x3CF
+
 #define VGA_AC_IDX 0x3C0
-#define VGA_AC_DATA 0x3C1
 #define VGA_INSTAT_1 0x3DA
 
 /* ------------------------------------------------------------------ */
-/*  Internal state                                                     */
+/* Shadow framebuffer                                                 */
+/* ------------------------------------------------------------------ */
+
+static uint8_t s_Shadow[VGA_WIDTH * VGA_HEIGHT];
+
+/* ------------------------------------------------------------------ */
+/* Internal state                                                     */
 /* ------------------------------------------------------------------ */
 
 static int s_Initialized = 0;
@@ -33,7 +45,7 @@ static int s_CursorX = 0;
 static int s_CursorY = 0;
 
 /* ------------------------------------------------------------------ */
-/*  VGA register helpers                                               */
+/* VGA register helpers                                               */
 /* ------------------------------------------------------------------ */
 
 static inline void seq_w(uint8_t idx, uint8_t val)
@@ -55,129 +67,158 @@ static inline void gc_w(uint8_t idx, uint8_t val)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Set VGA mode 0x13 (320×200, 256 colours) via register programming  */
+/* Proper VGA Mode 13h setup                                          */
 /* ------------------------------------------------------------------ */
 
 static void set_mode_0x13(void)
 {
-   /* Miscellaneous Output */
-   outb(VGA_MISC_OUT, 0x63);
+   static const uint8_t misc = 0x63;
+
+   static const uint8_t seq[] = {0x03, 0x01, 0x0F, 0x00, 0x0E};
+
+   static const uint8_t
+       crtc[] = {0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F,
+                 0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                 0x9C, 0x8E, 0x8F, 0x28, 0x40, /* FIX: Index 20 restored to 0x40
+                                                  to re-enable DWORD mode (fixes
+                                                  vertical bars) */
+                 0x96, 0xB9, 0xA3, 0xFF};
+
+   static const uint8_t gc[] = {0x00, 0x00, 0x00, 0x00, 0x00,
+                                0x40, 0x05, 0x0F, 0xFF};
+
+   static const uint8_t ac[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x14,
+                                0x07, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D,
+                                0x3E, 0x3F, 0x41, 0x00, 0x0F, 0x00, 0x00};
+
+   outb(VGA_MISC_OUT, misc);
 
    /* Sequencer */
-   seq_w(0x00, 0x01); /* synchronous reset */
-   seq_w(0x01, 0x01); /* clocking mode */
-   seq_w(0x02, 0x0F); /* map mask — enable all 4 planes */
-   seq_w(0x03, 0x00); /* character map select */
-   seq_w(0x04, 0x0E); /* memory mode — chain 4, extended */
+   for (uint8_t i = 0; i < 5; i++)
+   {
+      seq_w(i, seq[i]);
+   }
 
-   /* Unlock CRTC registers (clear protection bit) */
-   crtc_w(0x11, 0x0E);
+   /* Unlock CRTC */
+   crtc_w(0x11, crtc[0x11] & ~0x80);
 
-   /* CRT Controller */
-   crtc_w(0x00, 0x5F); /* horizontal total */
-   crtc_w(0x01, 0x4F); /* horizontal display end */
-   crtc_w(0x02, 0x50); /* start horizontal blank */
-   crtc_w(0x03, 0x82); /* end horizontal blank */
-   crtc_w(0x04, 0x54); /* start horizontal sync */
-   crtc_w(0x05, 0x80); /* end horizontal sync */
-   crtc_w(0x06, 0xBF); /* vertical total */
-   crtc_w(0x07, 0x1F); /* overflow */
-   crtc_w(0x08, 0x00); /* preset row scan */
-   crtc_w(0x09, 0x41); /* maximum scan line */
-   crtc_w(0x0A, 0x00); /* cursor start */
-   crtc_w(0x0B, 0x00); /* cursor end */
-   crtc_w(0x0C, 0x00); /* start address high */
-   crtc_w(0x0D, 0x00); /* start address low */
-   crtc_w(0x0E, 0x00); /* cursor location high */
-   crtc_w(0x0F, 0x00); /* cursor location low */
-   crtc_w(0x10, 0x9C); /* vertical retrace start */
-   crtc_w(0x11, 0x8E); /* vertical retrace end + re-protect CR0-7 */
-   crtc_w(0x12, 0x8F); /* vertical display end */
-   crtc_w(0x13, 0x28); /* offset — logical line width (320/8 * 4) */
-   crtc_w(0x14, 0x40); /* underline location */
-   crtc_w(0x15, 0x96); /* start vertical blank */
-   crtc_w(0x16, 0xB9); /* end vertical blank */
-   crtc_w(0x17, 0xA3); /* mode control */
-   crtc_w(0x18, 0xFF); /* line compare */
+   for (uint8_t i = 0; i < 25; i++)
+   {
+      crtc_w(i, crtc[i]);
+   }
 
-   /* Graphics Controller */
-   gc_w(0x00, 0x00); /* set/reset */
-   gc_w(0x01, 0x00); /* enable set/reset */
-   gc_w(0x02, 0x00); /* colour compare */
-   gc_w(0x03, 0x00); /* data rotate */
-   gc_w(0x04, 0x00); /* read map select */
-   gc_w(0x05, 0x40); /* mode — 256-colour / chain-4 */
-   gc_w(0x06, 0x05); /* miscellaneous — graphics mode */
-   gc_w(0x07, 0x0F); /* colour don't care */
-   gc_w(0x08, 0xFF); /* bit mask */
+   for (uint8_t i = 0; i < 9; i++)
+   {
+      gc_w(i, gc[i]);
+   }
 
-   /* Attribute Controller */
-   /* Reset flip-flop by reading Input Status 1, then write both
-    * index and data through the same port 0x3C0 (the flip-flop
-    * toggles between index and data on each write). */
+   for (uint8_t i = 0; i < 21; i++)
+   {
+      inb(VGA_INSTAT_1);
+      outb(VGA_AC_IDX, i);
+      outb(VGA_AC_IDX, ac[i]);
+   }
+
    inb(VGA_INSTAT_1);
-
-   outb(VGA_AC_IDX, 0x10); /* index: mode control — graphics */
-   outb(VGA_AC_IDX, 0x41); /* data:  256-colour graphics      */
-   outb(VGA_AC_IDX, 0x12); /* index: plane enable            */
-   outb(VGA_AC_IDX, 0x0F); /* data:  enable all planes       */
-   outb(VGA_AC_IDX, 0x13); /* index: horizontal pixel panning */
-   outb(VGA_AC_IDX, 0x00); /* data:  no panning              */
-   outb(VGA_AC_IDX, 0x14); /* index: colour select            */
-   outb(VGA_AC_IDX, 0x00); /* data:  no colour select         */
-
-   /* Enable video output (write index 0x00 with bit 5 set). */
    outb(VGA_AC_IDX, 0x20);
-
-   /* Re-enable sequencer */
-   seq_w(0x00, 0x03);
 }
 
 /* ------------------------------------------------------------------ */
-/*  Internal helpers                                                   */
+/* Pixel operations                                                   */
 /* ------------------------------------------------------------------ */
 
 static inline void put_pixel(int x, int y, uint8_t colour)
 {
    if (x < 0 || x >= VGA_WIDTH || y < 0 || y >= VGA_HEIGHT) return;
-   VGA_FB[y * VGA_WIDTH + x] = colour;
+
+   int idx = y * VGA_WIDTH + x;
+
+   s_Shadow[idx] = colour;
+   VGA_FB[idx] = colour;
 }
+
+/* ------------------------------------------------------------------ */
+/* Glyph drawing                                                      */
+/* ------------------------------------------------------------------ */
 
 static void draw_glyph(uint8_t c, int x, int y, uint8_t fg)
 {
-   const uint8_t *glyph;
-   int row, col;
-
    if (c < FONT_FIRST || c > FONT_LAST) c = '?';
-   glyph = g_Font8x16[c - FONT_FIRST];
 
-   for (row = 0; row < FONT_HEIGHT; row++)
+   const uint8_t *glyph = g_Font8x16[c - FONT_FIRST];
+
+   for (int row = 0; row < FONT_HEIGHT; row++)
    {
       uint8_t bits = glyph[row];
-      for (col = 0; col < FONT_WIDTH; col++)
+
+      for (int col = 0; col < FONT_WIDTH; col++)
       {
          if (bits & (0x80 >> col)) put_pixel(x + col, y + row, fg);
       }
    }
 }
 
+/* ------------------------------------------------------------------ */
+/* Clear screen                                                       */
+/* ------------------------------------------------------------------ */
+
 static void clear_screen(uint8_t colour)
 {
-   int i;
-   for (i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) VGA_FB[i] = colour;
+   for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
+   {
+      s_Shadow[i] = colour;
+      VGA_FB[i] = colour;
+   }
 }
 
 /* ------------------------------------------------------------------ */
-/*  Public API                                                         */
+/* Scroll screen up by one line (FONT_HEIGHT pixels)                  */
+/* ------------------------------------------------------------------ */
+
+static void scroll_up(void)
+{
+   int scroll_pixels = FONT_HEIGHT;
+   int row_bytes = VGA_WIDTH;
+   int src_row, dst_row;
+
+   /* Copy each row up by FONT_HEIGHT pixels */
+   for (src_row = scroll_pixels; src_row < VGA_HEIGHT; src_row++)
+   {
+      dst_row = src_row - scroll_pixels;
+      int src_offset = src_row * row_bytes;
+      int dst_offset = dst_row * row_bytes;
+
+      for (int i = 0; i < row_bytes; i++)
+      {
+         s_Shadow[dst_offset + i] = s_Shadow[src_offset + i];
+         VGA_FB[dst_offset + i] = s_Shadow[src_offset + i];
+      }
+   }
+
+   /* Clear the bottom FONT_HEIGHT rows */
+   int clear_start = (VGA_HEIGHT - scroll_pixels) * row_bytes;
+   for (int i = clear_start; i < VGA_WIDTH * VGA_HEIGHT; i++)
+   {
+      s_Shadow[i] = 0;
+      VGA_FB[i] = 0;
+   }
+
+   s_CursorY = VGA_HEIGHT - FONT_HEIGHT;
+}
+
+/* ------------------------------------------------------------------ */
+/* Public API                                                         */
 /* ------------------------------------------------------------------ */
 
 int VGA_Initialize(void)
 {
    set_mode_0x13();
-   clear_screen(0); /* black background */
+   clear_screen(0);
+
    s_CursorX = 0;
    s_CursorY = 0;
    s_Initialized = 1;
+
    return SUCCESS;
 }
 
@@ -185,28 +226,33 @@ int VGA_PutChar(char c, int x, int y, char color)
 {
    if (!s_Initialized) return ENODEV;
 
-   int is_stream = 0;
-
-   /* 1. Resolve Stream Mode Coordinates */
-   if (x < 0 && y < 0)
+   /* * FIX: Force stream mode behavior if the coordinate input is detected
+    * to have wrapped around or gone out of bounds due to bootloader row
+    * metrics.
+    */
+   if ((x < 0 && y < 0) || y >= VGA_HEIGHT ||
+       (s_CursorY >= (VGA_HEIGHT - FONT_HEIGHT) && y == 0))
    {
-      is_stream = 1;
       x = s_CursorX;
       y = s_CursorY;
    }
    else if ((x < 0) != (y < 0))
+   {
       return EINVAL;
+   }
 
-   /* 2. Process Control Characters & Line Wrapping */
+   /* Control characters */
    switch (c)
    {
    case '\n':
       x = 0;
       y += FONT_HEIGHT;
       break;
+
    case '\r':
       x = 0;
       break;
+
    case '\t':
       x = (x / (FONT_WIDTH * 4) + 1) * (FONT_WIDTH * 4);
       if (x >= VGA_WIDTH)
@@ -215,6 +261,7 @@ int VGA_PutChar(char c, int x, int y, char color)
          y += FONT_HEIGHT;
       }
       break;
+
    default:
       if (x + FONT_WIDTH > VGA_WIDTH)
       {
@@ -224,36 +271,24 @@ int VGA_PutChar(char c, int x, int y, char color)
       break;
    }
 
-   /* 3. Perform Scrolling (BEFORE Drawing) */
-   while (y + FONT_HEIGHT > VGA_HEIGHT)
+   /* Scroll up when reaching bottom, then write at the bottom line */
+   if (y + FONT_HEIGHT > VGA_HEIGHT)
    {
-      uint32_t scroll_pixels = FONT_HEIGHT;
-      uint32_t copy_bytes = VGA_WIDTH * (VGA_HEIGHT - scroll_pixels);
-
-      /* volatile prevents the compiler from optimizing away the memory copy */
-      volatile uint8_t *dst = VGA_FB;
-      const volatile uint8_t *src = VGA_FB + VGA_WIDTH * scroll_pixels;
-
-      for (uint32_t i = 0; i < copy_bytes; i++) dst[i] = src[i];
-      for (uint32_t i = 0; i < VGA_WIDTH * scroll_pixels; i++)
-         dst[copy_bytes + i] = 0;
-
-      y -= scroll_pixels;
+      scroll_up();
+      x = 0;
+      y = VGA_HEIGHT - FONT_HEIGHT;
    }
 
-   /* 4. Draw the Glyph */
+   /* Draw glyph */
    if (c != '\n' && c != '\r' && c != '\t')
    {
       draw_glyph((uint8_t)c, x, y, (uint8_t)color);
       x += FONT_WIDTH;
    }
 
-   /* 5. Update Global Cursor State */
-   if (is_stream)
-   {
-      s_CursorX = x;
-      s_CursorY = y;
-   }
+   /* Always preserve coordinates internally */
+   s_CursorX = x;
+   s_CursorY = y;
 
    return SUCCESS;
 }
