@@ -74,15 +74,15 @@ static void set_mode_0x13(void)
 {
    static const uint8_t misc = 0x63;
 
-   static const uint8_t seq[] = {0x03, 0x01, 0x0F, 0x00, 0x0E};
-
-   static const uint8_t
-       crtc[] = {0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F,
-                 0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                 0x9C, 0x8E, 0x8F, 0x28, 0x40, /* FIX: Index 20 restored to 0x40
-                                                  to re-enable DWORD mode (fixes
-                                                  vertical bars) */
-                 0x96, 0xB9, 0xA3, 0xFF};
+   /* Standard VGA mode 13h CRTC values for 320x200x256 */
+   /* NOTE: CRTC[9] (Max Scan Line) uses 0x01, NOT 0x41.
+    * Bit 6 in 0x41 enables 200-to-400 line conversion (doublescan)
+    * on Cirrus and other VGA chips, which breaks the frame buffer
+    * mapping and causes only partial screen updates. */
+   static const uint8_t crtc[] = {0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF,
+                                  0x1F, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+                                  0x00, 0x00, 0x9C, 0x8E, 0x8F, 0x28, 0x40,
+                                  0x96, 0xB9, 0xA3, 0xFF};
 
    static const uint8_t gc[] = {0x00, 0x00, 0x00, 0x00, 0x00,
                                 0x40, 0x05, 0x0F, 0xFF};
@@ -94,23 +94,18 @@ static void set_mode_0x13(void)
    outb(VGA_MISC_OUT, misc);
 
    /* Sequencer */
-   for (uint8_t i = 0; i < 5; i++)
-   {
-      seq_w(i, seq[i]);
-   }
+   for (uint8_t i = 0; i < 5; i++) seq_w(i, 0x03);
+   seq_w(0x01, 0x01);
+   seq_w(0x02, 0x0F);
+   seq_w(0x03, 0x00);
+   seq_w(0x04, 0x0E);
 
    /* Unlock CRTC */
    crtc_w(0x11, crtc[0x11] & ~0x80);
 
-   for (uint8_t i = 0; i < 25; i++)
-   {
-      crtc_w(i, crtc[i]);
-   }
+   for (uint8_t i = 0; i < 25; i++) crtc_w(i, crtc[i]);
 
-   for (uint8_t i = 0; i < 9; i++)
-   {
-      gc_w(i, gc[i]);
-   }
+   for (uint8_t i = 0; i < 9; i++) gc_w(i, gc[i]);
 
    for (uint8_t i = 0; i < 21; i++)
    {
@@ -164,46 +159,15 @@ static void draw_glyph(uint8_t c, int x, int y, uint8_t fg)
 
 static void clear_screen(uint8_t colour)
 {
-   for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
-   {
-      s_Shadow[i] = colour;
-      VGA_FB[i] = colour;
-   }
-}
+   uint32_t val = (uint32_t)colour * 0x01010101u;
+   volatile uint32_t *fb32 = (volatile uint32_t *)VGA_FB;
 
-/* ------------------------------------------------------------------ */
-/* Scroll screen up by one line (FONT_HEIGHT pixels)                  */
-/* ------------------------------------------------------------------ */
+   for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) s_Shadow[i] = colour;
 
-static void scroll_up(void)
-{
-   int scroll_pixels = FONT_HEIGHT;
-   int row_bytes = VGA_WIDTH;
-   int src_row, dst_row;
-
-   /* Copy each row up by FONT_HEIGHT pixels */
-   for (src_row = scroll_pixels; src_row < VGA_HEIGHT; src_row++)
-   {
-      dst_row = src_row - scroll_pixels;
-      int src_offset = src_row * row_bytes;
-      int dst_offset = dst_row * row_bytes;
-
-      for (int i = 0; i < row_bytes; i++)
-      {
-         s_Shadow[dst_offset + i] = s_Shadow[src_offset + i];
-         VGA_FB[dst_offset + i] = s_Shadow[src_offset + i];
-      }
-   }
-
-   /* Clear the bottom FONT_HEIGHT rows */
-   int clear_start = (VGA_HEIGHT - scroll_pixels) * row_bytes;
-   for (int i = clear_start; i < VGA_WIDTH * VGA_HEIGHT; i++)
-   {
-      s_Shadow[i] = 0;
-      VGA_FB[i] = 0;
-   }
-
-   s_CursorY = VGA_HEIGHT - FONT_HEIGHT;
+   /* Write to VGA framebuffer using 32-bit accesses for reliability
+    * with Cirrus chain-4 mode.  dword writes send 4 bytes at once,
+    * one to each VGA plane, ensuring the full 64KB is covered. */
+   for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT / 4; i++) fb32[i] = val;
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,12 +235,13 @@ int VGA_PutChar(char c, int x, int y, char color)
       break;
    }
 
-   /* Scroll up when reaching bottom, then write at the bottom line */
+   /* Clear the entire buffer and restart at origin when the bottom is reached.
+    */
    if (y + FONT_HEIGHT > VGA_HEIGHT)
    {
-      scroll_up();
+      clear_screen(0);
       x = 0;
-      y = VGA_HEIGHT - FONT_HEIGHT;
+      y = 0;
    }
 
    /* Draw glyph */
