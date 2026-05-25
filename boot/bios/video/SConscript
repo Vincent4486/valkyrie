@@ -6,7 +6,7 @@ import os
 Import("Sources")
 Import("CoreSources")
 
-SourcePath = Dir("#bootloader").abspath
+SourcePath = Dir("#boot").abspath
 VideoPath = os.path.join(SourcePath, "bios", "video")
 GenfontC = os.path.join(VideoPath, "font_gen.c")
 

@@ -24,7 +24,7 @@ TargetEnvironment: Environment
 
 MainEnvironment = TargetEnvironment.Clone()
 
-SourcePath = Dir("#bootloader").abspath
+SourcePath = Dir("#boot").abspath
 Architecture = TargetEnvironment["BuildArch"]
 BootType = TargetEnvironment["BootType"]
 ArchitecturePath = os.path.join(SourcePath, BootType, Architecture)

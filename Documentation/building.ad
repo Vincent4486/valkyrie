@@ -447,7 +447,7 @@ The SCons build system consists of:
 * `kernel/arch/<arch>/SConscript` — Architecture-specific build rules
 * `usr/SConscript` — Userspace build rules (libmath, sh, selftest)
 * `image/SConscript` — Disk image generation (GRUB/custom bootloader, staging, partition creation)
-* `bootloader/SConscript` — Custom bootloader build (stage1 MBR, stage2 core)
+* `boot/SConscript` — Custom bootloader build (stage1 MBR, stage2 core)
 * `scripts/scons/` — Helper modules (arch detection, bootloader build, disk utilities)
 * `scripts/base/` — Standalone CLI tools (toolchain builder, QEMU runner, formatter, debugger)
 

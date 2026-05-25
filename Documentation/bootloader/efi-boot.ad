@@ -52,7 +52,7 @@ function pointer.# |[.s1]#((void (*)(BOOT_Info*))kernel_entry)(s_bootInfo);#
 
 == Current Implementation Status
 
-The EFI bootloader is not yet implemented. Source stubs exist at `bootloader/efi/` for i686, x86_64, and aarch64 but all are empty.
+The EFI bootloader is not yet implemented. Source stubs exist at `boot/efi/` for i686, x86_64, and aarch64 but all are empty.
 
 == Revision History
 
