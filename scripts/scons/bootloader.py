@@ -54,7 +54,7 @@ def ValidateBootSetup(Architecture: str, BootType: str, Bootloader: str) -> None
         )
 
 
-def GetBootloaderBuildConfig(BootType: str, Architecture: str) -> dict:
+def GetBootloaderBuildConfig(BootType: str, Architecture: str, Version: str) -> dict:
     if BootType not in BootloaderProfiles:
         raise ValueError(
             f"Unsupported boot type: {BootType}. Supported: {list(BootloaderProfiles.keys())}"
@@ -70,7 +70,8 @@ def GetBootloaderBuildConfig(BootType: str, Architecture: str) -> dict:
 
     config["BootType"] = BootType
     config["Architecture"] = Architecture
-    config["OutputName"] = f"bootloader-{BootType}-{Architecture}"
+    config["Version"] = Version
+    config["OutputName"] = f"TheBootloader-{Version}"
 
     return config
 

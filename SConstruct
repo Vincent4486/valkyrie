@@ -157,11 +157,11 @@ def CreateHostEnvironment():
         Env.Append(CCFLAGS=["-O3", "-DRELEASE", "-s"])
 
     ArchitectureConfig = GetArchConfig(Env["BuildArch"])
-    KernelVersionMacro = "KERNEL" + "_VERSION"
+    OsVersionMacro = "OS" + "_VERSION"
     Env.Append(
         CCFLAGS=[
             f"-D{ArchitectureConfig['Define']}",
-            f'-D{KernelVersionMacro}=\\"{Env["ProjVersion"]}\\"',
+            f'-D{OsVersionMacro}=\\"{Env["ProjVersion"]}\\"',
         ]
     )
 

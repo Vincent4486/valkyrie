@@ -27,10 +27,11 @@ MainEnvironment = TargetEnvironment.Clone()
 SourcePath = Dir("#boot").abspath
 Architecture = TargetEnvironment["BuildArch"]
 BootType = TargetEnvironment["BootType"]
+ProjectVersion = TargetEnvironment["ProjVersion"]
 ArchitecturePath = os.path.join(SourcePath, BootType, Architecture)
 
 ArchitectureConfig = GetArchConfig(Architecture)
-BootloaderBuildConfig = GetBootloaderBuildConfig(BootType, Architecture)
+BootloaderBuildConfig = GetBootloaderBuildConfig(BootType, Architecture, ProjectVersion)
 
 ConfigureBootloaderEnvironment(
     MainEnvironment,

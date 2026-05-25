@@ -25,6 +25,7 @@ SourcePath = Dir("#kernel").abspath
 Architecture = TargetEnvironment["BuildArch"]
 ArchitecturePath = os.path.join(SourcePath, "arch", Architecture)
 LinkerScript = os.path.join(ArchitecturePath, "linker.ld")
+KernelVersion = TargetEnvironment["ProjVersion"]
 
 ArchitectureConfig = GetArchConfig(Architecture)
 Env.Append(
@@ -61,8 +62,8 @@ Env.Append(
         "-Wa,--noexecstack",
     ],
     LIBS=["gcc"],
+    CPPDEFINES=[f'KERNEL_VERSION=\\"{KernelVersion}\\"'],
 )
-
 
 # =============================================================================
 # Generated Source Files

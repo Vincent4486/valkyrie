@@ -109,6 +109,16 @@ def BuildDisk(
     print(f"   STAGE {os.path.basename(KernelExecutablePath)} -> /boot")
     shutil.copy2(KernelExecutablePath, BootDir)
 
+    if BootloaderComponents:
+        BootloaderArchives = []
+        for ComponentName, ComponentPath in BootloaderComponents.items():
+            if ComponentName.startswith("Main:"):
+                BootloaderArchives.append(ComponentPath)
+
+        for ArchivePath in sorted(set(BootloaderArchives)):
+            print(f"   STAGE {os.path.basename(ArchivePath)} -> /boot")
+            shutil.copy2(ArchivePath, BootDir)
+
     GenerateGrubConfig(
         os.path.join(BootDir, "grub"),
         Config=EnvironmentObject["BuildConfig"],
