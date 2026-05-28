@@ -54,10 +54,10 @@ struct FS_File
 
 struct FS_Operations
 {
-   uint32_t FS_Initialize;
-   uint32_t FS_Open;
-   uint32_t FS_Read;
-   uint32_t FS_Close;
+   uint32_t ISO9660_Initialize;
+   uint32_t ISO9660_Open;
+   uint32_t ISO9660_Read;
+   uint32_t ISO9660_Close;
 };
 
 static uint32_t s_BootDrive = 0;
@@ -316,8 +316,10 @@ static int resolve_path(const char *path, uint32_t *out_lba, uint32_t *out_size)
    return 0;
 }
 
-int FS_Initialize(const uint8_t *biosDriveList, uint32_t biosDriveListCount,
-                  const uint8_t *partitionUuid, const uint8_t *partitionLabel)
+int ISO9660_Initialize(const uint8_t *biosDriveList,
+                       uint32_t biosDriveListCount,
+                       const uint8_t *partitionUuid,
+                       const uint8_t *partitionLabel)
 {
    uint8_t buf[SECTOR_SIZE_ISO];
 
@@ -380,7 +382,7 @@ int FS_Initialize(const uint8_t *biosDriveList, uint32_t biosDriveListCount,
    return SUCCESS;
 }
 
-int FS_Open(const char *path)
+int ISO9660_Open(const char *path)
 {
    uint32_t file_lba, file_size;
 
@@ -411,7 +413,7 @@ int FS_Open(const char *path)
    return fd;
 }
 
-int FS_Read(int fd, void *buffer, int count)
+int ISO9660_Read(int fd, void *buffer, int count)
 {
    if (fd < 0 || fd >= MAX_OPEN_FILES || !s_OpenFiles[fd].used) return -EBADF;
 
@@ -452,7 +454,7 @@ int FS_Read(int fd, void *buffer, int count)
    return (int)bytes_done;
 }
 
-int FS_Close(int fd)
+int ISO9660_Close(int fd)
 {
    if (fd < 0 || fd >= MAX_OPEN_FILES || !s_OpenFiles[fd].used) return -EBADF;
 
@@ -464,10 +466,10 @@ int FS_Close(int fd)
 
 static const struct FS_Operations fs_exports
     __attribute__((section(".exports"), used)) = {
-        .FS_Initialize = (uint32_t)FS_Initialize,
-        .FS_Open = (uint32_t)FS_Open,
-        .FS_Read = (uint32_t)FS_Read,
-        .FS_Close = (uint32_t)FS_Close,
+        .ISO9660_Initialize = (uint32_t)ISO9660_Initialize,
+        .ISO9660_Open = (uint32_t)ISO9660_Open,
+        .ISO9660_Read = (uint32_t)ISO9660_Read,
+        .ISO9660_Close = (uint32_t)ISO9660_Close,
 };
 
 #endif /* COREFS */

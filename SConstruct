@@ -227,7 +227,7 @@ if BuildType in ("full", "kernel", "image"):
     SConscript("kernel/SConscript", variant_dir=f"{VariantDir}/kernel", duplicate=0)
 
 if BuildType in ("full", "bootloader", "image"):
-    SConscript("boot/SConscript", variant_dir=f"{VariantDir}/bootloader", duplicate=0)
+    SConscript("boot/SConscript", variant_dir=f"{VariantDir}/boot", duplicate=0)
 
 if BuildType in ("full", "image"):
     SConscript("image/SConscript", variant_dir=VariantDir, duplicate=0)
